@@ -1,0 +1,59 @@
+---
+name: Feature Request
+about: Suggest an idea for this project
+title: '[FEATURE] '
+labels: ['enhancement', 'needs-triage']
+assignees: ''
+---
+
+## Feature Summary
+A clear and concise description of the feature you'd like to see implemented.
+
+## Problem Statement
+What problem does this feature solve? What use case does it address?
+
+## Proposed Solution
+Describe the solution you'd like to see implemented. Be as specific as possible.
+
+## Alternative Solutions
+Describe any alternative solutions or workarounds you've considered.
+
+## Use Cases
+Provide specific examples of how this feature would be used:
+
+### Example 1: [Use case name]
+```json
+{
+  "name": "ssh_example_tool",
+  "arguments": {
+    "param1": "value1",
+    "param2": "value2"
+  }
+}
+```
+
+### Example 2: [Use case name]
+```bash
+# Command line example
+docker run -i --rm mcp-ssh-orchestrator:latest
+```
+
+## Impact Assessment
+- **Who would benefit from this feature?** (e.g., DevOps teams, system administrators, developers)
+- **How many users might use this?** (e.g., small subset, most users, all users)
+- **Priority level**: [Low/Medium/High]
+
+## Implementation Considerations
+- **Complexity**: [Low/Medium/High]
+- **Breaking changes**: Does this require changes to existing APIs or configurations?
+- **Dependencies**: Are there any new dependencies required?
+- **Security implications**: Any security considerations?
+
+## Additional Context
+Add any other context, mockups, or examples about the feature request here.
+
+## Related Issues
+Link any related issues or discussions:
+- Related to #123
+- Blocked by #456
+- Duplicate of #789

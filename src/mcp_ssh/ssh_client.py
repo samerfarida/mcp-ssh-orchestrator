@@ -6,6 +6,14 @@ import traceback
 import paramiko
 
 
+class AcceptPolicy(paramiko.MissingHostKeyPolicy):
+    """Accept unknown host keys without saving them."""
+
+    def missing_host_key(self, client, hostname, key):
+        # Accept the key but don't save it
+        pass
+
+
 class SSHClient:
     """Paramiko SSH wrapper with streaming, cancellation, and IP auditing."""
 
@@ -65,6 +73,8 @@ class SSHClient:
             # Strict or permissive behavior
             if self.auto_add_host_keys:
                 client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            elif not self.require_known_host:
+                client.set_missing_host_key_policy(AcceptPolicy())
             else:
                 client.set_missing_host_key_policy(paramiko.RejectPolicy())
 

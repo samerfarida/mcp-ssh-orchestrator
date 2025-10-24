@@ -1,5 +1,3 @@
-version: "3.9"
-
 # ─────────────────────────────────────────────────────────────
 # 🧩 mcp-ssh-orchestrator (STDIO MCP Server)
 # Purpose: Local test or integration with Claude / Docker MCP
@@ -8,7 +6,9 @@ version: "3.9"
 services:
   mcp-ssh:
     container_name: mcp-ssh-orchestrator
-    image: ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+    build:
+      context: ..
+      dockerfile: Dockerfile
     restart: "no"
     stdin_open: true
     tty: true

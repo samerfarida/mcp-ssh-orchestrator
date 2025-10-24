@@ -414,6 +414,8 @@ docker build -t mcp-ssh-orchestrator:local .
 
 See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for development setup and contribution guidelines.
 
+This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## License
 
 Apache 2.0 - See [LICENSE](LICENSE) for details.

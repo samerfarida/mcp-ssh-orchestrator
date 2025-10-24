@@ -1,0 +1,96 @@
+# Labeler configuration for MCP SSH Orchestrator
+# This file defines which labels to apply based on file paths in pull requests
+
+# Core source code changes
+python:
+  - src/**/*.py
+  - tests/**/*.py
+  - pyproject.toml
+  - requirements*.txt
+
+# Documentation changes
+documentation:
+  - docs/**/*
+  - README.md
+  - CHANGELOG.md
+  - CONTRIBUTING.md
+  - SECURITY.md
+  - *.md
+
+# Configuration changes
+configuration:
+  - config/**/*
+  - examples/**/*
+  - compose/**/*
+  - Dockerfile
+  - docker-compose.yml
+
+# Docker and deployment
+docker:
+  - Dockerfile
+  - compose/**/*
+  - docker-compose.yml
+
+# Security-related changes
+security:
+  - secrets/**/*
+  - keys/**/*
+  - config/credentials.yml
+  - config/policy.yml
+  - docs/SECURITY.md
+
+# Testing changes
+testing:
+  - tests/**/*
+  - test_*.py
+  - *_test.py
+
+# Assets and branding
+assets:
+  - assets/**/*
+  - *.svg
+  - *.png
+  - *.jpg
+  - *.jpeg
+  - *.gif
+
+# CI/CD and GitHub workflows
+ci:
+  - .github/**/*
+  - .github/workflows/**/*
+  - .github/actions/**/*
+
+# Dependencies and package management
+dependencies:
+  - pyproject.toml
+  - requirements*.txt
+  - Pipfile
+  - Pipfile.lock
+  - poetry.lock
+
+# Server configuration
+server-config:
+  - servers/**/*
+  - config/servers.yml
+  - config/credentials.yml
+
+# Policy and permissions
+policy:
+  - config/policy.yml
+  - src/mcp_ssh/policy.py
+
+# SSH client functionality
+ssh-client:
+  - src/mcp_ssh/ssh_client.py
+  - src/mcp_ssh/tools/**/*
+
+# MCP server functionality
+mcp-server:
+  - src/mcp_ssh/mcp_server.py
+  - src/mcp_ssh/config.py
+  - servers/**/*
+
+# Breaking changes (major version updates)
+breaking:
+  - CHANGELOG.md
+  - pyproject.toml

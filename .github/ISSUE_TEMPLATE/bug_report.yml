@@ -1,0 +1,69 @@
+---
+name: Bug Report
+about: Create a report to help us improve
+title: '[BUG] '
+labels: ['bug', 'needs-triage']
+assignees: ''
+---
+
+## Bug Description
+A clear and concise description of what the bug is.
+
+## To Reproduce
+Steps to reproduce the behavior:
+1. Go to '...'
+2. Click on '....'
+3. Scroll down to '....'
+4. See error
+
+## Expected Behavior
+A clear and concise description of what you expected to happen.
+
+## Actual Behavior
+A clear and concise description of what actually happened.
+
+## Environment
+Please complete the following information:
+
+- **OS**: [e.g. macOS, Linux, Windows]
+- **Docker Version**: [e.g. Docker Desktop 4.25.0]
+- **Python Version**: [e.g. 3.11.5] (if running locally)
+- **MCP SSH Orchestrator Version**: [e.g. 0.1.0]
+- **MCP Client**: [e.g. Claude Desktop, Cline, etc.]
+
+## Configuration
+Please provide sanitized configuration snippets (remove sensitive information):
+
+```yaml
+# servers.yml (sanitized)
+hosts:
+  - alias: "example"
+    host: "10.0.0.1"
+    port: 22
+    credentials: "example_creds"
+    tags: ["test"]
+
+# policy.yml (sanitized)
+limits:
+  max_seconds: 60
+  max_output_bytes: 1048576
+```
+
+## Logs
+Please provide relevant error messages, stack traces, or logs:
+
+```
+Paste logs here
+```
+
+## Additional Context
+Add any other context about the problem here.
+
+## Security Note
+⚠️ **Important**: Do not include any sensitive information such as:
+- Real IP addresses or hostnames
+- SSH private keys or passwords
+- Actual credentials or secrets
+- Internal network details
+
+Please sanitize all configuration examples before posting.

@@ -1,0 +1,74 @@
+---
+name: Question or Support Request
+about: Ask a question or request support
+title: '[QUESTION] '
+labels: ['question', 'needs-triage']
+assignees: ''
+---
+
+## Question or Support Request
+
+## Type of Request
+- [ ] **How-to question**: I need help with setup or configuration
+- [ ] **Troubleshooting**: Something isn't working as expected
+- [ ] **Best practices**: What's the recommended approach?
+- [ ] **Integration help**: How to integrate with other tools?
+- [ ] **Performance question**: How to optimize or improve performance?
+- [ ] **Other**: _______________
+
+## Question Summary
+A clear and concise description of your question or the help you need.
+
+## Current Setup
+Please describe your current setup:
+
+- **OS**: [e.g. macOS, Linux, Windows]
+- **Docker Version**: [e.g. Docker Desktop 4.25.0]
+- **Python Version**: [e.g. 3.11.5] (if running locally)
+- **MCP SSH Orchestrator Version**: [e.g. 0.1.0]
+- **MCP Client**: [e.g. Claude Desktop, Cline, etc.]
+
+## What You've Tried
+Describe what you've already tried to solve your problem:
+
+1. Step 1
+2. Step 2
+3. Step 3
+
+## Expected Outcome
+What are you trying to achieve? What should happen?
+
+## Current Behavior
+What's currently happening? Include any error messages or unexpected behavior.
+
+## Configuration
+If relevant, please provide sanitized configuration snippets:
+
+```yaml
+# servers.yml (sanitized)
+hosts:
+  - alias: "example"
+    host: "10.0.0.1"
+    port: 22
+    credentials: "example_creds"
+    tags: ["test"]
+```
+
+## Logs
+If applicable, please provide relevant logs (sanitized):
+
+```
+[Paste logs here]
+```
+
+## Additional Context
+Add any other context, screenshots, or examples that might help answer your question.
+
+## Security Note
+⚠️ **Important**: Do not include any sensitive information such as:
+- Real IP addresses or hostnames
+- SSH private keys or passwords
+- Actual credentials or secrets
+- Internal network details
+
+Please sanitize all configuration examples before posting.
