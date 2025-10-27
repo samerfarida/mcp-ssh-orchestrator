@@ -1,0 +1,13 @@
+Contact: mailto:samer.farida@yahoo.com
+Encryption: TBD
+Expires: 2026-10-27T23:59:59.000Z
+Preferred-Languages: en
+Canonical: https://github.com/samerfarida/mcp-ssh-orchestrator/.well-known/security.txt
+Policy: https://github.com/samerfarida/mcp-ssh-orchestrator/blob/main/SECURITY.md
+
+
+# Additional Security Documentation
+https://github.com/samerfarida/mcp-ssh-orchestrator/wiki/05-Security-Model
+https://github.com/samerfarida/mcp-ssh-orchestrator/wiki/02-Risks
+
+Acknowledgments: https://github.com/samerfarida/mcp-ssh-orchestrator#contributors
