@@ -6,22 +6,22 @@
   <p>Execute commands across your server fleet with policy-based access control, network filtering, and comprehensive audit logging.</p>
 </div>
 
-## 🚀 What is MCP SSH Orchestrator?
+## What is MCP SSH Orchestrator?
 
 **MCP SSH Orchestrator** is a secure, policy-driven SSH command executor designed specifically for AI agents. It implements the [Model Context Protocol (MCP)](https://modelcontextprotocol.io) to provide safe, auditable access to your server infrastructure.
 
 ### Key Capabilities
 
-- **🔒 Policy-Based Access Control**: Fine-grained command allow/deny rules with glob pattern matching
-- **🌐 Network Security**: IP allowlists/blocklists with CIDR support and DNS resolution verification  
-- **🔑 Credential Management**: Support for SSH keys and passwords via Docker secrets or environment variables
-- **🏷️ Fleet Management**: Tag-based host grouping for bulk operations
-- **📊 Real-Time Streaming**: Live command output with progress tracking
-- **⏹️ Cancellation Support**: Cancel long-running commands mid-execution
-- **📝 Audit Logging**: JSON audit trail to stderr for all operations
-- **🐳 Docker-Ready**: Runs in containers with non-root user and health checks
+- **Policy-Based Access Control**: Fine-grained command allow/deny rules with glob pattern matching
+- **Network Security**: IP allowlists/blocklists with CIDR support and DNS resolution verification  
+- **Credential Management**: Support for SSH keys and passwords via Docker secrets or environment variables
+- **Fleet Management**: Tag-based host grouping for bulk operations
+- **Real-Time Streaming**: Live command output with progress tracking
+- **Cancellation Support**: Cancel long-running commands mid-execution
+- **Audit Logging**: JSON audit trail to stderr for all operations
+- **Docker-Ready**: Runs in containers with non-root user and health checks
 
-## 🎯 Why This Project Exists
+## Why This Project Exists
 
 AI agents need safe, controlled access to infrastructure. Traditional approaches like "run arbitrary shell commands" introduce significant security risks:
 
@@ -36,7 +36,7 @@ This project implements [Docker's MCP security best practices](https://www.docke
 - **Comprehensive audit trails** for compliance
 - **Defense-in-depth security** model
 
-## 🏗️ Architecture Overview
+## Architecture Overview
 
 ```mermaid
 graph TB
@@ -71,7 +71,7 @@ graph TB
     MCP --> AUDIT
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Using Docker (Recommended)
 
@@ -106,40 +106,40 @@ docker run -i --rm \
    chmod 0400 ~/mcp-ssh/keys/id_ed25519
    ```
 
-## 📚 Documentation Structure
+## Documentation Structure
 
 This wiki is organized into 16 comprehensive sections:
 
-### **Core Concepts**
+### Core Concepts
 - **[MCP Overview](01-MCP-Overview)** - Understanding the Model Context Protocol
 - **[Risks](02-Risks)** - Security challenges in MCP environments
 - **[Design Goals](03-Design-Goals)** - Project philosophy and principles
 - **[Architecture](04-Architecture)** - System design and component relationships
 
-### **Security & Configuration**
+### Security & Configuration
 - **[Security Model](05-Security-Model)** - Defense-in-depth security architecture
 - **[Configuration](06-Configuration)** - Complete configuration reference
   - [servers.yml](06.1-servers.yml) - Host inventory management
   - [credentials.yml](06.2-credentials.yml) - SSH authentication setup
   - [policy.yml](06.3-policy.yml) - Security policy engine
 
-### **Usage & Operations**
+### Usage & Operations
 - **[Tools Reference](07-Tools-Reference)** - Complete MCP tools documentation
 - **[Usage Cookbook](08-Usage-Cookbook)** - Practical examples and patterns
 - **[Deployment](09-Deployment)** - Production setup and scaling
 - **[Integrations](10-Integrations)** - Claude Desktop and other MCP clients
 
-### **Operations & Maintenance**
+### Operations & Maintenance
 - **[Observability & Audit](11-Observability-Audit)** - Logging, monitoring, compliance
 - **[Troubleshooting](12-Troubleshooting)** - Common issues and solutions
 - **[Contributing](13-Contributing)** - Development workflow and guidelines
 
-### **Project Information**
+### Project Information
 - **[CHANGELOG](../CHANGELOG.md)** - Version history and releases
 - **[FAQ](14-FAQ)** - Frequently asked questions
 - **[Glossary](15-Glossary)** - Terms and definitions
 
-## 🔧 MCP Tools Quick Reference
+## MCP Tools Quick Reference
 
 | Tool | Purpose | Type |
 |------|---------|------|
@@ -159,36 +159,36 @@ This wiki is organized into 16 comprehensive sections:
 
 [See complete Tools Reference](07-Tools-Reference) for detailed documentation.
 
-## 🔒 Security Features
+## Security Features
 
 This project implements comprehensive security controls:
 
-### **Container Security**
+### Container Security
 - Non-root execution (UID 10001)
 - Read-only filesystem mounts
 - Resource limits (CPU, memory)
 - Minimal base image (python:3.13-slim)
 
-### **Network Security**
+### Network Security
 - IP allowlists with CIDR support
 - Host key verification (known_hosts)
 - DNS resolution verification
 - Egress controls
 
-### **Policy Enforcement**
+### Policy Enforcement
 - Deny-by-default security model
 - Glob pattern command matching
 - Per-host and per-tag overrides
 - Dangerous command substring blocking
 
-### **Audit & Monitoring**
+### Audit & Monitoring
 - JSON audit logs to stderr
 - Complete operation trail
 - OWASP LLM07 (Insecure Plugin Design) mitigation
 - MITRE ATT&CK aligned logging
 - Security features support compliance efforts
 
-## 🤝 Contributing
+## Contributing
 
 We welcome contributions! See our [Contributing Guide](13-Contributing) for:
 
@@ -197,11 +197,11 @@ We welcome contributions! See our [Contributing Guide](13-Contributing) for:
 - Testing requirements
 - Pull request process
 
-## 📄 License
+## License
 
 Apache 2.0 - See [LICENSE](https://github.com/samerfarida/mcp-ssh-orchestrator/blob/main/LICENSE) for details.
 
-## 🔗 Links
+## Links
 
 - **[GitHub Repository](https://github.com/samerfarida/mcp-ssh-orchestrator)**
 - **[Issue Tracker](https://github.com/samerfarida/mcp-ssh-orchestrator/issues)**
