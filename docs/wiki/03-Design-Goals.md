@@ -171,10 +171,10 @@ services:
 - **MITRE ATT&CK** aligned logging and monitoring
 - **Complete audit trails** for all operations
 - **Immutable logs** (append-only)
-- **Policy-based access control** for compliance
-- **Dangerous command blocking** for security
+- **Policy-based access control** for security
+- **Dangerous command blocking** for safety
 
-**Note:** Compliance is the responsibility of the deploying organization. This tool provides security controls that can support frameworks like SOC 2, ISO 27001, PCI-DSS, and HIPAA.
+**Note:** Audit logs can be integrated with your existing security tooling and SIEM systems for compliance monitoring.
 
 ## Design Constraints
 
@@ -297,7 +297,7 @@ services:
 ### Security Attributes
 
 - **Confidentiality:** Encrypted SSH transport, no credential storage
-- **Integrity:** Command hashing, audit trails, signature verification
+- **Integrity:** Command hashing and audit trails
 - **Availability:** Health checks, graceful degradation, resource limits
 
 ### Operational Attributes
@@ -338,26 +338,26 @@ services:
 
 ## Success Metrics
 
-### Security Metrics
+### Security Objectives
 
-- **Zero unauthorized access** incidents
-- **100% audit coverage** of all operations
-- **Policy compliance** rate > 99%
-- **Mean time to detection** < 5 minutes
+- **Policy enforcement** for all operations
+- **Audit coverage** for all command executions
+- **Zero privileged escalation** in design
+- **Network controls** enforced via IP allowlists
 
-### Operational Metrics
+### Performance Goals
 
-- **Uptime** > 99.9%
-- **Response time** < 100ms for policy checks
-- **Configuration errors** < 1% of deployments
-- **Support tickets** < 5 per month
+- **Fast policy evaluation** (< 10ms typical)
+- **Efficient SSH connections** with minimal overhead
+- **Resource-efficient** single container deployment
+- **Responsive execution** with configurable timeouts
 
-### User Experience Metrics
+### Project Metrics
 
-- **Time to first success** < 10 minutes
-- **Documentation satisfaction** > 4.5/5
-- **Feature adoption** > 80% for core features
-- **Community contributions** > 10 per quarter
+- **Documentation completeness** with examples for all features
+- **Code quality** through testing and linting
+- **Community engagement** through clear issue management
+- **Feature stability** with backward compatibility
 
 ## Next Steps
 

@@ -85,9 +85,9 @@ graph TB
 **Implementation:**
 
 - **Non-root execution** (UID 10001)
-- **Read-only filesystem** mounts
-- **Resource limits** (CPU, memory)
-- **Minimal base image** (python:3.13-slim)
+- **Read-only mounts** for config and keys (recommended at runtime)
+- **Resource limits** (CPU, memory) via container runtime
+- **Minimal base image** (python:3.14-slim)
 
 **Security Benefits:**
 
@@ -102,8 +102,8 @@ graph TB
 RUN useradd -u 10001 -m appuser
 USER appuser
 
-# Read-only mounts
-VOLUME ["/app/config:ro", "/app/keys:ro"]
+# Read-only mounts (applied by runtime via -v :ro)
+VOLUME ["/app/config", "/app/keys"]
 
 # Resource limits
 CMD ["python", "-m", "mcp_ssh.mcp_server", "stdio"]
@@ -428,16 +428,16 @@ overrides:
 
 ### Security Features Supporting Compliance
 
-**Features that can assist with:**
+**Features that can assist with reporting and controls:**
 
 - **Access Control:** Policy-based command authorization
-- **Audit Trail:** Complete JSON audit logs
+- **Audit Trail:** JSON audit logs to stderr (no command content)
 - **Encryption:** SSH transport encryption (Ed25519/RSA keys)
 - **Secrets Management:** Docker secrets or environment variables
 - **Network Segmentation:** IP allowlists enforce boundaries
 - **Role-Based Access:** Tag-based permission management
 
-*Note: Compliance is ultimately the responsibility of the deploying organization. This tool provides security controls that can support compliance frameworks such as SOC 2, ISO 27001, PCI-DSS, HIPAA, etc., but is not itself certified to these standards.*
+*Note: Compliance remains the responsibility of the deploying organization. This project offers logs and controls that can assist with reporting but does not provide certifications.*
 
 ## Security Monitoring
 

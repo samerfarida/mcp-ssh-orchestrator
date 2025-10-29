@@ -1,10 +1,10 @@
-# 🐳 MCP-SSH-ORCHESTRATOR — Compose Environment
+# MCP-SSH-ORCHESTRATOR — Compose Environment
 
 This directory provides Docker Compose configurations for the  
 [`mcp-ssh-orchestrator`](https://github.com/samerfarida/mcp-ssh-orchestrator)  
 MCP (Model Context Protocol) server.  
 
-## 📋 Choose Your Setup
+## Choose Your Setup
 
 We provide two Docker Compose files depending on your use case:
 
@@ -15,7 +15,7 @@ We provide two Docker Compose files depending on your use case:
 
 ---
 
-## 🚀 Quick Start (End Users - Recommended)
+## Quick Start (End Users - Recommended)
 
 If you just want to use the tool and don't plan to modify the code:
 
@@ -51,7 +51,7 @@ The production compose file automatically pulls the `ghcr.io/samerfarida/mcp-ssh
 
 ---
 
-## 🧪 Development Setup (For Contributors)
+## Development Setup (For Contributors)
 
 If you're developing or contributing to the project:
 
@@ -74,7 +74,7 @@ This will build the container from the local Dockerfile in the repository root.
 
 ---
 
-## ⚙️ What's Included
+## What's Included
 
 | File | Purpose |
 |------|----------|
@@ -86,7 +86,7 @@ This will build the container from the local Dockerfile in the repository root.
 
 ---
 
-## 📦 Prerequisites
+## Prerequisites
 
 Before running the container:
 1. Ensure **Docker** and **Docker Compose v2+** are installed.
@@ -116,7 +116,7 @@ Before running the container:
 
 ---
 
-## 🎛️ Configuration
+## Configuration
 
 ### Environment Variables
 
@@ -138,7 +138,7 @@ MCP_SSH_TIMEOUT_SEC=60
 
 ---
 
-## 🚀 Running the Server
+## Running the Server
 
 ### Option A: Production Mode (End Users)
 
@@ -246,7 +246,7 @@ Add this to your Claude Desktop config.json:
 
 ---
 
-## 🧠 Useful Commands
+## Useful Commands
 
 ### Production Mode (Default)
 | Action | Command |
@@ -265,7 +265,7 @@ Add this to your Claude Desktop config.json:
 
 ---
 
-## 🏗️ Developer Notes
+## Developer Notes
 •	The server uses STDIO transport only.
 •	Default config path: /app/config
 •	Default entrypoint: python -m mcp_ssh.mcp_server stdio
