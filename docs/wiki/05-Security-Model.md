@@ -87,7 +87,7 @@ graph TB
 - **Non-root execution** (UID 10001)
 - **Read-only mounts** for config and keys (recommended at runtime)
 - **Resource limits** (CPU, memory) via container runtime
-- **Minimal base image** (python:3.14-slim)
+- **Minimal base image** (python:3.13-slim)
 
 **Security Benefits:**
 

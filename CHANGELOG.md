@@ -5,6 +5,22 @@ All notable changes to mcp-ssh-orchestrator will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2025-10-31
+
+### Changed
+- Updated Dockerfile to use Python 3.13-slim with pinned SHA256 digest for reproducibility
+- Switched from Python 3.14 (pre-release) to stable Python 3.13
+- Changed from editable install (`pip install -e .`) to production install (`pip install .`)
+
+### Removed
+- Removed `openssh-client` from Docker image (debug tool not needed in production)
+- Removed `libffi8` system dependency (not required by Python wheels)
+- Removed redundant example configuration file copies in Docker image
+- Removed unused PATH modification for user local bin directory
+
+### Fixed
+- Fixed trailing whitespace in Dockerfile apt-get command
+
 ## [0.2.0] - 2025-10-25
 
 ### Added
