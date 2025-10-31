@@ -310,9 +310,7 @@ Each log entry is a complete JSON object on a single line. This format:
 
 ## Security Reporting for Compliance
 
-*Note: This tool provides security features and audit capabilities that can support compliance efforts. Actual compliance certification is the responsibility of the deploying organization.*
-
-The structured audit logs can support compliance reporting for frameworks like SOC 2, ISO 27001, PCI-DSS, and HIPAA.
+*Note: This tool provides audit logs and security features that can assist with compliance reporting. Actual certification and controls beyond logging are the responsibility of the deploying organization.*
 
 ### Access Control Reporting
 
@@ -436,7 +434,7 @@ This sequence shows:
 - No sensitive command output is in audit logs (output goes to stdout for the LLM)
 - Logs are append-only (written to stderr stream)
 - Commands are SHA256-hashed for privacy and consistency
-- Can support compliance reporting (SOC 2, ISO 27001, PCI-DSS, HIPAA)
+- Can assist with compliance reporting by providing structured audit logs
 
 ## Next Steps
 

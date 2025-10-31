@@ -275,9 +275,9 @@ graph TB
         end
         
         subgraph "Configuration Layer"
-            CONFIG_DIR[/app/config]
-            KEYS_DIR[/app/keys]
-            SECRETS_DIR[/app/secrets]
+            CONFIG_DIR["/app/config"]
+            KEYS_DIR["/app/keys"]
+            SECRETS_DIR["/app/secrets"]
         end
         
         subgraph "System Layer"
@@ -405,41 +405,47 @@ graph TB
 
 ## Monitoring Architecture
 
-### Observability Stack
+### Built-in Observability
+
+MCP SSH Orchestrator provides structured JSON logging to stderr for audit and compliance.
 
 ```mermaid
 graph TB
     subgraph "mcp-ssh-orchestrator"
-        AUDIT_LOG[Audit Logger]
-        HEALTH_CHECK[Health Check]
+        AUDIT_LOG[Audit Logger<br/>JSON to stderr]
+        POLICY_LOG[Policy Decision Logs]
+        PROGRESS_LOG[Progress Logs]
+        SSH_PING[ssh_ping Tool]
     end
     
-    subgraph "Log Collection"
-        LOG_AGGREGATOR[Log Aggregator]
-        LOG_STORAGE[Log Storage]
+    subgraph "External Integration Options"
+        DOCKER_LOGS[Docker Logs]
+        LOG_ROTATION[Log Rotation]
+        SIEM[SIEM Integration]
     end
     
-    subgraph "Monitoring"
-        METRICS_COLLECTOR[Metrics Collector]
-        ALERT_MANAGER[Alert Manager]
-        DASHBOARD[Dashboard]
-    end
+    AUDIT_LOG --> DOCKER_LOGS
+    POLICY_LOG --> DOCKER_LOGS
+    PROGRESS_LOG --> DOCKER_LOGS
+    SSH_PING --> DOCKER_LOGS
     
-    subgraph "Compliance"
-        AUDIT_REPORTS[Audit Reports]
-        COMPLIANCE_CHECK[Compliance Checker]
-    end
-    
-    AUDIT_LOG --> LOG_AGGREGATOR
-    HEALTH_CHECK --> METRICS_COLLECTOR
-    
-    LOG_AGGREGATOR --> LOG_STORAGE
-    METRICS_COLLECTOR --> ALERT_MANAGER
-    METRICS_COLLECTOR --> DASHBOARD
-    
-    LOG_STORAGE --> AUDIT_REPORTS
-    LOG_STORAGE --> COMPLIANCE_CHECK
+    DOCKER_LOGS --> LOG_ROTATION
+    DOCKER_LOGS --> SIEM
 ```
+
+**Built-in Features:**
+
+- **Audit Logger**: Emits structured JSON logs to stderr for all operations
+- **Health Check**: `ssh_ping` tool for basic health verification
+- **Log Types**: Policy decisions, audit trails, progress updates, error logs
+
+**External Integration:**
+
+- Logs can be captured via Docker logging drivers
+- JSON logs can be parsed and forwarded to SIEM tools
+- No built-in metrics collection or alerting (use external tools)
+
+See [Observability & Audit](11-Observability-Audit.md) for detailed information on log types and analysis.
 
 ## Integration Architecture
 
@@ -479,35 +485,51 @@ graph TB
 
 ### Resource Management
 
+MCP SSH Orchestrator is designed as a lightweight, single-container MCP server optimized for efficient command execution.
+
 ```mermaid
 graph TB
-    subgraph "Resource Limits"
-        CPU_LIMIT[CPU Limit<br/>1 core]
-        MEMORY_LIMIT[Memory Limit<br/>512MB]
-        CONNECTION_LIMIT[Connection Limit<br/>10 concurrent]
+    subgraph "Container Configuration"
+        CPU_LIMIT[CPU Limit<br/>1 core recommended]
+        MEMORY_LIMIT[Memory Limit<br/>512MB recommended]
+        ASYNC[Async Task Support]
     end
     
-    subgraph "Performance Optimizations"
-        CONNECTION_POOL[Connection Pooling]
-        CACHE[Policy Cache]
-        ASYNC[Async Operations]
+    subgraph "Execution Model"
+        SYNC[Sync Commands]
+        ASYNC_TASKS[Async Background Tasks]
+        CANCELLATION[Task Cancellation]
     end
     
-    subgraph "Monitoring"
-        METRICS[Metrics Collection]
-        ALERTS[Resource Alerts]
+    subgraph "Resource Control"
+        TIMEOUT[Command Timeouts]
+        OUTPUT_LIMIT[Output Size Limits]
+        CONCURRENT[Concurrent Executions]
     end
     
-    CPU_LIMIT --> CONNECTION_POOL
-    MEMORY_LIMIT --> CACHE
-    CONNECTION_LIMIT --> ASYNC
+    CPU_LIMIT --> SYNC
+    MEMORY_LIMIT --> ASYNC_TASKS
+    ASYNC --> CANCELLATION
     
-    CONNECTION_POOL --> METRICS
-    CACHE --> METRICS
-    ASYNC --> METRICS
-    
-    METRICS --> ALERTS
+    TIMEOUT --> CONCURRENT
+    OUTPUT_LIMIT --> CONCURRENT
 ```
+
+**Configuration:**
+
+- One container per MCP client (no shared state)
+- Stateless design (no database or cache)
+- Resource limits configurable via Docker
+- Single-threaded execution model
+
+**Features:**
+
+- Synchronous and asynchronous command execution
+- Task cancellation support
+- Output size limiting
+- Command timeouts
+
+See [Deployment](09-Deployment.md) for recommended resource configurations.
 
 ## Next Steps
 

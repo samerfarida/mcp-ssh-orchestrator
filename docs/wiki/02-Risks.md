@@ -117,8 +117,8 @@ Execute commands on SSH hosts.
 | **MCP Security Risk** | **Example** | **Impact** | **mcp-ssh-orchestrator Mitigation** |
 |----------------------|-------------|------------|-------------------------------------|
 | **Misconfigurations** | Unrestricted network egress | Lateral movement, data exfiltration | Containerized execution + network limits |
-| **Malicious servers** | Typosquatting/poisoned images | Credential theft, persistent access | Signature verification + curated sources |
-| **Secret management** | Plaintext in prompts | Account takeover, data loss | Managed secrets + redaction |
+| **Malicious servers** | Typosquatting/poisoned images | Credential theft, persistent access | Pinned base image digest + minimal dependencies |
+| **Secret management** | Plaintext in prompts | Account takeover, data loss | Managed secrets (Docker secrets/env) + output limits |
 | **Prompt injection** | Hostile tool descriptions | Wrong actions, confidently | Tool allowlists + interceptors |
 
 ## What Makes MCP Security Challenging?
@@ -176,8 +176,8 @@ Static analysis tools don't see agentic tool calls:
 |----------------|------------------------|-------------------------------------|
 | **A01: Prompt Injection** | Malicious tool descriptions | Tool allowlists + pre-call validation |
 | **A02: Insecure Plugin Design** | Malicious MCP servers | Containerized execution + policy enforcement |
-| **A03: Data Leakage** | Sensitive output in tool responses | Output redaction + audit logging |
-| **A04: Supply Chain Vulnerabilities** | Compromised MCP server images | Signature verification + curated sources |
+| **A03: Data Leakage** | Sensitive output in tool responses | Output size limits + audit logging |
+| **A04: Supply Chain Vulnerabilities** | Compromised MCP server images | Pinned base image digest + minimal dependencies |
 | **A05: Overreliance on LLM** | No human oversight of tool calls | Policy-based restrictions + monitoring |
 | **A06: Insecure Output Handling** | Unvalidated tool responses | Structured response validation |
 | **A07: Insecure Plugin Architecture** | Weak MCP server isolation | Container boundaries + resource limits |
