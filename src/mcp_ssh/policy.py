@@ -306,7 +306,11 @@ class Policy:
         print(json.dumps(entry), file=sys.stderr)
 
     def _log_bypass_attempt(
-        self, alias: str, original_command: str, normalized_command: str, blocked_pattern: str
+        self,
+        alias: str,
+        original_command: str,
+        normalized_command: str,
+        blocked_pattern: str,
     ):
         """Log security event for bypass attempt detection."""
         entry = {
