@@ -32,7 +32,11 @@ def _log_err(kind: str, data: dict) -> None:
 
 
 def _resolve_secret(secret_name: str, secrets_dir: str = "") -> str:
-    """Resolve a secret from Docker secrets directory or environment variable."""
+    """Resolve a secret from Docker secrets directory or environment variable.
+
+    Security: Validates against path traversal attacks and only allows
+    safe characters in secret names (alphanumeric, dash, underscore).
+    """
     if not secret_name:
         return ""
 
@@ -41,11 +45,59 @@ def _resolve_secret(secret_name: str, secrets_dir: str = "") -> str:
     if env_key in os.environ:
         return os.environ[env_key]
 
-    # Try Docker secrets file
+    # Security validation: only allow safe characters in secret_name
+    # Allowed: alphanumeric, dash, underscore
+    if not secret_name.replace("-", "").replace("_", "").isalnum():
+        _log_err(
+            "security_event",
+            {
+                "type": "invalid_secret_name",
+                "secret_name": secret_name,
+                "reason": "contains_invalid_characters",
+            },
+        )
+        return ""
+
+    # Reject absolute paths (for secrets, enforce relative paths only)
+    if os.path.isabs(secret_name):
+        _log_err(
+            "security_event",
+            {
+                "type": "path_traversal_attempt",
+                "secret_name": secret_name,
+                "reason": "absolute_path_rejected",
+            },
+        )
+        return ""
+
+    # Try Docker secrets file with path traversal protection
     base_dir = secrets_dir or DEFAULT_SECRETS_DIR
     secret_path = os.path.join(base_dir, secret_name)
+
+    # Normalize path to handle any ../ sequences
+    normalized_path = os.path.normpath(secret_path)
+
+    # Get absolute paths for comparison
+    base_abs = os.path.abspath(base_dir)
+    resolved_abs = os.path.abspath(normalized_path)
+
+    # Validate resolved path stays within secrets_dir
+    # Check that resolved path starts with base_abs + separator
+    if not resolved_abs.startswith(base_abs + os.sep) and resolved_abs != base_abs:
+        _log_err(
+            "security_event",
+            {
+                "type": "path_traversal_attempt",
+                "secret_name": secret_name,
+                "attempted_path": resolved_abs,
+                "base_dir": base_abs,
+                "reason": "path_outside_allowed_directory",
+            },
+        )
+        return ""
+
     try:
-        with open(secret_path, encoding="utf-8") as f:
+        with open(resolved_abs, encoding="utf-8") as f:
             return f.read().strip()
     except Exception:
         return ""

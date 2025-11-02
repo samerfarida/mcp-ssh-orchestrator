@@ -218,6 +218,143 @@ def test_resolve_secret_not_found():
         assert secret == ""
 
 
+def test_resolve_secret_path_traversal_forward_slash():
+    """Test that path traversal with ../ is blocked."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create a secret file
+        secret_path = os.path.join(tmpdir, "valid_secret")
+        with open(secret_path, "w") as f:
+            f.write("valid-secret")
+
+        # Create a file outside the secrets directory
+        parent_dir = os.path.dirname(tmpdir)
+        outside_file = os.path.join(parent_dir, "outside_secret")
+        with open(outside_file, "w") as f:
+            f.write("outside-secret")
+
+        # Try to access it via path traversal
+        result = _resolve_secret("../outside_secret", secrets_dir=tmpdir)
+        assert result == ""
+
+        # Clean up
+        os.remove(outside_file)
+
+
+def test_resolve_secret_path_traversal_backslash():
+    """Test that path traversal with ..\\ is blocked on Windows."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create a secret file
+        secret_path = os.path.join(tmpdir, "valid_secret")
+        with open(secret_path, "w") as f:
+            f.write("valid-secret")
+
+        # Try path traversal with backslash (Windows style)
+        # Note: os.path.normpath will normalize this on any OS
+        result = _resolve_secret("..\\outside_secret", secrets_dir=tmpdir)
+        assert result == ""
+
+
+def test_resolve_secret_absolute_path_rejection():
+    """Test that absolute paths are rejected."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create a file at an absolute path
+        if os.name == "nt":
+            absolute_path = "C:\\Windows\\System32\\secret"
+        else:
+            absolute_path = "/etc/passwd"
+
+        # Try to use absolute path as secret name
+        result = _resolve_secret(absolute_path, secrets_dir=tmpdir)
+        assert result == ""
+
+
+def test_resolve_secret_special_characters_rejection():
+    """Test that secret names with special characters are rejected."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Test various special characters
+        invalid_names = [
+            "secret/name",
+            "secret.name",
+            "secret name",
+            "secret@name",
+            "secret#name",
+            "secret$name",
+            "secret%name",
+            "secret&name",
+            "secret*name",
+            "secret+name",
+            "secret=name",
+            "secret?name",
+            "secret|name",
+            "secret<name",
+            "secret>name",
+        ]
+
+        for invalid_name in invalid_names:
+            result = _resolve_secret(invalid_name, secrets_dir=tmpdir)
+            assert result == "", f"Should reject secret name: {invalid_name}"
+
+
+def test_resolve_secret_valid_characters_allowed():
+    """Test that valid characters (alphanumeric, dash, underscore) are allowed."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        valid_names = [
+            "secret123",
+            "secret-name",
+            "secret_name",
+            "SECRET_NAME",
+            "secret123_name-test",
+            "a1b2c3",
+        ]
+
+        for valid_name in valid_names:
+            secret_path = os.path.join(tmpdir, valid_name)
+            with open(secret_path, "w") as f:
+                f.write(f"content-{valid_name}")
+
+            result = _resolve_secret(valid_name, secrets_dir=tmpdir)
+            assert (
+                result == f"content-{valid_name}"
+            ), f"Should allow secret name: {valid_name}"
+
+
+def test_resolve_secret_multiple_traversal_attempts():
+    """Test multiple levels of path traversal are blocked."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create a nested structure
+        nested_dir = os.path.join(tmpdir, "nested", "deep")
+        os.makedirs(nested_dir, exist_ok=True)
+
+        # Create file in nested dir
+        nested_file = os.path.join(nested_dir, "nested_secret")
+        with open(nested_file, "w") as f:
+            f.write("nested-secret")
+
+        # Try multiple traversal levels
+        traversal_attempts = [
+            "../../outside",
+            "../../../etc/passwd",
+            "....//....//etc/passwd",
+        ]
+
+        for attempt in traversal_attempts:
+            result = _resolve_secret(attempt, secrets_dir=nested_dir)
+            assert result == "", f"Should block traversal: {attempt}"
+
+
+def test_resolve_secret_normal_file_access_still_works():
+    """Test that normal file access still works after security fixes."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create a valid secret file
+        secret_path = os.path.join(tmpdir, "valid_secret")
+        with open(secret_path, "w") as f:
+            f.write("valid-secret-content")
+
+        # Should still work
+        result = _resolve_secret("valid_secret", secrets_dir=tmpdir)
+        assert result == "valid-secret-content"
+
+
 def test_resolve_key_path_relative():
     """Test resolving relative key path."""
     path = _resolve_key_path("id_ed25519", keys_dir="/app/keys")
