@@ -11,7 +11,7 @@ on:
       - 'Dockerfile'
       - '.dockerignore'
       - 'config/**/*.yml'
-      - '.github/workflows/build.yml'
+      - '.github/workflows/*.yml'
   pull_request:
     branches: [main]
     paths:
@@ -22,7 +22,7 @@ on:
       - 'Dockerfile'
       - '.dockerignore'
       - 'config/**/*.yml'
-      - '.github/workflows/build.yml'
+      - '.github/workflows/*.yml'
 
 jobs:
   lint:
