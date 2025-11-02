@@ -8,7 +8,7 @@ on:
       - 'tests/**/*.py'
       - 'pyproject.toml'
       - 'setup.py'
-      - '.github/workflows/lint.yml'
+      - '.github/workflows/*.yml'
   pull_request:
     branches: [main]
     paths:
@@ -16,7 +16,7 @@ on:
       - 'tests/**/*.py'
       - 'pyproject.toml'
       - 'setup.py'
-      - '.github/workflows/lint.yml'
+      - '.github/workflows/*.yml'
 
 jobs:
   ruff:

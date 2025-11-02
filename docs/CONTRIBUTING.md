@@ -469,5 +469,5 @@ Contributors will be acknowledged in:
 - Release notes (for significant contributions)
 - README (for major features)
 
-Thank you for contributing! 🎉
+Thank you for contributing!
 

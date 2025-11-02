@@ -33,7 +33,12 @@
     { "name": "ssh_plan", "description": "Dry-run a command and show policy verdict without execution." },
     { "name": "ssh_run", "description": "Execute a command on a single host with policy enforcement." },
     { "name": "ssh_run_on_tag", "description": "Execute a command on all hosts matching a tag." },
-    { "name": "ssh_cancel", "description": "Cancel a running command by task ID." },
-    { "name": "ssh_reload_config", "description": "Hot-reload configuration files from disk." }
+    { "name": "ssh_cancel", "description": "Cancel a running synchronous command by task ID." },
+    { "name": "ssh_reload_config", "description": "Hot-reload configuration files from disk." },
+    { "name": "ssh_run_async", "description": "Start SSH command asynchronously - returns immediately with task_id for polling (SEP-1686 compliant)." },
+    { "name": "ssh_get_task_status", "description": "Get current status of an async task including state, progress, and elapsed time (SEP-1686 compliant)." },
+    { "name": "ssh_get_task_result", "description": "Get final result of completed async task including complete output, exit code, and execution metadata (SEP-1686 compliant)." },
+    { "name": "ssh_get_task_output", "description": "Get recent output lines from running or completed async task - enables streaming output visibility." },
+    { "name": "ssh_cancel_async_task", "description": "Cancel a running async task." }
   ]
 }
