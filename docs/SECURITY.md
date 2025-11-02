@@ -124,6 +124,40 @@ All resolved paths are validated to ensure they are regular files:
 
 **Effect**: Prevents accessing directories or symlinks that could lead to security vulnerabilities or unauthorized access.
 
+#### YAML File Size Limits
+
+All YAML configuration files are validated for size before loading to prevent resource exhaustion attacks:
+
+1. **Size Limit**: Maximum file size of 10MB per YAML file
+   - Applies to: `servers.yml`, `credentials.yml`, `policy.yml`
+   - Prevents resource exhaustion via oversized configuration files
+   - Files exceeding limit are rejected with security event logging
+
+2. **Size Validation**: File size is checked using `os.path.getsize()` before parsing
+   - Prevents loading files into memory if they exceed the limit
+   - Returns empty dictionary on size limit violation
+   - No YAML parsing performed if file is too large
+
+3. **Security Event Logging**: Size limit violations are logged:
+   ```json
+   {
+     "level": "error",
+     "kind": "security_event",
+     "type": "file_size_limit_exceeded",
+     "path": "/app/config/servers.yml",
+     "file_size": 10485761,
+     "max_size": 10485760,
+     "reason": "yaml_file_too_large"
+   }
+   ```
+
+4. **Normal Operation**: Files at or below the 10MB limit load normally
+   - 10MB is sufficient for typical configuration files
+   - Large configuration files (multiple thousands of hosts) are supported
+   - Prevents abuse while allowing legitimate use cases
+
+**Effect**: Prevents resource exhaustion attacks via oversized YAML files that could consume excessive memory or processing time.
+
 ### SSH Key Management
 
 **Best Practices:**

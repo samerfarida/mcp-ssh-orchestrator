@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased] - 2025-11-02
 
 ### Added
+- **YAML File Size Limits (PR4)**: Added file size validation for YAML configuration files
+  - Maximum file size limit of 10MB per YAML file (`servers.yml`, `credentials.yml`, `policy.yml`)
+  - File size validation before parsing to prevent resource exhaustion attacks
+  - Security event logging for size limit violations
+  - Added `MAX_YAML_FILE_SIZE` constant (10MB) with clear documentation
+  - Updated `_load_yaml()` function with size checking logic
+  - Comprehensive tests for normal, oversized, and edge case file sizes
+  - Updated documentation with file size limit details
 - **Path Traversal Protection (PR1 & PR2)**: Security enhancements to prevent path traversal attacks
   - **Secret Path Protection (`_resolve_secret`)**:
     - Secret name validation: only alphanumeric characters, dashes, and underscores allowed
