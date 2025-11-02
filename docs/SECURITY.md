@@ -221,6 +221,27 @@ DNS resolution is rate-limited and cached to prevent DNS-based DoS attacks:
    - Failed resolutions return empty list
 
 4. **Rate Limit Logging**: Rate limit violations are logged:
+#### Command Denial Bypass Prevention
+
+Command denial logic has been enhanced to prevent bypass attempts via obfuscation:
+
+1. **Command Normalization**:
+   - Removes single and double quotes from commands
+   - Removes escaped characters (e.g., `\ ` becomes space)
+   - Normalizes whitespace (collapses multiple spaces/tabs to single space)
+   - Applied before checking against `deny_substrings` list
+
+2. **Dual Checking**:
+   - Checks original command string (maintains existing behavior)
+   - Checks normalized command string (catches obfuscated bypass attempts)
+   - Both checks must pass for command to be allowed
+
+3. **Token-Based Matching**:
+   - Splits normalized command into tokens
+   - Checks for exact token matches against deny patterns
+   - Prevents partial bypasses (e.g., `rm -rf /var` vs `rm -rf /`)
+
+4. **Bypass Attempt Detection**: Commands that would bypass original checking but are caught by normalization are logged:
    ```json
    {
      "level": "error",
@@ -234,6 +255,26 @@ DNS resolution is rate-limited and cached to prevent DNS-based DoS attacks:
 5. **Thread Safety**: Rate limiter and cache are thread-safe for concurrent access.
 
 **Effect**: Prevents DNS-based DoS attacks by limiting resolution frequency and caching results, reducing load on DNS infrastructure.
+     "type": "command_bypass_attempt",
+     "alias": "web1",
+     "original_command": "'rm -rf /'",
+     "normalized_command": "rm -rf /",
+     "blocked_pattern": "rm -rf /"
+   }
+   ```
+
+5. **Supported Bypass Techniques Prevented**:
+   - Quote obfuscation: `'rm -rf /'`, `"rm -rf /"`
+   - Escaped characters: `rm\ -rf\ /`
+   - Whitespace variations: `rm    -rf    /`, `rm\t-rf\t/`
+   - Mixed techniques: `echo "rm\\ -rf\\ /"`
+
+6. **Limitations**:
+   - Perfect prevention would require full command parsing
+   - Complex obfuscation (base64 encoding, variable substitution) may still bypass
+   - Focus is on common bypass techniques, not all possible obfuscation methods
+
+**Effect**: Significantly reduces risk of command denial bypasses through common obfuscation techniques (quotes, escaping, whitespace).
 
 ### SSH Key Management
 

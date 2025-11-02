@@ -1,6 +1,7 @@
 import fnmatch
 import ipaddress
 import json
+import re
 import sys
 import time
 
@@ -16,6 +17,40 @@ def _match_any(value: str, patterns) -> bool:
         except Exception:
             continue
     return False
+
+
+def _normalize_command(command: str) -> str:
+    """Normalize command to prevent bypass attempts.
+
+    Security: Normalizes command string to detect blocked commands that
+    might be obfuscated with quotes, escaping, or whitespace variations.
+
+    Args:
+        command: Original command string
+
+    Returns:
+        Normalized command string for pattern matching
+    """
+    if not command:
+        return ""
+
+    normalized = command
+
+    # Remove single and double quotes (common bypass technique)
+    # Example: 'rm -rf /' or "rm -rf /" -> rm -rf /
+    normalized = re.sub(r"['\"]", "", normalized)
+
+    # Remove escaped characters (convert \n to space, \t to space, etc.)
+    # Example: rm\ -rf\ / -> rm -rf /
+    normalized = re.sub(r"\\(.)", r"\1", normalized)
+
+    # Normalize whitespace: collapse multiple spaces/tabs to single space
+    normalized = re.sub(r"\s+", " ", normalized)
+
+    # Remove leading/trailing whitespace
+    normalized = normalized.strip()
+
+    return normalized
 
 
 class Policy:
@@ -86,13 +121,43 @@ class Policy:
         return self._collect_limits(alias, tags)
 
     def is_allowed(self, alias: str, tags, command: str) -> bool:
-        """Return True if command is allowed by rules + deny substrings."""
+        """Return True if command is allowed by rules + deny substrings.
+
+        Security: Enhanced with command normalization to prevent bypass attempts
+        via quotes, escaping, or whitespace variations.
+        """
         pol = self.config or {}
         deny_substrings = self._collect_limits(alias, tags).get("deny_substrings", [])
         if isinstance(deny_substrings, list):
+            # Normalize command for bypass detection
+            normalized_command = _normalize_command(command)
+
             for s in deny_substrings:
-                if s and s in command:
+                if not s:
+                    continue
+
+                # Check original command (keep existing behavior)
+                if s in command:
                     return False
+
+                # Check normalized command (prevent bypass attempts)
+                if s in normalized_command:
+                    # Log bypass attempt if original didn't match but normalized did
+                    if s not in command:
+                        self._log_bypass_attempt(alias, command, normalized_command, s)
+                    return False
+
+                # Token-based matching for common bypasses
+                # Split normalized command into tokens and check if any token matches
+                tokens = normalized_command.split()
+                for token in tokens:
+                    if s.strip() == token:
+                        # Exact token match (prevents: rm -rf /var vs rm -rf /)
+                        if s.strip() in command:
+                            return False
+                        # Token match in normalized (bypass attempt)
+                        self._log_bypass_attempt(alias, command, normalized_command, s)
+                        return False
 
         rules = pol.get("rules", [])
         matched = None
@@ -237,5 +302,25 @@ class Policy:
             "phase": phase,
             "bytes_read": bytes_read,
             "elapsed_ms": elapsed_ms,
+        }
+        print(json.dumps(entry), file=sys.stderr)
+
+    def _log_bypass_attempt(
+        self,
+        alias: str,
+        original_command: str,
+        normalized_command: str,
+        blocked_pattern: str,
+    ):
+        """Log security event for bypass attempt detection."""
+        entry = {
+            "level": "error",
+            "msg": "security_event",
+            "type": "command_bypass_attempt",
+            "ts": time.time(),
+            "alias": alias,
+            "original_command": original_command,
+            "normalized_command": normalized_command,
+            "blocked_pattern": blocked_pattern,
         }
         print(json.dumps(entry), file=sys.stderr)
