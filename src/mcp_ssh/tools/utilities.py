@@ -1,5 +1,6 @@
 import hashlib
 import json
+import re
 import sys
 import threading
 import time
@@ -11,6 +12,112 @@ from typing import Any
 def hash_command(command: str) -> str:
     """Return short SHA256 hash for a command."""
     return hashlib.sha256((command or "").encode()).hexdigest()[:12]
+
+
+def sanitize_error(error_msg: str, keep_detailed_in_logs: bool = False) -> str:
+    """Sanitize error messages to prevent information disclosure.
+
+    Security: Removes sensitive information from user-facing error messages:
+    - File paths (absolute and relative)
+    - Hostnames and IP addresses
+    - Credential references
+    - System-specific paths
+
+    Args:
+        error_msg: Original error message that may contain sensitive information
+        keep_detailed_in_logs: If True, detailed error is logged to stderr (internal use)
+
+    Returns:
+        Sanitized error message safe for user exposure
+    """
+    if not error_msg:
+        return "An error occurred"
+
+    # Keep original for logging if needed
+    original_error = error_msg
+
+    # Pattern 1: Remove file paths (absolute and relative)
+    # Matches paths like /app/config/file.yml, /etc/passwd, ./file, ../file
+    sanitized = re.sub(
+        r"[/\w\s.-]+\.(yml|yaml|json|key|pem|txt|log|conf|cfg)", "[file]", error_msg
+    )
+    sanitized = re.sub(r"/[a-zA-Z0-9_/\s-]+", "[path]", sanitized)
+    sanitized = re.sub(
+        r"[a-zA-Z]:\\[a-zA-Z0-9_\\\s-]+", "[path]", sanitized
+    )  # Windows paths
+    sanitized = re.sub(r"\.\.[/\\]", "[path]", sanitized)  # Relative paths
+
+    # Pattern 2: Remove IP addresses (IPv4) - do before user@host patterns
+    sanitized = re.sub(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b", "[ip]", sanitized)
+
+    # Pattern 3: Remove hostnames (common patterns)
+    sanitized = re.sub(
+        r"\b[a-zA-Z0-9-]+\.(local|internal|lan|corp|company)\b", "[hostname]", sanitized
+    )
+    sanitized = re.sub(
+        r"\b[a-zA-Z0-9-]+\.[a-zA-Z]{2,}\b", "[hostname]", sanitized
+    )  # Domain names
+
+    # Pattern 3.5: Remove user@host patterns (after IP replacement, handles user@[ip] too)
+    sanitized = re.sub(r"[a-zA-Z0-9_-]+@[a-zA-Z0-9.-]+", "[user@host]", sanitized)
+    sanitized = re.sub(r"[a-zA-Z0-9_-]+@\[ip\]", "[user@host]", sanitized)
+    sanitized = re.sub(r"[a-zA-Z0-9_-]+@\[hostname\]", "[user@host]", sanitized)
+
+    # Pattern 4: Remove credential references
+    sanitized = re.sub(
+        r"(password|passwd|secret|key|credential|auth)[:\s]+[^\s]+",
+        r"\1: [redacted]",
+        sanitized,
+        flags=re.IGNORECASE,
+    )
+    sanitized = re.sub(
+        r"(password|passwd|secret|key|credential|auth)\s*=\s*[^\s]+",
+        r"\1=[redacted]",
+        sanitized,
+        flags=re.IGNORECASE,
+    )
+
+    # Pattern 5: Remove common sensitive directory patterns
+    sensitive_dirs = [
+        r"/etc/passwd",
+        r"/etc/shadow",
+        r"/\.ssh/",
+        r"/\.config/",
+        r"~/.ssh",
+        r"C:\\Users",
+        r"/home/[^/\s]+",
+    ]
+    for pattern in sensitive_dirs:
+        sanitized = re.sub(pattern, "[path]", sanitized, flags=re.IGNORECASE)
+
+    # Pattern 6: Remove port numbers that might be sensitive
+    sanitized = re.sub(r":\d{1,5}\b", ":[port]", sanitized)  # Colon-prefixed ports
+    sanitized = re.sub(
+        r"\bport\s+\d{1,5}\b", "port [port]", sanitized, flags=re.IGNORECASE
+    )  # "port 2222"
+    sanitized = re.sub(
+        r"\bon\s+port\s+\d{1,5}\b", "on port [port]", sanitized, flags=re.IGNORECASE
+    )  # "on port 2222"
+
+    # If we've sanitized too aggressively and message is too generic, provide generic message
+    if (
+        sanitized.strip() in ["[path]", "[ip]", "[hostname]", ""]
+        or len(sanitized.strip()) < 10
+    ):
+        sanitized = "An error occurred while processing the request"
+
+    # Log detailed error to stderr for debugging (contains original sensitive info)
+    if keep_detailed_in_logs:
+        log_json(
+            {
+                "level": "error",
+                "msg": "error_details",
+                "sanitized": sanitized,
+                "original": original_error,
+            }
+        )
+
+    return sanitized
 
 
 class TaskManager:

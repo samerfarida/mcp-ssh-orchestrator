@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased] - 2025-11-02
 
 ### Added
+- **Error Message Sanitization (PR5)**: Added error message sanitization to prevent information disclosure
+  - All user-facing error messages sanitized to remove sensitive information
+  - File paths, IP addresses, hostnames, credentials, and port numbers removed from user responses
+  - Original detailed errors logged to stderr (structured JSON logs) for debugging
+  - Added `sanitize_error()` function in `mcp_ssh/tools/utilities.py` with comprehensive pattern matching
+  - Updated all exception handlers in `mcp_server.py` to sanitize errors
+  - Updated `ssh_client.py` to provide generic error messages (detailed errors in exception chain)
+  - Comprehensive tests for all sanitization patterns
+  - Updated documentation with error sanitization details
 - **Path Traversal Protection (PR1 & PR2)**: Security enhancements to prevent path traversal attacks
   - **Secret Path Protection (`_resolve_secret`)**:
     - Secret name validation: only alphanumeric characters, dashes, and underscores allowed

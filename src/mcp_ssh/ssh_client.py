@@ -151,27 +151,21 @@ class SSHClient:
                 client.close()
             except Exception:
                 pass
-            # Provide more specific error context
+            # Provide generic error messages (sensitive details logged separately)
+            # Note: Detailed error with hostname/IP is logged to stderr via exception chaining
+            # User-facing error is sanitized by mcp_server.py exception handlers
             if "Authentication failed" in str(e):
-                raise RuntimeError(
-                    f"SSH authentication failed for {self.username}@{self.host}:{self.port}"
-                ) from e
+                raise RuntimeError("SSH authentication failed") from e
             elif "No such file or directory" in str(e) and self.key_path:
-                raise RuntimeError(f"SSH key file not found: {self.key_path}") from e
+                raise RuntimeError("SSH key file not found") from e
             elif "Permission denied" in str(e):
-                raise RuntimeError(
-                    f"SSH permission denied for {self.username}@{self.host}:{self.port}"
-                ) from e
+                raise RuntimeError("SSH permission denied") from e
             elif "Connection refused" in str(e):
-                raise RuntimeError(
-                    f"SSH connection refused to {self.host}:{self.port}"
-                ) from e
+                raise RuntimeError("SSH connection refused") from e
             elif "Name or service not known" in str(e):
-                raise RuntimeError(f"SSH hostname not found: {self.host}") from e
+                raise RuntimeError("SSH hostname not found") from e
             else:
-                raise RuntimeError(
-                    f"SSH connection failed to {self.host}:{self.port}: {str(e)}"
-                ) from e
+                raise RuntimeError("SSH connection failed") from e
 
     def run_streaming(
         self,

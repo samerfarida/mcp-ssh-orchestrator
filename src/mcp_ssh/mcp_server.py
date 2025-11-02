@@ -6,7 +6,13 @@ from mcp.server.fastmcp import FastMCP
 from mcp_ssh.config import Config
 from mcp_ssh.policy import Policy
 from mcp_ssh.ssh_client import SSHClient
-from mcp_ssh.tools.utilities import ASYNC_TASKS, TASKS, hash_command, log_json
+from mcp_ssh.tools.utilities import (
+    ASYNC_TASKS,
+    TASKS,
+    hash_command,
+    log_json,
+    sanitize_error,
+)
 
 mcp = FastMCP()
 config = Config()
@@ -104,7 +110,9 @@ def ssh_list_hosts() -> str:
         hosts = config.list_hosts()
         return json.dumps(hosts)
     except Exception as e:
-        return f"Error: {e}"
+        error_str = str(e)
+        log_json({"level": "error", "msg": "list_hosts_exception", "error": error_str})
+        return f"Error: {sanitize_error(error_str)}"
 
 
 @mcp.tool()
@@ -114,7 +122,9 @@ def ssh_describe_host(alias: str = "") -> str:
         host = config.get_host(alias)
         return json.dumps(host, indent=2)
     except Exception as e:
-        return f"Error: {e}"
+        error_str = str(e)
+        log_json({"level": "error", "msg": "list_hosts_exception", "error": error_str})
+        return f"Error: {sanitize_error(error_str)}"
 
 
 @mcp.tool()
@@ -140,7 +150,9 @@ def ssh_plan(alias: str = "", command: str = "") -> str:
         }
         return json.dumps(preview, indent=2)
     except Exception as e:
-        return f"Error: {e}"
+        error_str = str(e)
+        log_json({"level": "error", "msg": "list_hosts_exception", "error": error_str})
+        return f"Error: {sanitize_error(error_str)}"
 
 
 @mcp.tool()
@@ -246,8 +258,9 @@ def ssh_run(alias: str = "", command: str = "") -> str:
         }
         return json.dumps(result, indent=2)
     except Exception as e:
-        log_json({"level": "error", "msg": "run_exception", "error": str(e)})
-        return f"Run error: {e}"
+        error_str = str(e)
+        log_json({"level": "error", "msg": "run_exception", "error": error_str})
+        return f"Run error: {sanitize_error(error_str)}"
     finally:
         elapsed = int((time.time() - start) * 1000)
         log_json({"type": "trace", "op": "run_done", "elapsed_ms": elapsed})
@@ -393,7 +406,9 @@ def ssh_run_on_tag(tag: str = "", command: str = "") -> str:
 
         return json.dumps({"tag": tag, "results": results}, indent=2)
     except Exception as e:
-        return f"Run on tag error: {e}"
+        error_str = str(e)
+        log_json({"level": "error", "msg": "run_on_tag_exception", "error": error_str})
+        return f"Run on tag error: {sanitize_error(error_str)}"
 
 
 @mcp.tool()
@@ -407,7 +422,9 @@ def ssh_cancel(task_id: str = "") -> str:
             return f"Cancellation signaled for task_id: {task_id}"
         return f"Task not found: {task_id}"
     except Exception as e:
-        return f"Cancel error: {e}"
+        error_str = str(e)
+        log_json({"level": "error", "msg": "cancel_exception", "error": error_str})
+        return f"Cancel error: {sanitize_error(error_str)}"
 
 
 @mcp.tool()
@@ -417,7 +434,9 @@ def ssh_reload_config() -> str:
         config.reload()
         return "Configuration reloaded."
     except Exception as e:
-        return f"Reload error: {e}"
+        error_str = str(e)
+        log_json({"level": "error", "msg": "reload_exception", "error": error_str})
+        return f"Reload error: {sanitize_error(error_str)}"
 
 
 @mcp.tool()
@@ -492,8 +511,9 @@ def ssh_run_async(alias: str = "", command: str = "") -> str:
         return json.dumps(result, indent=2)
 
     except Exception as e:
-        log_json({"level": "error", "msg": "async_run_exception", "error": str(e)})
-        return f"Async run error: {e}"
+        error_str = str(e)
+        log_json({"level": "error", "msg": "async_run_exception", "error": error_str})
+        return f"Async run error: {sanitize_error(error_str)}"
 
 
 @mcp.tool()
@@ -513,7 +533,9 @@ def ssh_get_task_status(task_id: str = "") -> str:
         return json.dumps(status, indent=2)
 
     except Exception as e:
-        return f"Status error: {e}"
+        error_str = str(e)
+        log_json({"level": "error", "msg": "status_exception", "error": error_str})
+        return f"Status error: {sanitize_error(error_str)}"
 
 
 @mcp.tool()
@@ -533,7 +555,9 @@ def ssh_get_task_result(task_id: str = "") -> str:
         return json.dumps(result, indent=2)
 
     except Exception as e:
-        return f"Result error: {e}"
+        error_str = str(e)
+        log_json({"level": "error", "msg": "result_exception", "error": error_str})
+        return f"Result error: {sanitize_error(error_str)}"
 
 
 @mcp.tool()
@@ -556,7 +580,9 @@ def ssh_get_task_output(task_id: str = "", max_lines: int = 50) -> str:
         return json.dumps(output, indent=2)
 
     except Exception as e:
-        return f"Output error: {e}"
+        error_str = str(e)
+        log_json({"level": "error", "msg": "output_exception", "error": error_str})
+        return f"Output error: {sanitize_error(error_str)}"
 
 
 @mcp.tool()
@@ -573,7 +599,11 @@ def ssh_cancel_async_task(task_id: str = "") -> str:
             return f"Task not found or not cancellable: {task_id}"
 
     except Exception as e:
-        return f"Cancel error: {e}"
+        error_str = str(e)
+        log_json(
+            {"level": "error", "msg": "cancel_async_exception", "error": error_str}
+        )
+        return f"Cancel error: {sanitize_error(error_str)}"
 
 
 def main():
