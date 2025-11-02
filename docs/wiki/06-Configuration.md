@@ -186,6 +186,17 @@ All resolved file paths are validated to ensure security:
 
 **Security Events**: All path traversal attempts and file validation failures are logged as security events for monitoring and incident response.
 
+#### YAML File Size Limits
+
+All YAML configuration files are protected against resource exhaustion attacks:
+
+- **Maximum File Size**: 10MB per YAML file (applies to `servers.yml`, `credentials.yml`, `policy.yml`)
+- **Size Validation**: File size is checked before parsing to prevent loading oversized files
+- **Security Impact**: Prevents resource exhaustion attacks via maliciously large configuration files
+- **Logging**: Size limit violations are logged as security events
+
+**Effect**: Protects against memory exhaustion and processing time attacks while allowing legitimate large configurations.
+
 ### File Permissions
 ```bash
 # Secure configuration files

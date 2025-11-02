@@ -10,10 +10,44 @@ DEFAULT_CONFIG_DIR = os.environ.get("MCP_SSH_CONFIG_DIR", "/app/config")
 DEFAULT_KEYS_DIR = os.environ.get("MCP_SSH_KEYS_DIR", "/app/keys")
 DEFAULT_SECRETS_DIR = os.environ.get("MCP_SSH_SECRETS_DIR", "/app/secrets")
 
+# Maximum file size for YAML config files (10MB)
+# Prevents resource exhaustion attacks via oversized YAML files
+MAX_YAML_FILE_SIZE = 10 * 1024 * 1024  # 10MB in bytes
+
 
 def _load_yaml(path: str) -> dict:
-    """Load YAML file to dict."""
+    """Load YAML file to dict with size limit protection.
+
+    Security: Validates file size before loading to prevent resource exhaustion
+    attacks via oversized YAML files.
+
+    Args:
+        path: Path to YAML file to load
+
+    Returns:
+        Dictionary containing parsed YAML data, or empty dict on error/size limit
+    """
     try:
+        # Check if file exists
+        if not os.path.exists(path):
+            return {}
+
+        # Check file size before loading to prevent resource exhaustion
+        file_size = os.path.getsize(path)
+        if file_size > MAX_YAML_FILE_SIZE:
+            _log_err(
+                "security_event",
+                {
+                    "type": "file_size_limit_exceeded",
+                    "path": path,
+                    "file_size": file_size,
+                    "max_size": MAX_YAML_FILE_SIZE,
+                    "reason": "yaml_file_too_large",
+                },
+            )
+            return {}
+
+        # Load YAML file
         with open(path, encoding="utf-8") as f:
             return yaml.safe_load(f) or {}
     except FileNotFoundError:

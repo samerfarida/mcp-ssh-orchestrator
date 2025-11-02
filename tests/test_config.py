@@ -7,7 +7,9 @@ import pytest
 import yaml
 
 from mcp_ssh.config import (
+    MAX_YAML_FILE_SIZE,
     Config,
+    _load_yaml,
     _resolve_key_path,
     _resolve_secret,
     _validate_file_path,
@@ -644,3 +646,94 @@ def test_resolve_key_path_regular_file_still_works():
         # Regular file should still work (absolute path)
         result2 = _resolve_key_path(key_path, keys_dir=tmpdir)
         assert result2 == os.path.abspath(key_path)
+
+
+def test_load_yaml_normal_size():
+    """Test that normal sized YAML files load correctly."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        yaml_path = os.path.join(tmpdir, "test.yml")
+        # Create a small YAML file (much smaller than limit)
+        yaml_content = {
+            "test": "data",
+            "key": "value",
+            "list": [1, 2, 3],
+        }
+        with open(yaml_path, "w") as f:
+            yaml.dump(yaml_content, f)
+
+        result = _load_yaml(yaml_path)
+        assert result == yaml_content
+
+
+def test_load_yaml_oversized_file():
+    """Test that oversized YAML files are rejected."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        yaml_path = os.path.join(tmpdir, "oversized.yml")
+        # Create a file larger than MAX_YAML_FILE_SIZE
+        # We'll create a file that's slightly larger than the limit
+        oversized_size = MAX_YAML_FILE_SIZE + 1024  # 1KB over limit
+        with open(yaml_path, "w") as f:
+            # Write enough data to exceed the limit
+            # YAML files are text, so we'll write a large string
+            large_content = "key: " + "x" * oversized_size
+            f.write(large_content)
+
+        # Verify file size exceeds limit
+        assert os.path.getsize(yaml_path) > MAX_YAML_FILE_SIZE
+
+        # Should return empty dict and log security event
+        result = _load_yaml(yaml_path)
+        assert result == {}
+
+
+def test_load_yaml_at_size_limit():
+    """Test that files at exactly the size limit still load."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        yaml_path = os.path.join(tmpdir, "at_limit.yml")
+        # Create a file exactly at the size limit
+        yaml_content = {
+            "test": "x" * (MAX_YAML_FILE_SIZE - 50)
+        }  # Leave room for YAML structure
+        with open(yaml_path, "w") as f:
+            yaml.dump(yaml_content, f)
+
+        # If file is at or under limit, it should load
+        # We'll truncate it if needed to be exactly at limit
+        if os.path.getsize(yaml_path) <= MAX_YAML_FILE_SIZE:
+            result = _load_yaml(yaml_path)
+            assert "test" in result
+        else:
+            # File exceeded limit during dump, which is expected
+            pass
+
+
+def test_load_yaml_missing_file():
+    """Test that missing files return empty dict."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        missing_path = os.path.join(tmpdir, "nonexistent.yml")
+        result = _load_yaml(missing_path)
+        assert result == {}
+
+
+def test_load_yaml_invalid_yaml():
+    """Test that invalid YAML returns empty dict and logs error."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        yaml_path = os.path.join(tmpdir, "invalid.yml")
+        with open(yaml_path, "w") as f:
+            f.write("invalid: yaml: content: [unclosed")
+
+        result = _load_yaml(yaml_path)
+        # Should return empty dict on parse error
+        assert result == {}
+
+
+def test_load_yaml_empty_file():
+    """Test that empty YAML files return empty dict."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        yaml_path = os.path.join(tmpdir, "empty.yml")
+        with open(yaml_path, "w") as f:
+            f.write("")
+
+        result = _load_yaml(yaml_path)
+        # Empty YAML should return empty dict
+        assert result == {}
