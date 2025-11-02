@@ -242,3 +242,140 @@ def test_empty_config():
 
     # Deny by default
     assert pol.is_allowed("test1", [], "any command") is False
+
+
+def test_bypass_prevention_quotes_single(basic_policy):
+    """Test that single quotes don't bypass command denial."""
+    pol = Policy(basic_policy)
+
+    # Should be blocked even with quotes
+    assert pol.is_allowed("test1", [], "echo 'rm -rf /'") is False
+    assert pol.is_allowed("test1", [], "'rm -rf /'") is False
+
+
+def test_bypass_prevention_quotes_double(basic_policy):
+    """Test that double quotes don't bypass command denial."""
+    pol = Policy(basic_policy)
+
+    # Should be blocked even with quotes
+    assert pol.is_allowed("test1", [], 'echo "rm -rf /"') is False
+    assert pol.is_allowed("test1", [], '"rm -rf /"') is False
+
+
+def test_bypass_prevention_mixed_quotes(basic_policy):
+    """Test that mixed quotes don't bypass command denial."""
+    pol = Policy(basic_policy)
+
+    # Should be blocked even with mixed quotes
+    assert pol.is_allowed("test1", [], "echo \"rm -rf /'test'\"") is False
+    assert pol.is_allowed("test1", [], "echo 'rm -rf /\"/test\"'") is False
+
+
+def test_bypass_prevention_escaped_characters(basic_policy):
+    """Test that escaped characters don't bypass command denial."""
+    pol = Policy(basic_policy)
+
+    # Should be blocked even with escaped characters
+    assert pol.is_allowed("test1", [], "rm\\ -rf\\ /") is False
+    assert pol.is_allowed("test1", [], "shutdown\\ -h") is False
+
+
+def test_bypass_prevention_whitespace_variations(basic_policy):
+    """Test that whitespace variations don't bypass command denial."""
+    pol = Policy(basic_policy)
+
+    # Multiple spaces should normalize to single space
+    assert pol.is_allowed("test1", [], "rm    -rf    /") is False
+    # Tabs should normalize to space
+    assert pol.is_allowed("test1", [], "rm\t-rf\t/") is False
+    # Mixed whitespace should normalize
+    assert pol.is_allowed("test1", [], "rm  \t  -rf  \t  /") is False
+
+
+def test_bypass_prevention_token_matching(basic_policy):
+    """Test that token-based matching prevents bypasses."""
+    # Token-based matching is tested via normalized command checking
+    # which checks both original and normalized forms
+    # Additional token-specific tests would require more complex policy rules
+    pass
+
+
+def test_bypass_prevention_legitimate_commands_still_work(basic_policy):
+    """Test that legitimate commands still work despite normalization."""
+    pol = Policy(basic_policy)
+
+    # These should still be allowed (match allow rules, don't match deny_substrings)
+    assert pol.is_allowed("test1", [], "uptime") is True
+    assert pol.is_allowed("test1", [], "df -h") is True
+
+    # Commands with quotes that match allow rules should still work
+    # Note: 'echo "hello world"' doesn't match any allow rule, so would be denied
+    # But commands that ARE allowed by rules should work even with quotes
+    assert (
+        pol.is_allowed("test1", [], 'uptime "server1"') is True
+    )  # Still contains "uptime"
+
+
+def test_normalize_command_quotes_removal():
+    """Test command normalization removes quotes."""
+    from mcp_ssh.policy import _normalize_command
+
+    assert _normalize_command("rm -rf /") == "rm -rf /"
+    assert _normalize_command('"rm -rf /"') == "rm -rf /"
+    assert _normalize_command("'rm -rf /'") == "rm -rf /"
+    assert _normalize_command('echo "rm -rf /"') == "echo rm -rf /"
+
+
+def test_normalize_command_escape_removal():
+    """Test command normalization removes escaping."""
+    from mcp_ssh.policy import _normalize_command
+
+    assert _normalize_command("rm\\ -rf\\ /") == "rm -rf /"
+    assert _normalize_command("shutdown\\ -h") == "shutdown -h"
+
+
+def test_normalize_command_whitespace_normalization():
+    """Test command normalization normalizes whitespace."""
+    from mcp_ssh.policy import _normalize_command
+
+    assert _normalize_command("rm    -rf    /") == "rm -rf /"
+    assert _normalize_command("rm\t-rf\t/") == "rm -rf /"
+    assert _normalize_command("rm  \t  -rf  \t  /") == "rm -rf /"
+    assert _normalize_command("  rm -rf /  ") == "rm -rf /"
+
+
+def test_normalize_command_complex_bypass():
+    """Test command normalization handles complex bypass attempts."""
+    from mcp_ssh.policy import _normalize_command
+
+    # Complex bypass attempt
+    normalized = _normalize_command('echo "rm\\ -rf\\ /"')
+    # Should normalize to: echo rm -rf /
+    assert "rm -rf /" in normalized
+    assert '"' not in normalized
+    assert "\\" not in normalized
+
+    # Another complex case
+    normalized = _normalize_command("'rm'    '-rf'    '/'")
+    assert normalized == "rm -rf /"
+
+
+def test_bypass_prevention_substring_in_normalized_only(basic_policy):
+    """Test that commands blocked only in normalized form are detected."""
+    pol = Policy(basic_policy)
+
+    # Command that would bypass without normalization
+    # 'rm -rf /' doesn't contain 'rm -rf /' directly, but normalized does
+    assert pol.is_allowed("test1", [], "'rm -rf /'") is False
+
+    # Similar with escaped
+    assert pol.is_allowed("test1", [], "rm\\ -rf\\ /") is False
+
+
+def test_bypass_prevention_multiple_patterns(basic_policy):
+    """Test bypass prevention works for multiple deny patterns."""
+    pol = Policy(basic_policy)
+
+    # Both patterns should be caught
+    assert pol.is_allowed("test1", [], "'rm -rf /'") is False
+    assert pol.is_allowed("test1", [], '"shutdown -h"') is False

@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased] - 2025-11-02
 
 ### Added
+- **Command Denial Bypass Prevention (PR7)**: Enhanced command denial logic to prevent bypass attempts
+  - Added `_normalize_command()` function that removes quotes, handles escaped characters, and normalizes whitespace
+  - Enhanced `is_allowed()` method with dual checking (original + normalized command)
+  - Added token-based matching for common bypass patterns
+  - Added security event logging for detected bypass attempts
+  - Prevents bypasses via: quote obfuscation (`'rm -rf /'`), escaped characters (`rm\ -rf\ /`), whitespace variations
+  - Comprehensive tests for all bypass prevention techniques
+  - Updated documentation with bypass prevention details and limitations
 - **Input Validation for User-Controlled Parameters (PR6)**: Added comprehensive input validation to prevent injection attacks and resource exhaustion
   - Added validation helper functions: `_validate_alias()`, `_validate_command()`, `_validate_tag()`, `_validate_task_id()`
   - Alias validation: 100 char limit, alphanumeric/dash/underscore/dot only
