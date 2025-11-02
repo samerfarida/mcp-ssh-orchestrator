@@ -156,6 +156,26 @@ print('Policy valid:', policy.validate())
 
 ## Configuration Security
 
+### Path Traversal Protection
+
+**Security Enhancement:** mcp-ssh-orchestrator includes built-in path traversal protection for all file path resolution.
+
+#### Secret Path Security
+
+- Secret names are validated to contain only safe characters (alphanumeric, dash, underscore)
+- Absolute paths are rejected for secrets (relative paths only)
+- All paths are normalized and validated to stay within `/app/secrets`
+- Path traversal attempts (e.g., `../`, `..\\`) are blocked and logged
+
+#### SSH Key Path Security
+
+- Key paths can be relative or absolute
+- Absolute paths must be within the configured `keys_dir`
+- Traversal patterns (`..`, `..\\`) are detected and rejected
+- Paths are normalized and validated before access
+
+**Security Events**: All path traversal attempts are logged as security events for monitoring and incident response.
+
 ### File Permissions
 ```bash
 # Secure configuration files
