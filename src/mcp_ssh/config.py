@@ -31,7 +31,9 @@ def _log_err(kind: str, data: dict) -> None:
         pass
 
 
-def _validate_file_path(file_path: str, base_dir: str, require_exists: bool = True) -> bool:
+def _validate_file_path(
+    file_path: str, base_dir: str, require_exists: bool = True
+) -> bool:
     """Validate that a file path is a regular file within allowed directory.
 
     Security: Validates that the path:
