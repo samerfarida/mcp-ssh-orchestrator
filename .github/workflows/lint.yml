@@ -11,16 +11,38 @@ on:
       - '.github/workflows/*.yml'
   pull_request:
     branches: [main]
-    paths:
-      - 'src/**/*.py'
-      - 'tests/**/*.py'
-      - 'pyproject.toml'
-      - 'setup.py'
-      - '.github/workflows/*.yml'
+    # Paths filter removed - workflows run on all PRs but skip jobs when only docs change
 
 jobs:
+  check-changes:
+    name: Check for code changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      has-code-changes: ${{ steps.filter.outputs.src == 'true' || steps.filter.outputs.tests == 'true' || steps.filter.outputs.config == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Check for code changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            src:
+              - 'src/**/*.py'
+            tests:
+              - 'tests/**/*.py'
+            config:
+              - 'pyproject.toml'
+              - 'setup.py'
+              - '.github/workflows/*.yml'
+      
+
   ruff:
     name: Ruff Linting
+    needs: check-changes
+    if: needs.check-changes.outputs.has-code-changes == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -41,6 +63,8 @@ jobs:
 
   black:
     name: Black Formatting
+    needs: check-changes
+    if: needs.check-changes.outputs.has-code-changes == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -61,6 +85,8 @@ jobs:
 
   mypy:
     name: Type Checking
+    needs: check-changes
+    if: needs.check-changes.outputs.has-code-changes == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -79,4 +105,15 @@ jobs:
       - name: Run mypy
         run: mypy src/ --ignore-missing-imports
         continue-on-error: true
+
+  skip-docs-only:
+    name: Skip (docs only)
+    needs: check-changes
+    if: needs.check-changes.outputs.has-code-changes != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Skip workflow
+        run: echo "✅ Documentation-only PR - lint checks skipped"
 
