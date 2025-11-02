@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - SSH key path validation documentation with relative/absolute path rules
   - Security event logging examples for path traversal attempts
   - Updated credentials and configuration documentation with security features
+- **File Path Validation (PR3)**: Added file type validation for secret and key paths
+  - Added `_validate_file_path()` helper function that validates paths are regular files
+  - Rejects directories and symbolic links for security
+  - Integrated validation into `_resolve_secret()` and `_resolve_key_path()`
+  - Added comprehensive tests for directory/symlink rejection and regular file validation
+  - Updated documentation with file type validation requirements
 
 ### Fixed
 - **CI/CD Workflow Fix**: Fixed lint and build workflows to run on documentation-only PRs

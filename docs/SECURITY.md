@@ -89,6 +89,41 @@ SSH key paths include similar protections:
 
 **Effect**: Prevents reading files outside intended directories, blocking common path traversal attack vectors.
 
+#### File Type Validation
+
+All resolved paths are validated to ensure they are regular files:
+
+1. **Directory Rejection**: Paths pointing to directories are rejected
+   ```yaml
+   # ❌ Invalid (will be rejected)
+   password_secret: "subdirectory"  # Points to a directory, not a file
+   ```
+
+2. **Symlink Rejection**: Symbolic links are rejected for security
+   ```yaml
+   # ❌ Invalid (will be rejected)
+   password_secret: "symlink_secret"  # Points to a symlink, not a regular file
+   ```
+   **Why reject symlinks?** Symlinks can be manipulated to point outside the allowed directory or to sensitive files, creating security risks.
+
+3. **Regular File Requirement**: Only regular files within the allowed directory are accepted
+   - Non-existent files are allowed for SSH keys (validated when used)
+   - Secrets must exist as regular files (immediate read required)
+   - All paths must stay within their designated directories
+
+4. **Security Event Logging**: File validation failures are logged:
+   ```json
+   {
+     "level": "error",
+     "kind": "security_event",
+     "type": "file_validation_failed",
+     "file_path": "/app/secrets/subdirectory",
+     "reason": "path_is_directory"
+   }
+   ```
+
+**Effect**: Prevents accessing directories or symlinks that could lead to security vulnerabilities or unauthorized access.
+
 ### SSH Key Management
 
 **Best Practices:**

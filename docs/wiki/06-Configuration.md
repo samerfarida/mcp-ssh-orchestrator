@@ -173,8 +173,18 @@ print('Policy valid:', policy.validate())
 - Absolute paths must be within the configured `keys_dir`
 - Traversal patterns (`..`, `..\\`) are detected and rejected
 - Paths are normalized and validated before access
+- Only regular files are accepted (directories and symlinks are rejected)
 
-**Security Events**: All path traversal attempts are logged as security events for monitoring and incident response.
+#### File Type Validation
+
+All resolved file paths are validated to ensure security:
+
+- **Directories**: Rejected (paths must point to files, not directories)
+- **Symbolic Links**: Rejected (symlinks can be security risks)
+- **Regular Files**: Accepted (must exist for secrets, optional for keys)
+- **Non-existent files**: Allowed for keys (validated when actually used)
+
+**Security Events**: All path traversal attempts and file validation failures are logged as security events for monitoring and incident response.
 
 ### File Permissions
 ```bash

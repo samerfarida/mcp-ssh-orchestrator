@@ -31,6 +31,98 @@ def _log_err(kind: str, data: dict) -> None:
         pass
 
 
+def _validate_file_path(file_path: str, base_dir: str, require_exists: bool = True) -> bool:
+    """Validate that a file path is a regular file within allowed directory.
+
+    Security: Validates that the path:
+    - Stays within the allowed base directory
+    - Is not a directory (if path exists)
+    - Is not a symlink (if path exists, symlinks are rejected for security)
+    - Is a regular file (if path exists and require_exists=True)
+
+    Args:
+        file_path: Absolute path to the file to validate
+        base_dir: Absolute path to the base directory (allowed directory)
+        require_exists: If True, require file to exist and be a regular file.
+                       If False, only check directory/symlink if path exists.
+
+    Returns:
+        True if valid, False otherwise
+    """
+    if not file_path or not base_dir:
+        return False
+
+    # Check that file path stays within base_dir
+    base_abs = os.path.abspath(base_dir)
+    file_abs = os.path.abspath(file_path)
+
+    # Validate resolved path stays within base directory
+    if not file_abs.startswith(base_abs + os.sep) and file_abs != base_abs:
+        _log_err(
+            "security_event",
+            {
+                "type": "file_validation_failed",
+                "file_path": file_path,
+                "base_dir": base_abs,
+                "reason": "path_outside_allowed_directory",
+            },
+        )
+        return False
+
+    # If path doesn't exist, only validate if we require existence
+    if not os.path.exists(file_abs):
+        if require_exists:
+            _log_err(
+                "security_event",
+                {
+                    "type": "file_validation_failed",
+                    "file_path": file_path,
+                    "reason": "file_not_found",
+                },
+            )
+            return False
+        # If we don't require existence, path is valid (file might be created later)
+        return True
+
+    # Check if path is a directory (reject directories)
+    if os.path.isdir(file_abs):
+        _log_err(
+            "security_event",
+            {
+                "type": "file_validation_failed",
+                "file_path": file_path,
+                "reason": "path_is_directory",
+            },
+        )
+        return False
+
+    # Check if path is a symlink (reject symlinks for security)
+    if os.path.islink(file_abs):
+        _log_err(
+            "security_event",
+            {
+                "type": "file_validation_failed",
+                "file_path": file_path,
+                "reason": "path_is_symlink",
+            },
+        )
+        return False
+
+    # If we require existence, check if path is a regular file
+    if require_exists and not os.path.isfile(file_abs):
+        _log_err(
+            "security_event",
+            {
+                "type": "file_validation_failed",
+                "file_path": file_path,
+                "reason": "path_not_regular_file",
+            },
+        )
+        return False
+
+    return True
+
+
 def _resolve_secret(secret_name: str, secrets_dir: str = "") -> str:
     """Resolve a secret from Docker secrets directory or environment variable.
 
@@ -94,6 +186,10 @@ def _resolve_secret(secret_name: str, secrets_dir: str = "") -> str:
                 "reason": "path_outside_allowed_directory",
             },
         )
+        return ""
+
+    # Validate file path: must be regular file, not directory or symlink
+    if not _validate_file_path(resolved_abs, base_abs):
         return ""
 
     try:
@@ -161,6 +257,10 @@ def _resolve_key_path(key_path: str, keys_dir: str = "") -> str:
                 },
             )
             return ""
+        # Validate file path: reject directories and symlinks, but allow non-existent files
+        # (key file will be validated when actually used in SSH connection)
+        if not _validate_file_path(resolved_abs, base_abs, require_exists=False):
+            return ""
         return resolved_abs
 
     # Handle relative paths with path traversal protection
@@ -184,6 +284,11 @@ def _resolve_key_path(key_path: str, keys_dir: str = "") -> str:
                 "reason": "path_outside_allowed_directory",
             },
         )
+        return ""
+
+    # Validate file path: reject directories and symlinks, but allow non-existent files
+    # (key file will be validated when actually used in SSH connection)
+    if not _validate_file_path(resolved_abs, base_abs, require_exists=False):
         return ""
 
     return resolved_abs

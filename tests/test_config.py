@@ -6,7 +6,12 @@ import tempfile
 import pytest
 import yaml
 
-from mcp_ssh.config import Config, _resolve_key_path, _resolve_secret
+from mcp_ssh.config import (
+    Config,
+    _resolve_key_path,
+    _resolve_secret,
+    _validate_file_path,
+)
 
 
 @pytest.fixture
@@ -475,8 +480,167 @@ def test_resolve_key_path_normal_file_access_still_works():
 
 
 def test_resolve_key_path_absolute_same_as_keys_dir():
-    """Test that absolute path pointing to keys_dir itself works."""
+    """Test that absolute path pointing to keys_dir itself is rejected (not a file)."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        # Absolute path to keys_dir itself should work (edge case)
+        # Absolute path to keys_dir itself should be rejected (it's a directory, not a file)
         result = _resolve_key_path(tmpdir, keys_dir=tmpdir)
-        assert result == os.path.abspath(tmpdir)
+        assert result == ""
+
+
+def test_validate_file_path_directory_rejection():
+    """Test that directory paths are rejected."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create a subdirectory
+        subdir = os.path.join(tmpdir, "subdir")
+        os.makedirs(subdir, exist_ok=True)
+
+        # Directory should be rejected
+        result = _validate_file_path(subdir, tmpdir)
+        assert result is False
+
+
+def test_validate_file_path_symlink_rejection():
+    """Test that symlinks are rejected."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create a regular file
+        target_file = os.path.join(tmpdir, "target_file")
+        with open(target_file, "w") as f:
+            f.write("target content")
+
+        # Create a symlink to the target
+        symlink_path = os.path.join(tmpdir, "symlink")
+        os.symlink(target_file, symlink_path)
+
+        # Symlink should be rejected
+        result = _validate_file_path(symlink_path, tmpdir)
+        assert result is False
+
+
+def test_validate_file_path_non_existent():
+    """Test that non-existent files are rejected."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Non-existent file should be rejected
+        nonexistent = os.path.join(tmpdir, "nonexistent_file")
+        result = _validate_file_path(nonexistent, tmpdir)
+        assert result is False
+
+
+def test_validate_file_path_outside_directory():
+    """Test that files outside allowed directory are rejected."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create a file outside the allowed directory
+        parent_dir = os.path.dirname(tmpdir)
+        outside_file = os.path.join(parent_dir, "outside_file")
+        with open(outside_file, "w") as f:
+            f.write("outside content")
+
+        try:
+            # File outside directory should be rejected
+            result = _validate_file_path(outside_file, tmpdir)
+            assert result is False
+        finally:
+            # Clean up
+            os.remove(outside_file)
+
+
+def test_validate_file_path_regular_file_allowed():
+    """Test that regular files within allowed directory are allowed."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create a regular file
+        regular_file = os.path.join(tmpdir, "regular_file")
+        with open(regular_file, "w") as f:
+            f.write("file content")
+
+        # Regular file should be allowed
+        result = _validate_file_path(regular_file, tmpdir)
+        assert result is True
+
+
+def test_resolve_secret_directory_rejection():
+    """Test that secret resolution rejects directories."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create a subdirectory (not a file)
+        subdir = os.path.join(tmpdir, "subdir")
+        os.makedirs(subdir, exist_ok=True)
+
+        # Try to resolve a directory as a secret (should fail)
+        result = _resolve_secret("subdir", secrets_dir=tmpdir)
+        assert result == ""
+
+
+def test_resolve_secret_symlink_rejection():
+    """Test that secret resolution rejects symlinks."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create a target secret file
+        target_secret = os.path.join(tmpdir, "target_secret")
+        with open(target_secret, "w") as f:
+            f.write("target-secret")
+
+        # Create a symlink
+        symlink_name = "symlink_secret"
+        symlink_path = os.path.join(tmpdir, symlink_name)
+        os.symlink(target_secret, symlink_path)
+
+        # Symlink should be rejected
+        result = _resolve_secret(symlink_name, secrets_dir=tmpdir)
+        assert result == ""
+
+
+def test_resolve_key_path_directory_rejection():
+    """Test that key path resolution rejects directories."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create a subdirectory (not a file)
+        subdir = os.path.join(tmpdir, "subdir")
+        os.makedirs(subdir, exist_ok=True)
+
+        # Try to resolve a directory as a key path (should fail)
+        result = _resolve_key_path("subdir", keys_dir=tmpdir)
+        assert result == ""
+
+
+def test_resolve_key_path_symlink_rejection():
+    """Test that key path resolution rejects symlinks."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create a target key file
+        target_key = os.path.join(tmpdir, "target_key")
+        with open(target_key, "w") as f:
+            f.write("target-key")
+
+        # Create a symlink
+        symlink_name = "symlink_key"
+        symlink_path = os.path.join(tmpdir, symlink_name)
+        os.symlink(target_key, symlink_path)
+
+        # Symlink should be rejected
+        result = _resolve_key_path(symlink_name, keys_dir=tmpdir)
+        assert result == ""
+
+
+def test_resolve_secret_regular_file_still_works():
+    """Test that regular files still work after adding file validation."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create a regular secret file
+        secret_path = os.path.join(tmpdir, "valid_secret")
+        with open(secret_path, "w") as f:
+            f.write("valid-secret-content")
+
+        # Regular file should still work
+        result = _resolve_secret("valid_secret", secrets_dir=tmpdir)
+        assert result == "valid-secret-content"
+
+
+def test_resolve_key_path_regular_file_still_works():
+    """Test that regular files still work after adding file validation."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create a regular key file
+        key_path = os.path.join(tmpdir, "valid_key")
+        with open(key_path, "w") as f:
+            f.write("valid-key-content")
+
+        # Regular file should still work (relative path)
+        result = _resolve_key_path("valid_key", keys_dir=tmpdir)
+        assert result == os.path.abspath(key_path)
+
+        # Regular file should still work (absolute path)
+        result2 = _resolve_key_path(key_path, keys_dir=tmpdir)
+        assert result2 == os.path.abspath(key_path)
