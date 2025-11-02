@@ -104,17 +104,89 @@ def _resolve_secret(secret_name: str, secrets_dir: str = "") -> str:
 
 
 def _resolve_key_path(key_path: str, keys_dir: str = "") -> str:
-    """Resolve SSH key path (supports relative paths and absolute paths)."""
+    """Resolve SSH key path with path traversal protection.
+
+    Security: Validates against path traversal attacks. For absolute paths,
+    validates they're within keys_dir. For relative paths, validates they
+    stay within keys_dir after normalization.
+    """
     if not key_path:
         return ""
 
-    # If already absolute, return as-is
-    if os.path.isabs(key_path):
-        return key_path
+    # Security check: reject paths containing traversal patterns
+    # Check for .. patterns (including encoded variants like ....//)
+    if ".." in key_path:
+        _log_err(
+            "security_event",
+            {
+                "type": "path_traversal_attempt",
+                "key_path": key_path,
+                "reason": "contains_traversal_pattern",
+                "pattern": "..",
+            },
+        )
+        return ""
 
-    # Otherwise, resolve relative to keys directory
+    # Check for backslashes with potential traversal (Windows style)
+    # Convert backslashes to forward slashes for consistent checking
+    normalized_for_check = key_path.replace("\\", "/")
+    if ".." in normalized_for_check:
+        _log_err(
+            "security_event",
+            {
+                "type": "path_traversal_attempt",
+                "key_path": key_path,
+                "reason": "contains_traversal_pattern",
+                "pattern": "backslash_with_traversal",
+            },
+        )
+        return ""
+
     base_dir = keys_dir or DEFAULT_KEYS_DIR
-    return os.path.join(base_dir, key_path)
+    base_abs = os.path.abspath(base_dir)
+
+    # Handle absolute paths
+    if os.path.isabs(key_path):
+        # Validate absolute path is within keys_dir for security
+        resolved_abs = os.path.abspath(key_path)
+        if not resolved_abs.startswith(base_abs + os.sep) and resolved_abs != base_abs:
+            _log_err(
+                "security_event",
+                {
+                    "type": "path_traversal_attempt",
+                    "key_path": key_path,
+                    "attempted_path": resolved_abs,
+                    "base_dir": base_abs,
+                    "reason": "absolute_path_outside_keys_directory",
+                },
+            )
+            return ""
+        return resolved_abs
+
+    # Handle relative paths with path traversal protection
+    key_path_joined = os.path.join(base_dir, key_path)
+
+    # Normalize path to handle any ../ sequences
+    normalized_path = os.path.normpath(key_path_joined)
+
+    # Get absolute paths for comparison
+    resolved_abs = os.path.abspath(normalized_path)
+
+    # Validate resolved path stays within keys_dir
+    if not resolved_abs.startswith(base_abs + os.sep) and resolved_abs != base_abs:
+        _log_err(
+            "security_event",
+            {
+                "type": "path_traversal_attempt",
+                "key_path": key_path,
+                "attempted_path": resolved_abs,
+                "base_dir": base_abs,
+                "reason": "path_outside_allowed_directory",
+            },
+        )
+        return ""
+
+    return resolved_abs
 
 
 class Config:

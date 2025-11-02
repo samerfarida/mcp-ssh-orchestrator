@@ -361,13 +361,122 @@ def test_resolve_key_path_relative():
     assert path == "/app/keys/id_ed25519"
 
 
-def test_resolve_key_path_absolute():
-    """Test resolving absolute key path."""
-    path = _resolve_key_path("/absolute/path/key", keys_dir="/app/keys")
-    assert path == "/absolute/path/key"
+def test_resolve_key_path_absolute_within_keys_dir():
+    """Test resolving absolute key path within keys_dir."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create a key file
+        key_file = os.path.join(tmpdir, "test_key")
+        with open(key_file, "w") as f:
+            f.write("test key content")
+
+        # Absolute path within keys_dir should work
+        path = _resolve_key_path(key_file, keys_dir=tmpdir)
+        assert path == os.path.abspath(key_file)
+
+
+def test_resolve_key_path_absolute_outside_keys_dir():
+    """Test that absolute paths outside keys_dir are rejected."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create a key file outside keys_dir
+        parent_dir = os.path.dirname(tmpdir)
+        outside_key = os.path.join(parent_dir, "outside_key")
+        with open(outside_key, "w") as f:
+            f.write("outside key")
+
+        # Absolute path outside keys_dir should be rejected
+        path = _resolve_key_path(outside_key, keys_dir=tmpdir)
+        assert path == ""
+
+        # Clean up
+        os.remove(outside_key)
 
 
 def test_resolve_key_path_empty():
     """Test resolving empty key path."""
     path = _resolve_key_path("", keys_dir="/app/keys")
     assert path == ""
+
+
+def test_resolve_key_path_traversal_forward_slash():
+    """Test that path traversal with ../ is blocked."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create a key file
+        key_path = os.path.join(tmpdir, "valid_key")
+        with open(key_path, "w") as f:
+            f.write("valid-key")
+
+        # Create a file outside the keys directory
+        parent_dir = os.path.dirname(tmpdir)
+        outside_file = os.path.join(parent_dir, "outside_key")
+        with open(outside_file, "w") as f:
+            f.write("outside-key")
+
+        # Try to access it via path traversal
+        result = _resolve_key_path("../outside_key", keys_dir=tmpdir)
+        assert result == ""
+
+        # Clean up
+        os.remove(outside_file)
+
+
+def test_resolve_key_path_traversal_backslash():
+    """Test that path traversal with ..\\ is blocked on Windows."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create a key file
+        key_path = os.path.join(tmpdir, "valid_key")
+        with open(key_path, "w") as f:
+            f.write("valid-key")
+
+        # Try path traversal with backslash (Windows style)
+        # Note: os.path.normpath will normalize this on any OS
+        result = _resolve_key_path("..\\outside_key", keys_dir=tmpdir)
+        assert result == ""
+
+
+def test_resolve_key_path_multiple_traversal_attempts():
+    """Test multiple levels of path traversal are blocked."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create a nested structure
+        nested_dir = os.path.join(tmpdir, "nested", "deep")
+        os.makedirs(nested_dir, exist_ok=True)
+
+        # Create file in nested dir
+        nested_file = os.path.join(nested_dir, "nested_key")
+        with open(nested_file, "w") as f:
+            f.write("nested-key")
+
+        # Try multiple traversal levels
+        traversal_attempts = [
+            "../../outside",
+            "../../../etc/passwd",
+            "....//....//etc/passwd",
+        ]
+
+        for attempt in traversal_attempts:
+            result = _resolve_key_path(attempt, keys_dir=nested_dir)
+            assert result == "", f"Should block traversal: {attempt}"
+
+
+def test_resolve_key_path_normal_file_access_still_works():
+    """Test that normal file access still works after security fixes."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create a valid key file
+        key_path = os.path.join(tmpdir, "valid_key")
+        with open(key_path, "w") as f:
+            f.write("valid-key-content")
+
+        # Relative path should still work
+        result = _resolve_key_path("valid_key", keys_dir=tmpdir)
+        assert result == os.path.abspath(key_path)
+
+        # Absolute path within keys_dir should still work
+        result2 = _resolve_key_path(key_path, keys_dir=tmpdir)
+        assert result2 == os.path.abspath(key_path)
+
+
+def test_resolve_key_path_absolute_same_as_keys_dir():
+    """Test that absolute path pointing to keys_dir itself works."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Absolute path to keys_dir itself should work (edge case)
+        result = _resolve_key_path(tmpdir, keys_dir=tmpdir)
+        assert result == os.path.abspath(tmpdir)
