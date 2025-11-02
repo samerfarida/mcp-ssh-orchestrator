@@ -2,6 +2,17 @@
 
 **Purpose:** Complete documentation of all MCP tools provided by MCP SSH Orchestrator, including parameters, return values, and usage examples.
 
+## Input Validation
+
+All user-controlled parameters are validated before processing:
+
+- **Alias**: Max 100 characters, alphanumeric, dash, underscore, dot only
+- **Command**: Max 10,000 characters, no null bytes or control characters (except newline, tab, carriage return)
+- **Tag**: Max 50 characters, alphanumeric, dash, underscore, dot only
+- **Task ID**: Max 200 characters, alphanumeric, colon, dash, underscore only
+
+Invalid inputs are rejected with clear error messages. Security events are logged for injection attempts.
+
 ## Overview
 
 MCP SSH Orchestrator provides **13 MCP tools** that enable secure SSH command execution, host management, and policy testing. All tools follow the MCP specification and return structured JSON responses.

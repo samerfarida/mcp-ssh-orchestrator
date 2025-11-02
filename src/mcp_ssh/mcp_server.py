@@ -1,4 +1,5 @@
 import json
+import re
 import time
 
 from mcp.server.fastmcp import FastMCP
@@ -85,6 +86,174 @@ def _client_for(alias: str, limits: dict, require_known_host: bool) -> SSHClient
     )
 
 
+# Input validation constants
+MAX_ALIAS_LENGTH = 100
+MAX_COMMAND_LENGTH = 10000
+MAX_TAG_LENGTH = 50
+MAX_TASK_ID_LENGTH = 200
+
+
+def _validate_alias(alias: str) -> tuple[bool, str]:
+    """Validate alias parameter.
+
+    Security: Validates alias format to prevent injection attacks.
+    - Length limit: 100 characters
+    - Allowed characters: alphanumeric, dash, underscore, dot
+    - Cannot be empty
+
+    Args:
+        alias: Alias string to validate
+
+    Returns:
+        Tuple of (is_valid, error_message)
+        If valid: (True, "")
+        If invalid: (False, error_message)
+    """
+    if not alias or not alias.strip():
+        return False, "alias is required"
+
+    alias = alias.strip()
+
+    # Length validation
+    if len(alias) > MAX_ALIAS_LENGTH:
+        return False, f"alias too long (max {MAX_ALIAS_LENGTH} characters)"
+
+    # Character validation: alphanumeric, dash, underscore, dot only
+    if not re.match(r"^[a-zA-Z0-9._-]+$", alias):
+        return (
+            False,
+            "alias contains invalid characters (only alphanumeric, dot, dash, underscore allowed)",
+        )
+
+    return True, ""
+
+
+def _validate_command(command: str) -> tuple[bool, str]:
+    """Validate command parameter.
+
+    Security: Validates command format to prevent injection and resource exhaustion.
+    - Length limit: 10000 characters
+    - Rejects null bytes
+    - Rejects control characters (except newline, tab, carriage return)
+
+    Args:
+        command: Command string to validate
+
+    Returns:
+        Tuple of (is_valid, error_message)
+        If valid: (True, "")
+        If invalid: (False, error_message)
+    """
+    if not command or not command.strip():
+        return False, "command is required"
+
+    command = command.strip()
+
+    # Length validation
+    if len(command) > MAX_COMMAND_LENGTH:
+        return False, f"command too long (max {MAX_COMMAND_LENGTH} characters)"
+
+    # Null byte validation (common injection vector)
+    if "\x00" in command:
+        log_json(
+            {
+                "level": "error",
+                "msg": "security_event",
+                "type": "null_byte_injection_attempt",
+                "field": "command",
+            }
+        )
+        return False, "command contains invalid characters (null bytes not allowed)"
+
+    # Control character validation (allow newline, tab, carriage return for legitimate use)
+    # Reject other control characters
+    for char in command:
+        if ord(char) < 32 and char not in ["\n", "\t", "\r"]:
+            log_json(
+                {
+                    "level": "error",
+                    "msg": "security_event",
+                    "type": "control_character_injection_attempt",
+                    "field": "command",
+                    "char_code": ord(char),
+                }
+            )
+            return False, "command contains invalid control characters"
+
+    return True, ""
+
+
+def _validate_tag(tag: str) -> tuple[bool, str]:
+    """Validate tag parameter.
+
+    Security: Validates tag format to prevent injection attacks.
+    - Length limit: 50 characters
+    - Allowed characters: alphanumeric, dash, underscore, dot
+    - Cannot be empty
+
+    Args:
+        tag: Tag string to validate
+
+    Returns:
+        Tuple of (is_valid, error_message)
+        If valid: (True, "")
+        If invalid: (False, error_message)
+    """
+    if not tag or not tag.strip():
+        return False, "tag is required"
+
+    tag = tag.strip()
+
+    # Length validation
+    if len(tag) > MAX_TAG_LENGTH:
+        return False, f"tag too long (max {MAX_TAG_LENGTH} characters)"
+
+    # Character validation: alphanumeric, dash, underscore, dot only
+    if not re.match(r"^[a-zA-Z0-9._-]+$", tag):
+        return (
+            False,
+            "tag contains invalid characters (only alphanumeric, dot, dash, underscore allowed)",
+        )
+
+    return True, ""
+
+
+def _validate_task_id(task_id: str) -> tuple[bool, str]:
+    """Validate task_id parameter.
+
+    Security: Validates task_id format.
+    - Length limit: 200 characters
+    - Format validation (expected: alias:hash:timestamp)
+    - Cannot be empty
+
+    Args:
+        task_id: Task ID string to validate
+
+    Returns:
+        Tuple of (is_valid, error_message)
+        If valid: (True, "")
+        If invalid: (False, error_message)
+    """
+    if not task_id or not task_id.strip():
+        return False, "task_id is required"
+
+    task_id = task_id.strip()
+
+    # Length validation
+    if len(task_id) > MAX_TASK_ID_LENGTH:
+        return False, f"task_id too long (max {MAX_TASK_ID_LENGTH} characters)"
+
+    # Format validation: should match pattern alias:hash:timestamp
+    # Allow alphanumeric, colon, dash, underscore
+    if not re.match(r"^[a-zA-Z0-9:_-]+$", task_id):
+        return (
+            False,
+            "task_id contains invalid characters (only alphanumeric, colon, dash, underscore allowed)",
+        )
+
+    return True, ""
+
+
 def _precheck_network(pol: Policy, hostname: str) -> tuple[bool, str]:
     """Resolve hostname and verify at least one resolved IP is allowed."""
     ips = SSHClient.resolve_ips(hostname)
@@ -119,11 +288,18 @@ def ssh_list_hosts() -> str:
 def ssh_describe_host(alias: str = "") -> str:
     """Return host definition in JSON."""
     try:
+        # Input validation
+        valid, error_msg = _validate_alias(alias)
+        if not valid:
+            return f"Error: {error_msg}"
+
         host = config.get_host(alias)
         return json.dumps(host, indent=2)
     except Exception as e:
         error_str = str(e)
-        log_json({"level": "error", "msg": "list_hosts_exception", "error": error_str})
+        log_json(
+            {"level": "error", "msg": "describe_host_exception", "error": error_str}
+        )
         return f"Error: {sanitize_error(error_str)}"
 
 
@@ -131,6 +307,15 @@ def ssh_describe_host(alias: str = "") -> str:
 def ssh_plan(alias: str = "", command: str = "") -> str:
     """Show what would be executed and if policy allows."""
     try:
+        # Input validation
+        valid, error_msg = _validate_alias(alias)
+        if not valid:
+            return f"Error: {error_msg}"
+
+        valid, error_msg = _validate_command(command)
+        if not valid:
+            return f"Error: {error_msg}"
+
         cmd_hash = hash_command(command)
         tags = config.get_host_tags(alias)
         pol = Policy(config.get_policy())
@@ -151,7 +336,7 @@ def ssh_plan(alias: str = "", command: str = "") -> str:
         return json.dumps(preview, indent=2)
     except Exception as e:
         error_str = str(e)
-        log_json({"level": "error", "msg": "list_hosts_exception", "error": error_str})
+        log_json({"level": "error", "msg": "plan_exception", "error": error_str})
         return f"Error: {sanitize_error(error_str)}"
 
 
@@ -161,15 +346,18 @@ def ssh_run(alias: str = "", command: str = "") -> str:
     start = time.time()
     try:
         # Input validation
-        if not alias.strip():
-            return "Error: alias is required"
-        if not command.strip():
-            return "Error: command is required"
+        valid, error_msg = _validate_alias(alias)
+        if not valid:
+            return f"Error: {error_msg}"
 
-        # Basic command validation
+        valid, error_msg = _validate_command(command)
+        if not valid:
+            return f"Error: {error_msg}"
+
+        # Normalize after validation
+        alias = alias.strip()
         command = command.strip()
-        if len(command) > 10000:  # Reasonable limit
-            return "Error: command too long (max 10000 characters)"
+
         host = config.get_host(alias)
         hostname = host.get("host", "")
         cmd_hash = hash_command(command)
@@ -271,15 +459,18 @@ def ssh_run_on_tag(tag: str = "", command: str = "") -> str:
     """Execute SSH command on all hosts with a tag (with network checks)."""
     try:
         # Input validation
-        if not tag.strip():
-            return "Error: tag is required"
-        if not command.strip():
-            return "Error: command is required"
+        valid, error_msg = _validate_tag(tag)
+        if not valid:
+            return f"Error: {error_msg}"
 
-        # Basic command validation
+        valid, error_msg = _validate_command(command)
+        if not valid:
+            return f"Error: {error_msg}"
+
+        # Normalize after validation
+        tag = tag.strip()
         command = command.strip()
-        if len(command) > 10000:  # Reasonable limit
-            return "Error: command too long (max 10000 characters)"
+
         aliases = config.find_hosts_by_tag(tag)
         if not aliases:
             return json.dumps(
@@ -415,8 +606,12 @@ def ssh_run_on_tag(tag: str = "", command: str = "") -> str:
 def ssh_cancel(task_id: str = "") -> str:
     """Request cancellation for a running task."""
     try:
-        if not task_id:
-            return "Error: task_id is required."
+        # Input validation
+        valid, error_msg = _validate_task_id(task_id)
+        if not valid:
+            return f"Error: {error_msg}"
+
+        task_id = task_id.strip()
         ok = TASKS.cancel(task_id)
         if ok:
             return f"Cancellation signaled for task_id: {task_id}"
@@ -448,15 +643,17 @@ def ssh_run_async(alias: str = "", command: str = "") -> str:
     """
     try:
         # Input validation
-        if not alias.strip():
-            return "Error: alias is required"
-        if not command.strip():
-            return "Error: command is required"
+        valid, error_msg = _validate_alias(alias)
+        if not valid:
+            return f"Error: {error_msg}"
 
-        # Basic command validation
+        valid, error_msg = _validate_command(command)
+        if not valid:
+            return f"Error: {error_msg}"
+
+        # Normalize after validation
+        alias = alias.strip()
         command = command.strip()
-        if len(command) > 10000:  # Reasonable limit
-            return "Error: command too long (max 10000 characters)"
 
         host = config.get_host(alias)
         hostname = host.get("host", "")
@@ -523,9 +720,12 @@ def ssh_get_task_status(task_id: str = "") -> str:
     Returns task state, progress, elapsed time, and output summary.
     """
     try:
-        if not task_id.strip():
-            return "Error: task_id is required"
+        # Input validation
+        valid, error_msg = _validate_task_id(task_id)
+        if not valid:
+            return f"Error: {error_msg}"
 
+        task_id = task_id.strip()
         status = ASYNC_TASKS.get_task_status(task_id)
         if not status:
             return f"Error: Task not found: {task_id}"
@@ -545,9 +745,12 @@ def ssh_get_task_result(task_id: str = "") -> str:
     Returns complete output, exit code, and execution metadata.
     """
     try:
-        if not task_id.strip():
-            return "Error: task_id is required"
+        # Input validation
+        valid, error_msg = _validate_task_id(task_id)
+        if not valid:
+            return f"Error: {error_msg}"
 
+        task_id = task_id.strip()
         result = ASYNC_TASKS.get_task_result(task_id)
         if not result:
             return f"Error: Task not found or expired: {task_id}"
@@ -567,12 +770,15 @@ def ssh_get_task_output(task_id: str = "", max_lines: int = 50) -> str:
     Enhanced beyond SEP-1686: enables streaming output visibility.
     """
     try:
-        if not task_id.strip():
-            return "Error: task_id is required"
+        # Input validation
+        valid, error_msg = _validate_task_id(task_id)
+        if not valid:
+            return f"Error: {error_msg}"
 
         if max_lines < 1 or max_lines > 1000:
             return "Error: max_lines must be between 1 and 1000"
 
+        task_id = task_id.strip()
         output = ASYNC_TASKS.get_task_output(task_id, max_lines)
         if not output:
             return f"Error: Task not found or no output available: {task_id}"
@@ -589,9 +795,12 @@ def ssh_get_task_output(task_id: str = "", max_lines: int = 50) -> str:
 def ssh_cancel_async_task(task_id: str = "") -> str:
     """Cancel a running async task."""
     try:
-        if not task_id.strip():
-            return "Error: task_id is required"
+        # Input validation
+        valid, error_msg = _validate_task_id(task_id)
+        if not valid:
+            return f"Error: {error_msg}"
 
+        task_id = task_id.strip()
         success = ASYNC_TASKS.cancel_task(task_id)
         if success:
             return f"Cancellation signaled for async task: {task_id}"

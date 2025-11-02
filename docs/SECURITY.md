@@ -158,6 +158,47 @@ All YAML configuration files are validated for size before loading to prevent re
 
 **Effect**: Prevents resource exhaustion attacks via oversized YAML files that could consume excessive memory or processing time.
 
+#### Input Validation for User-Controlled Parameters
+
+All user-controlled parameters are validated before processing to prevent injection attacks and resource exhaustion:
+
+1. **Alias Validation**:
+   - Length limit: 100 characters
+   - Allowed characters: alphanumeric, dash (`-`), underscore (`_`), dot (`.`)
+   - Rejects empty values
+   - Applied to: `ssh_describe_host`, `ssh_plan`, `ssh_run`, `ssh_run_async`
+
+2. **Command Validation**:
+   - Length limit: 10,000 characters
+   - Rejects null bytes (`\x00`) - common injection vector
+   - Rejects control characters (except newline `\n`, tab `\t`, carriage return `\r`)
+   - Allows legitimate multi-line commands
+   - Applied to: `ssh_plan`, `ssh_run`, `ssh_run_on_tag`, `ssh_run_async`
+
+3. **Tag Validation**:
+   - Length limit: 50 characters
+   - Allowed characters: alphanumeric, dash (`-`), underscore (`_`), dot (`.`)
+   - Rejects empty values
+   - Applied to: `ssh_run_on_tag`
+
+4. **Task ID Validation**:
+   - Length limit: 200 characters
+   - Allowed characters: alphanumeric, colon (`:`), dash (`-`), underscore (`_`)
+   - Format validation: expected pattern `alias:hash:timestamp`
+   - Applied to: `ssh_cancel`, `ssh_get_task_status`, `ssh_get_task_result`, `ssh_get_task_output`, `ssh_cancel_async_task`
+
+5. **Security Event Logging**: Invalid input attempts are logged:
+   ```json
+   {
+     "level": "error",
+     "msg": "security_event",
+     "type": "null_byte_injection_attempt",
+     "field": "command"
+   }
+   ```
+
+**Effect**: Prevents injection attacks (null bytes, control characters) and resource exhaustion (length limits) via malformed user inputs.
+
 ### SSH Key Management
 
 **Best Practices:**

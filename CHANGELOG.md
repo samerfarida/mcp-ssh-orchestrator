@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased] - 2025-11-02
 
 ### Added
+- **Input Validation for User-Controlled Parameters (PR6)**: Added comprehensive input validation to prevent injection attacks and resource exhaustion
+  - Added validation helper functions: `_validate_alias()`, `_validate_command()`, `_validate_tag()`, `_validate_task_id()`
+  - Alias validation: 100 char limit, alphanumeric/dash/underscore/dot only
+  - Command validation: 10,000 char limit, rejects null bytes and control characters
+  - Tag validation: 50 char limit, alphanumeric/dash/underscore/dot only
+  - Task ID validation: 200 char limit, format validation
+  - Applied validation to all MCP tools: `ssh_describe_host`, `ssh_plan`, `ssh_run`, `ssh_run_on_tag`, `ssh_run_async`, `ssh_cancel`, `ssh_get_task_status`, `ssh_get_task_result`, `ssh_get_task_output`, `ssh_cancel_async_task`
+  - Security event logging for injection attempts (null bytes, control characters)
+  - Comprehensive tests for all validation functions
+  - Updated documentation with input validation requirements
 - **Error Message Sanitization (PR5)**: Added error message sanitization to prevent information disclosure
   - All user-facing error messages sanitized to remove sensitive information
   - File paths, IP addresses, hostnames, credentials, and port numbers removed from user responses

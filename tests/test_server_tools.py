@@ -140,7 +140,7 @@ def test_ssh_cancel_no_task_id():
 def test_default_parameters():
     """Test that all MCP tools have default empty string parameters."""
     # Per instructions: all params should default to empty strings
-    assert mcp_server.ssh_describe_host() == "Error: Host alias not found: "
+    assert mcp_server.ssh_describe_host() == "Error: alias is required"
     assert mcp_server.ssh_plan() != ""  # Should return an error but not crash
 
 
