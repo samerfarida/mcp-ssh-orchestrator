@@ -5,6 +5,25 @@ All notable changes to mcp-ssh-orchestrator will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - 2025-11-02
+
+### Added
+- Path traversal protection documentation
+  - Comprehensive path traversal protection section in `docs/SECURITY.md`
+  - Secret name validation documentation with allowed characters and examples
+  - SSH key path validation documentation with relative/absolute path rules
+  - Security event logging examples for path traversal attempts
+  - Updated credentials and configuration documentation with security features
+
+### Fixed
+- **CI/CD Workflow Fix**: Fixed lint and build workflows to run on documentation-only PRs
+  - Removed restrictive `paths:` filter from `pull_request` triggers in `lint.yml` and `build.yml`
+  - Added `check-changes` job using `dorny/paths-filter` to detect code vs documentation changes
+  - Made all lint/build/test jobs conditional - they skip gracefully when only documentation changed
+  - Added `skip-docs-only` job that always succeeds when no code changes detected
+  - Workflows now always run (satisfies required branch protection checks) while skipping unnecessary jobs
+  - Prevents "Expected - Waiting for status to be reported" blocking merges on documentation PRs
+
 ## [0.2.1] - 2025-10-31
 
 ### Changed
