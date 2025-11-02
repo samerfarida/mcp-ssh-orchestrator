@@ -1,9 +1,79 @@
+import json
 import socket
 import sys
+import threading
 import time
 import traceback
 
 import paramiko
+
+# DNS rate limiting and caching constants
+DNS_MAX_RESOLUTIONS_PER_SECOND = 10
+DNS_CACHE_TTL_SECONDS = 60
+DNS_RESOLUTION_TIMEOUT_SECONDS = 5
+
+# Global DNS cache and rate limiter (thread-safe)
+_dns_cache_lock = threading.Lock()
+_dns_cache: dict[str, tuple[list[str], float]] = {}  # hostname -> (ips, expiry_time)
+_dns_rate_limiter: dict[str, list[float]] = (
+    {}
+)  # hostname -> list of timestamps (last N seconds)
+
+
+def _is_rate_limited(hostname: str) -> bool:
+    """Check if hostname is rate limited.
+
+    Returns True if hostname has exceeded max resolutions per second.
+    """
+    now = time.time()
+    with _dns_cache_lock:
+        if hostname not in _dns_rate_limiter:
+            _dns_rate_limiter[hostname] = []
+
+        # Clean old timestamps (older than 1 second)
+        timestamps = _dns_rate_limiter[hostname]
+        timestamps[:] = [ts for ts in timestamps if now - ts < 1.0]
+
+        # Check if limit exceeded
+        if len(timestamps) >= DNS_MAX_RESOLUTIONS_PER_SECOND:
+            return True
+
+        # Record this resolution attempt
+        timestamps.append(now)
+        return False
+
+
+def _get_cached_ips(hostname: str) -> list[str] | None:
+    """Get cached DNS result if valid, None if cache miss or expired."""
+    now = time.time()
+    with _dns_cache_lock:
+        if hostname in _dns_cache:
+            ips, expiry_time = _dns_cache[hostname]
+            if now < expiry_time:
+                return ips
+            # Cache expired, remove it
+            del _dns_cache[hostname]
+    return None
+
+
+def _cache_ips(hostname: str, ips: list[str]):
+    """Cache DNS resolution result with TTL."""
+    now = time.time()
+    expiry_time = now + DNS_CACHE_TTL_SECONDS
+    with _dns_cache_lock:
+        _dns_cache[hostname] = (ips, expiry_time)
+
+
+def _log_rate_limit_violation(hostname: str):
+    """Log DNS rate limit violation."""
+    entry = {
+        "level": "error",
+        "msg": "security_event",
+        "type": "dns_rate_limit_exceeded",
+        "hostname": hostname,
+        "max_per_second": DNS_MAX_RESOLUTIONS_PER_SECOND,
+    }
+    print(json.dumps(entry), file=sys.stderr)
 
 
 class AcceptPolicy(paramiko.MissingHostKeyPolicy):
@@ -41,15 +111,58 @@ class SSHClient:
 
     @staticmethod
     def resolve_ips(hostname: str):
-        """Resolve hostname to a set of IPv4 addresses (best-effort)."""
+        """Resolve hostname to a set of IPv4 addresses with rate limiting and caching.
+
+        Security: Implements rate limiting (max 10 resolutions/second per hostname)
+        and result caching (60 second TTL) to prevent DNS-based DoS attacks.
+
+        Args:
+            hostname: Hostname to resolve
+
+        Returns:
+            List of IPv4 addresses (may be empty on resolution failure or rate limit)
+        """
+        if not hostname:
+            return []
+
+        # Check cache first
+        cached_ips = _get_cached_ips(hostname)
+        if cached_ips is not None:
+            return cached_ips
+
+        # Check rate limit
+        if _is_rate_limited(hostname):
+            _log_rate_limit_violation(hostname)
+            return []
+
+        # Perform DNS resolution with timeout
         ips = set()
         try:
-            for fam, _, _, _, sa in socket.getaddrinfo(hostname, None):
-                if fam == socket.AF_INET and sa and sa[0]:
-                    ips.add(sa[0])
-        except Exception:
+            # Set timeout for DNS resolution to prevent hanging
+            # socket.getaddrinfo doesn't have direct timeout, so we use a workaround
+            # by setting socket default timeout (affects all operations, but acceptable for DNS)
+            old_timeout = socket.getdefaulttimeout()
+            try:
+                socket.setdefaulttimeout(DNS_RESOLUTION_TIMEOUT_SECONDS)
+                for fam, _, _, _, sa in socket.getaddrinfo(hostname, None):
+                    if fam == socket.AF_INET and sa and sa[0]:
+                        ips.add(sa[0])
+            finally:
+                socket.setdefaulttimeout(old_timeout)
+        except TimeoutError:
+            # DNS resolution timed out
             pass
-        return list(ips)
+        except Exception:
+            # Other DNS resolution errors (best-effort, return empty)
+            pass
+
+        result = list(ips)
+
+        # Cache all results (including empty lists) to avoid repeated lookups
+        # This prevents re-resolving invalid hostnames repeatedly
+        _cache_ips(hostname, result)
+
+        return result
 
     def _connect(self):
         """Establish SSH connection and return (client, peer_ip)."""

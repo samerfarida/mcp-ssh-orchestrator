@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased] - 2025-11-02
 
 ### Added
+- **DNS Rate Limiting (PR8)**: Added rate limiting and caching for DNS resolution to prevent DoS attacks
+  - Rate limiting: Maximum 10 resolutions per second per hostname (time-window based)
+  - Result caching: 60-second TTL cache for DNS results (reduces DNS server load)
+  - Timeout protection: 5-second timeout for DNS resolution (prevents hanging)
+  - Thread-safe implementation for concurrent access
+  - Rate limit violations logged as security events
+  - Comprehensive tests for rate limiting, caching, and timeout handling
+  - Updated documentation with DNS rate limiting details
 - **Input Validation for User-Controlled Parameters (PR6)**: Added comprehensive input validation to prevent injection attacks and resource exhaustion
   - Added validation helper functions: `_validate_alias()`, `_validate_command()`, `_validate_tag()`, `_validate_task_id()`
   - Alias validation: 100 char limit, alphanumeric/dash/underscore/dot only

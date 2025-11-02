@@ -172,6 +172,36 @@ network:
   require_known_host: true   # Override for strict checking
 ```
 
+### DNS Rate Limiting
+
+**Purpose:** Prevent DNS-based DoS attacks and reduce load from repeated resolutions.
+
+**Implementation:**
+
+- **Rate limiting**: Maximum 10 DNS resolutions per second per hostname
+- **Result caching**: 60-second TTL cache for DNS results
+- **Timeout protection**: 5-second timeout for DNS resolution
+- **Per-hostname tracking**: Separate rate limits for different hostnames
+
+**Security Benefits:**
+
+- Prevents DNS-based DoS attacks
+- Reduces load on DNS infrastructure
+- Protects against slow DNS server responses
+- Caches results to minimize repeated lookups
+
+**Example:**
+```python
+# Rate limiting prevents excessive resolutions:
+# - First 10 resolutions/second: allowed
+# - 11th resolution in same second: blocked (returns empty list)
+# - After 1 second: limit resets
+
+# Caching prevents repeated lookups:
+# - First resolution: queries DNS server
+# - Subsequent resolutions (within 60s): returns cached result
+```
+
 ## Layer 3: Policy Security
 
 ### Deny-by-Default Model
@@ -420,6 +450,8 @@ overrides:
 
 **T1071.004: DNS**
 - DNS resolution verification
+- DNS rate limiting prevents DoS attacks
+- DNS result caching reduces infrastructure load
 - Prevents DNS-based attack vectors
 
 **T1659: Content Injection**

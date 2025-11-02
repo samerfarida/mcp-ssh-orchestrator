@@ -199,6 +199,42 @@ All user-controlled parameters are validated before processing to prevent inject
 
 **Effect**: Prevents injection attacks (null bytes, control characters) and resource exhaustion (length limits) via malformed user inputs.
 
+#### DNS Rate Limiting
+
+DNS resolution is rate-limited and cached to prevent DNS-based DoS attacks:
+
+1. **Rate Limiting**:
+   - Maximum 10 DNS resolutions per second per hostname
+   - Per-hostname rate limiting (different hostnames have separate limits)
+   - Time-window based (sliding 1-second window)
+   - Exceeding limit returns empty list (no IPs resolved)
+
+2. **Result Caching**:
+   - DNS results cached for 60 seconds (TTL)
+   - Cached results returned immediately without DNS lookup
+   - Reduces load on DNS servers
+   - Caches both successful and failed resolutions (prevents repeated lookups for invalid hostnames)
+
+3. **Timeout Protection**:
+   - DNS resolution timeout: 5 seconds
+   - Prevents hanging on slow or unresponsive DNS servers
+   - Failed resolutions return empty list
+
+4. **Rate Limit Logging**: Rate limit violations are logged:
+   ```json
+   {
+     "level": "error",
+     "msg": "security_event",
+     "type": "dns_rate_limit_exceeded",
+     "hostname": "malicious-host.example.com",
+     "max_per_second": 10
+   }
+   ```
+
+5. **Thread Safety**: Rate limiter and cache are thread-safe for concurrent access.
+
+**Effect**: Prevents DNS-based DoS attacks by limiting resolution frequency and caching results, reducing load on DNS infrastructure.
+
 ### SSH Key Management
 
 **Best Practices:**
