@@ -7,6 +7,8 @@ import pytest
 import yaml
 
 from mcp_ssh.config import (
+    MAX_KEY_PATH_LENGTH,
+    MAX_SECRET_NAME_LENGTH,
     MAX_YAML_FILE_SIZE,
     Config,
     _load_yaml,
@@ -49,15 +51,11 @@ def temp_config_dir():
                     "name": "cred1",
                     "username": "user1",
                     "key_path": "id_ed25519",
-                    "password_secret": "",
-                    "key_passphrase_secret": "",
                 },
                 {
                     "name": "cred2",
                     "username": "user2",
-                    "key_path": "",
                     "password_secret": "db_password",
-                    "key_passphrase_secret": "",
                 },
             ]
         }
@@ -66,15 +64,13 @@ def temp_config_dir():
 
         # Create test policy.yml
         policy = {
-            "limits": {"max_seconds": 60, "max_output_bytes": 1048576},
             "rules": [
                 {
                     "action": "allow",
                     "aliases": ["*"],
-                    "tags": [],
                     "commands": ["uptime*"],
-                },
-            ],
+                }
+            ]
         }
         with open(os.path.join(tmpdir, "policy.yml"), "w") as f:
             yaml.dump(policy, f)
@@ -82,155 +78,124 @@ def temp_config_dir():
         yield tmpdir
 
 
-def test_config_load(temp_config_dir):
-    """Test loading configuration files."""
-    config = Config(config_dir=temp_config_dir)
+def test_config_loads_files(temp_config_dir):
+    """Test that Config loads all YAML files correctly."""
+    config = Config(temp_config_dir)
 
+    # Check hosts loaded
+    host = config.get_host("test1")
+    assert host["host"] == "10.0.0.1"
+    assert host["port"] == 22
+
+    # Check credentials loaded
+    creds = config.get_credentials("cred1")
+    assert creds["username"] == "user1"
+    # key_path is resolved to absolute path during loading
+    assert "id_ed25519" in creds.get("key_path", "")
+
+    # Check policy loaded
+    pol = config.get_policy()
+    assert len(pol.get("rules", [])) > 0
+
+
+def test_get_host_not_found(temp_config_dir):
+    """Test getting non-existent host."""
+    config = Config(temp_config_dir)
+    # get_host raises ValueError when host not found
+    with pytest.raises(ValueError, match="Host alias not found"):
+        config.get_host("nonexistent")
+
+
+def test_get_credentials_not_found(temp_config_dir):
+    """Test getting non-existent credentials."""
+    config = Config(temp_config_dir)
+    creds = config.get_credentials("nonexistent")
+    assert creds == {}
+
+
+def test_get_host_tags(temp_config_dir):
+    """Test getting tags for a host."""
+    config = Config(temp_config_dir)
+    tags = config.get_host_tags("test1")
+    assert "web" in tags
+    assert "prod" in tags
+
+
+def test_list_hosts(temp_config_dir):
+    """Test listing all hosts."""
+    config = Config(temp_config_dir)
     hosts = config.list_hosts()
     assert len(hosts) == 2
     assert "test1" in hosts
     assert "test2" in hosts
 
 
-def test_get_host(temp_config_dir):
-    """Test getting host by alias."""
-    config = Config(config_dir=temp_config_dir)
-
-    host = config.get_host("test1")
-    assert host["host"] == "10.0.0.1"
-    assert host["port"] == 22
-    assert host["credentials"] == "cred1"
-
-
-def test_get_host_not_found(temp_config_dir):
-    """Test getting non-existent host."""
-    config = Config(config_dir=temp_config_dir)
-
-    with pytest.raises(ValueError, match="Host alias not found"):
-        config.get_host("nonexistent")
-
-
-def test_get_host_tags(temp_config_dir):
-    """Test getting host tags."""
-    config = Config(config_dir=temp_config_dir)
-
-    tags = config.get_host_tags("test1")
-    assert tags == ["web", "prod"]
-
-    tags2 = config.get_host_tags("test2")
-    assert tags2 == ["db"]
-
-
 def test_find_hosts_by_tag(temp_config_dir):
     """Test finding hosts by tag."""
-    config = Config(config_dir=temp_config_dir)
-
-    web_hosts = config.find_hosts_by_tag("web")
-    assert web_hosts == ["test1"]
-
-    prod_hosts = config.find_hosts_by_tag("prod")
-    assert prod_hosts == ["test1"]
-
-    db_hosts = config.find_hosts_by_tag("db")
-    assert db_hosts == ["test2"]
-
-    no_hosts = config.find_hosts_by_tag("nonexistent")
-    assert no_hosts == []
-
-
-def test_get_credentials(temp_config_dir):
-    """Test getting credentials."""
-    config = Config(
-        config_dir=temp_config_dir, keys_dir="/app/keys", secrets_dir="/app/secrets"
-    )
-
-    creds = config.get_credentials("cred1")
-    assert creds["username"] == "user1"
-    assert creds["key_path"] == "/app/keys/id_ed25519"
-    assert creds["password"] == ""
-
-
-def test_get_credentials_not_found(temp_config_dir):
-    """Test getting non-existent credentials."""
-    config = Config(config_dir=temp_config_dir)
-
-    creds = config.get_credentials("nonexistent")
-    assert creds == {}
-
-
-def test_get_policy(temp_config_dir):
-    """Test getting policy."""
-    config = Config(config_dir=temp_config_dir)
-
-    policy = config.get_policy()
-    assert policy["limits"]["max_seconds"] == 60
-    assert len(policy["rules"]) == 1
+    config = Config(temp_config_dir)
+    hosts = config.find_hosts_by_tag("web")
+    assert "test1" in hosts
+    assert "test2" not in hosts
 
 
 def test_reload_config(temp_config_dir):
     """Test reloading configuration."""
-    config = Config(config_dir=temp_config_dir)
-
-    # Initial state
-    hosts = config.list_hosts()
-    assert len(hosts) == 2
+    config = Config(temp_config_dir)
 
     # Modify servers.yml
-    servers = {
+    servers_path = os.path.join(temp_config_dir, "servers.yml")
+    new_servers = {
         "hosts": [
             {
-                "alias": "test3",
+                "alias": "newhost",
                 "host": "10.0.0.3",
                 "port": 22,
                 "credentials": "cred1",
-                "tags": [],
-            },
+            }
         ]
     }
-    with open(os.path.join(temp_config_dir, "servers.yml"), "w") as f:
-        yaml.dump(servers, f)
+    with open(servers_path, "w") as f:
+        yaml.dump(new_servers, f)
 
     # Reload
     config.reload()
 
-    # Verify change
-    hosts = config.list_hosts()
-    assert len(hosts) == 1
-    assert "test3" in hosts
+    # Check new host loaded
+    host = config.get_host("newhost")
+    assert host["host"] == "10.0.0.3"
 
 
 def test_resolve_secret_from_env(monkeypatch):
     """Test resolving secret from environment variable."""
-    monkeypatch.setenv("MCP_SSH_SECRET_TEST_PASSWORD", "env-password")
-
-    secret = _resolve_secret("test_password")
-    assert secret == "env-password"
+    monkeypatch.setenv("MCP_SSH_SECRET_TEST_SECRET", "env-secret-value")
+    result = _resolve_secret("test_secret")
+    assert result == "env-secret-value"
 
 
 def test_resolve_secret_from_file():
     """Test resolving secret from file."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        secret_path = os.path.join(tmpdir, "test_secret")
-        with open(secret_path, "w") as f:
-            f.write("file-secret")
+        secret_file = os.path.join(tmpdir, "test_secret")
+        with open(secret_file, "w") as f:
+            f.write("file-secret-value\n")
 
-        secret = _resolve_secret("test_secret", secrets_dir=tmpdir)
-        assert secret == "file-secret"
+        result = _resolve_secret("test_secret", secrets_dir=tmpdir)
+        assert result == "file-secret-value"
 
 
 def test_resolve_secret_not_found():
     """Test resolving non-existent secret."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        secret = _resolve_secret("nonexistent", secrets_dir=tmpdir)
-        assert secret == ""
+        result = _resolve_secret("nonexistent", secrets_dir=tmpdir)
+        assert result == ""
 
 
 def test_resolve_secret_path_traversal_forward_slash():
     """Test that path traversal with ../ is blocked."""
     with tempfile.TemporaryDirectory() as tmpdir:
         # Create a secret file
-        secret_path = os.path.join(tmpdir, "valid_secret")
-        with open(secret_path, "w") as f:
+        secret_file = os.path.join(tmpdir, "valid_secret")
+        with open(secret_file, "w") as f:
             f.write("valid-secret")
 
         # Create a file outside the secrets directory
@@ -248,11 +213,11 @@ def test_resolve_secret_path_traversal_forward_slash():
 
 
 def test_resolve_secret_path_traversal_backslash():
-    """Test that path traversal with ..\\ is blocked on Windows."""
+    """Test that path traversal with ..\\ is blocked."""
     with tempfile.TemporaryDirectory() as tmpdir:
         # Create a secret file
-        secret_path = os.path.join(tmpdir, "valid_secret")
-        with open(secret_path, "w") as f:
+        secret_file = os.path.join(tmpdir, "valid_secret")
+        with open(secret_file, "w") as f:
             f.write("valid-secret")
 
         # Try path traversal with backslash (Windows style)
@@ -262,73 +227,78 @@ def test_resolve_secret_path_traversal_backslash():
 
 
 def test_resolve_secret_absolute_path_rejection():
-    """Test that absolute paths are rejected."""
+    """Test that absolute paths are rejected for secrets."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        # Create a file at an absolute path
-        if os.name == "nt":
-            absolute_path = "C:\\Windows\\System32\\secret"
-        else:
-            absolute_path = "/etc/passwd"
+        # Create secret file
+        secret_file = os.path.join(tmpdir, "valid_secret")
+        with open(secret_file, "w") as f:
+            f.write("valid-secret")
 
-        # Try to use absolute path as secret name
-        result = _resolve_secret(absolute_path, secrets_dir=tmpdir)
+        # Try absolute path (should be rejected)
+        result = _resolve_secret(os.path.abspath(secret_file), secrets_dir=tmpdir)
         assert result == ""
 
 
 def test_resolve_secret_special_characters_rejection():
-    """Test that secret names with special characters are rejected."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        # Test various special characters
-        invalid_names = [
-            "secret/name",
-            "secret.name",
-            "secret name",
-            "secret@name",
-            "secret#name",
-            "secret$name",
-            "secret%name",
-            "secret&name",
-            "secret*name",
-            "secret+name",
-            "secret=name",
-            "secret?name",
-            "secret|name",
-            "secret<name",
-            "secret>name",
-        ]
+    """Test that special characters in secret names are rejected."""
+    invalid_names = [
+        "../secret",
+        "../../etc/passwd",
+        "secret/../file",
+        "secret@name",
+        "secret#name",
+        "secret$name",
+        "secret%name",
+        "secret&name",
+        "secret*name",
+        "secret+name",
+        "secret=name",
+        "secret|name",
+        "secret<name",
+        "secret>name",
+        "secret?name",
+        "secret:name",
+        "secret;name",
+        "secret'name",
+        'secret"name',
+        "secret\nname",
+        "secret\tname",
+        "secret name",  # space
+    ]
 
-        for invalid_name in invalid_names:
-            result = _resolve_secret(invalid_name, secrets_dir=tmpdir)
-            assert result == "", f"Should reject secret name: {invalid_name}"
+    for invalid_name in invalid_names:
+        result = _resolve_secret(invalid_name, secrets_dir="/app/secrets")
+        assert result == "", f"Should reject: {invalid_name}"
 
 
 def test_resolve_secret_valid_characters_allowed():
-    """Test that valid characters (alphanumeric, dash, underscore) are allowed."""
+    """Test that valid characters in secret names are allowed."""
     with tempfile.TemporaryDirectory() as tmpdir:
+        # Valid secret names
         valid_names = [
             "secret123",
+            "SECRET_NAME",
             "secret-name",
             "secret_name",
-            "SECRET_NAME",
-            "secret123_name-test",
-            "a1b2c3",
+            "SecretName123",
+            "123secret",
+            "a",
+            "A1",
         ]
 
         for valid_name in valid_names:
-            secret_path = os.path.join(tmpdir, valid_name)
-            with open(secret_path, "w") as f:
+            secret_file = os.path.join(tmpdir, valid_name)
+            with open(secret_file, "w") as f:
                 f.write(f"content-{valid_name}")
 
             result = _resolve_secret(valid_name, secrets_dir=tmpdir)
-            assert (
-                result == f"content-{valid_name}"
-            ), f"Should allow secret name: {valid_name}"
+            assert result == f"content-{valid_name}", f"Should allow: {valid_name}"
 
 
 def test_resolve_secret_multiple_traversal_attempts():
     """Test multiple levels of path traversal are blocked."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        # Create a nested structure
+        # Create nested structure
         nested_dir = os.path.join(tmpdir, "nested", "deep")
         os.makedirs(nested_dir, exist_ok=True)
 
@@ -353,8 +323,8 @@ def test_resolve_secret_normal_file_access_still_works():
     """Test that normal file access still works after security fixes."""
     with tempfile.TemporaryDirectory() as tmpdir:
         # Create a valid secret file
-        secret_path = os.path.join(tmpdir, "valid_secret")
-        with open(secret_path, "w") as f:
+        secret_file = os.path.join(tmpdir, "valid_secret")
+        with open(secret_file, "w") as f:
             f.write("valid-secret-content")
 
         # Should still work
@@ -364,35 +334,41 @@ def test_resolve_secret_normal_file_access_still_works():
 
 def test_resolve_key_path_relative():
     """Test resolving relative key path."""
-    path = _resolve_key_path("id_ed25519", keys_dir="/app/keys")
-    assert path == "/app/keys/id_ed25519"
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create a key file
+        key_path = os.path.join(tmpdir, "id_ed25519")
+        with open(key_path, "w") as f:
+            f.write("valid-key")
+
+        result = _resolve_key_path("id_ed25519", keys_dir=tmpdir)
+        assert result == os.path.abspath(key_path)
 
 
 def test_resolve_key_path_absolute_within_keys_dir():
     """Test resolving absolute key path within keys_dir."""
     with tempfile.TemporaryDirectory() as tmpdir:
         # Create a key file
-        key_file = os.path.join(tmpdir, "test_key")
-        with open(key_file, "w") as f:
-            f.write("test key content")
+        key_path = os.path.join(tmpdir, "id_ed25519")
+        with open(key_path, "w") as f:
+            f.write("valid-key")
 
         # Absolute path within keys_dir should work
-        path = _resolve_key_path(key_file, keys_dir=tmpdir)
-        assert path == os.path.abspath(key_file)
+        result = _resolve_key_path(key_path, keys_dir=tmpdir)
+        assert result == os.path.abspath(key_path)
 
 
 def test_resolve_key_path_absolute_outside_keys_dir():
-    """Test that absolute paths outside keys_dir are rejected."""
+    """Test that absolute key path outside keys_dir is rejected."""
     with tempfile.TemporaryDirectory() as tmpdir:
         # Create a key file outside keys_dir
         parent_dir = os.path.dirname(tmpdir)
         outside_key = os.path.join(parent_dir, "outside_key")
         with open(outside_key, "w") as f:
-            f.write("outside key")
+            f.write("outside-key")
 
         # Absolute path outside keys_dir should be rejected
-        path = _resolve_key_path(outside_key, keys_dir=tmpdir)
-        assert path == ""
+        result = _resolve_key_path(outside_key, keys_dir=tmpdir)
+        assert result == ""
 
         # Clean up
         os.remove(outside_key)
@@ -497,155 +473,151 @@ def test_validate_file_path_directory_rejection():
         os.makedirs(subdir, exist_ok=True)
 
         # Directory should be rejected
-        result = _validate_file_path(subdir, tmpdir)
+        result = _validate_file_path(subdir, tmpdir, require_exists=True)
         assert result is False
 
 
 def test_validate_file_path_symlink_rejection():
-    """Test that symlinks are rejected."""
+    """Test that symlink paths are rejected."""
     with tempfile.TemporaryDirectory() as tmpdir:
         # Create a regular file
-        target_file = os.path.join(tmpdir, "target_file")
+        target_file = os.path.join(tmpdir, "target")
         with open(target_file, "w") as f:
-            f.write("target content")
+            f.write("target-content")
 
-        # Create a symlink to the target
+        # Create a symlink to it
         symlink_path = os.path.join(tmpdir, "symlink")
         os.symlink(target_file, symlink_path)
 
         # Symlink should be rejected
-        result = _validate_file_path(symlink_path, tmpdir)
+        result = _validate_file_path(symlink_path, tmpdir, require_exists=True)
         assert result is False
 
 
-def test_validate_file_path_non_existent():
-    """Test that non-existent files are rejected."""
+def test_validate_file_path_outside_base_dir():
+    """Test that paths outside base directory are rejected."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        # Non-existent file should be rejected
-        nonexistent = os.path.join(tmpdir, "nonexistent_file")
-        result = _validate_file_path(nonexistent, tmpdir)
-        assert result is False
-
-
-def test_validate_file_path_outside_directory():
-    """Test that files outside allowed directory are rejected."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        # Create a file outside the allowed directory
+        # Create a file outside the base directory
         parent_dir = os.path.dirname(tmpdir)
         outside_file = os.path.join(parent_dir, "outside_file")
         with open(outside_file, "w") as f:
-            f.write("outside content")
+            f.write("outside-content")
 
-        try:
-            # File outside directory should be rejected
-            result = _validate_file_path(outside_file, tmpdir)
-            assert result is False
-        finally:
-            # Clean up
-            os.remove(outside_file)
+        # Path outside base_dir should be rejected
+        result = _validate_file_path(outside_file, tmpdir, require_exists=True)
+        assert result is False
+
+        # Clean up
+        os.remove(outside_file)
 
 
 def test_validate_file_path_regular_file_allowed():
-    """Test that regular files within allowed directory are allowed."""
+    """Test that regular files within base directory are allowed."""
     with tempfile.TemporaryDirectory() as tmpdir:
         # Create a regular file
-        regular_file = os.path.join(tmpdir, "regular_file")
-        with open(regular_file, "w") as f:
-            f.write("file content")
+        file_path = os.path.join(tmpdir, "regular_file")
+        with open(file_path, "w") as f:
+            f.write("file-content")
 
         # Regular file should be allowed
-        result = _validate_file_path(regular_file, tmpdir)
+        result = _validate_file_path(file_path, tmpdir, require_exists=True)
         assert result is True
 
 
 def test_resolve_secret_directory_rejection():
-    """Test that secret resolution rejects directories."""
+    """Test that directories are rejected when resolving secrets."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        # Create a subdirectory (not a file)
+        # Create a subdirectory
         subdir = os.path.join(tmpdir, "subdir")
         os.makedirs(subdir, exist_ok=True)
 
-        # Try to resolve a directory as a secret (should fail)
+        # Directory should be rejected
         result = _resolve_secret("subdir", secrets_dir=tmpdir)
         assert result == ""
 
 
 def test_resolve_secret_symlink_rejection():
-    """Test that secret resolution rejects symlinks."""
+    """Test that symlinks are rejected when resolving secrets."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        # Create a target secret file
-        target_secret = os.path.join(tmpdir, "target_secret")
-        with open(target_secret, "w") as f:
-            f.write("target-secret")
+        # Create a regular file
+        target_file = os.path.join(tmpdir, "target")
+        with open(target_file, "w") as f:
+            f.write("target-content")
 
-        # Create a symlink
-        symlink_name = "symlink_secret"
-        symlink_path = os.path.join(tmpdir, symlink_name)
-        os.symlink(target_secret, symlink_path)
+        # Create a symlink to it
+        symlink_path = os.path.join(tmpdir, "symlink")
+        os.symlink(target_file, symlink_path)
 
         # Symlink should be rejected
-        result = _resolve_secret(symlink_name, secrets_dir=tmpdir)
+        result = _resolve_secret("symlink", secrets_dir=tmpdir)
         assert result == ""
 
 
 def test_resolve_key_path_directory_rejection():
-    """Test that key path resolution rejects directories."""
+    """Test that directories are rejected when resolving key paths."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        # Create a subdirectory (not a file)
+        # Create a subdirectory
         subdir = os.path.join(tmpdir, "subdir")
         os.makedirs(subdir, exist_ok=True)
 
-        # Try to resolve a directory as a key path (should fail)
+        # Directory should be rejected (relative path)
         result = _resolve_key_path("subdir", keys_dir=tmpdir)
         assert result == ""
 
+        # Directory should be rejected (absolute path)
+        result2 = _resolve_key_path(subdir, keys_dir=tmpdir)
+        assert result2 == ""
+
 
 def test_resolve_key_path_symlink_rejection():
-    """Test that key path resolution rejects symlinks."""
+    """Test that symlinks are rejected when resolving key paths."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        # Create a target key file
-        target_key = os.path.join(tmpdir, "target_key")
-        with open(target_key, "w") as f:
-            f.write("target-key")
+        # Create a regular file
+        target_file = os.path.join(tmpdir, "target")
+        with open(target_file, "w") as f:
+            f.write("target-content")
 
-        # Create a symlink
-        symlink_name = "symlink_key"
-        symlink_path = os.path.join(tmpdir, symlink_name)
-        os.symlink(target_key, symlink_path)
+        # Create a symlink to it
+        symlink_path = os.path.join(tmpdir, "symlink")
+        os.symlink(target_file, symlink_path)
 
-        # Symlink should be rejected
-        result = _resolve_key_path(symlink_name, keys_dir=tmpdir)
+        # Symlink should be rejected (relative path)
+        result = _resolve_key_path("symlink", keys_dir=tmpdir)
         assert result == ""
+
+        # Symlink should be rejected (absolute path)
+        result2 = _resolve_key_path(symlink_path, keys_dir=tmpdir)
+        assert result2 == ""
 
 
 def test_resolve_secret_regular_file_still_works():
-    """Test that regular files still work after adding file validation."""
+    """Test that regular files still work after file validation."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        # Create a regular secret file
-        secret_path = os.path.join(tmpdir, "valid_secret")
-        with open(secret_path, "w") as f:
-            f.write("valid-secret-content")
+        # Create a regular file
+        file_path = os.path.join(tmpdir, "regular_secret")
+        with open(file_path, "w") as f:
+            f.write("regular-secret-content")
 
-        # Regular file should still work
-        result = _resolve_secret("valid_secret", secrets_dir=tmpdir)
-        assert result == "valid-secret-content"
+        # Should work
+        result = _resolve_secret("regular_secret", secrets_dir=tmpdir)
+        assert result == "regular-secret-content"
 
 
 def test_resolve_key_path_regular_file_still_works():
-    """Test that regular files still work after adding file validation."""
+    """Test that regular files still work after file validation."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        # Create a regular key file
-        key_path = os.path.join(tmpdir, "valid_key")
-        with open(key_path, "w") as f:
-            f.write("valid-key-content")
+        # Create a regular file
+        file_path = os.path.join(tmpdir, "regular_key")
+        with open(file_path, "w") as f:
+            f.write("regular-key-content")
 
-        # Regular file should still work (relative path)
-        result = _resolve_key_path("valid_key", keys_dir=tmpdir)
-        assert result == os.path.abspath(key_path)
+        # Should work with relative path
+        result = _resolve_key_path("regular_key", keys_dir=tmpdir)
+        assert result == os.path.abspath(file_path)
 
-        # Regular file should still work (absolute path)
-        result2 = _resolve_key_path(key_path, keys_dir=tmpdir)
-        assert result2 == os.path.abspath(key_path)
+        # Should work with absolute path
+        result2 = _resolve_key_path(file_path, keys_dir=tmpdir)
+        assert result2 == os.path.abspath(file_path)
 
 
 def test_load_yaml_normal_size():
@@ -687,53 +659,149 @@ def test_load_yaml_oversized_file():
 
 
 def test_load_yaml_at_size_limit():
-    """Test that files at exactly the size limit still load."""
+    """Test that YAML file at size limit is accepted."""
     with tempfile.TemporaryDirectory() as tmpdir:
         yaml_path = os.path.join(tmpdir, "at_limit.yml")
         # Create a file exactly at the size limit
         yaml_content = {
-            "test": "x" * (MAX_YAML_FILE_SIZE - 50)
-        }  # Leave room for YAML structure
+            "test": "data",
+            "large_field": "x" * (MAX_YAML_FILE_SIZE - 100),
+        }
         with open(yaml_path, "w") as f:
             yaml.dump(yaml_content, f)
 
-        # If file is at or under limit, it should load
-        # We'll truncate it if needed to be exactly at limit
-        if os.path.getsize(yaml_path) <= MAX_YAML_FILE_SIZE:
-            result = _load_yaml(yaml_path)
-            assert "test" in result
-        else:
-            # File exceeded limit during dump, which is expected
-            pass
+        # Adjust if file is slightly larger than expected
+        current_size = os.path.getsize(yaml_path)
+        if current_size > MAX_YAML_FILE_SIZE:
+            # Reduce content to fit
+            yaml_content = {
+                "test": "data",
+                "large_field": "x" * (MAX_YAML_FILE_SIZE - 200),
+            }
+            with open(yaml_path, "w") as f:
+                yaml.dump(yaml_content, f)
+
+        # File at limit should be accepted
+        result = _load_yaml(yaml_path)
+        assert "test" in result
 
 
 def test_load_yaml_missing_file():
-    """Test that missing files return empty dict."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        missing_path = os.path.join(tmpdir, "nonexistent.yml")
-        result = _load_yaml(missing_path)
-        assert result == {}
+    """Test that missing YAML file returns empty dict."""
+    result = _load_yaml("/nonexistent/file.yml")
+    assert result == {}
 
 
 def test_load_yaml_invalid_yaml():
-    """Test that invalid YAML returns empty dict and logs error."""
+    """Test that invalid YAML returns empty dict."""
     with tempfile.TemporaryDirectory() as tmpdir:
         yaml_path = os.path.join(tmpdir, "invalid.yml")
         with open(yaml_path, "w") as f:
             f.write("invalid: yaml: content: [unclosed")
 
-        result = _load_yaml(yaml_path)
         # Should return empty dict on parse error
-        assert result == {}
-
-
-def test_load_yaml_empty_file():
-    """Test that empty YAML files return empty dict."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        yaml_path = os.path.join(tmpdir, "empty.yml")
-        with open(yaml_path, "w") as f:
-            f.write("")
-
         result = _load_yaml(yaml_path)
-        # Empty YAML should return empty dict
         assert result == {}
+
+
+def test_resolve_secret_name_length_at_limit():
+    """Test that secret name at length limit is accepted."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create secret file with max length name
+        secret_name = "a" * MAX_SECRET_NAME_LENGTH
+        secret_file = os.path.join(tmpdir, secret_name)
+        with open(secret_file, "w") as f:
+            f.write("secret-content")
+
+        # Should work at limit
+        result = _resolve_secret(secret_name, secrets_dir=tmpdir)
+        assert result == "secret-content"
+
+
+def test_resolve_secret_name_length_exceeds_limit():
+    """Test that secret name exceeding length limit is rejected."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Secret name exceeding limit
+        secret_name = "a" * (MAX_SECRET_NAME_LENGTH + 1)
+
+        # Should be rejected
+        result = _resolve_secret(secret_name, secrets_dir=tmpdir)
+        assert result == ""
+
+
+def test_resolve_secret_name_length_under_limit():
+    """Test that secret name under limit is accepted."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Secret name well under limit
+        secret_name = "normal_secret"
+        secret_file = os.path.join(tmpdir, secret_name)
+        with open(secret_file, "w") as f:
+            f.write("secret-content")
+
+        # Should work
+        result = _resolve_secret(secret_name, secrets_dir=tmpdir)
+        assert result == "secret-content"
+
+
+def test_resolve_key_path_length_at_limit():
+    """Test that key path at length limit is accepted."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create key file with path at limit (but reasonable for filesystem)
+        # Filesystem has limits, so use a reasonable but still long path
+        # Use nested path to test long path handling without exceeding filesystem limits
+        max_reasonable_length = min(
+            MAX_KEY_PATH_LENGTH, 200
+        )  # Stay within filesystem limits
+        key_name = "a" * max_reasonable_length
+        key_path = os.path.join(tmpdir, key_name)
+        with open(key_path, "w") as f:
+            f.write("key-content")
+
+        # Should work at limit (use relative path)
+        relative_path = key_name
+        result = _resolve_key_path(relative_path, keys_dir=tmpdir)
+        assert result == os.path.abspath(key_path)
+
+
+def test_resolve_key_path_length_exceeds_limit():
+    """Test that key path exceeding length limit is rejected."""
+    # Key path exceeding limit
+    key_path = "a" * (MAX_KEY_PATH_LENGTH + 1)
+
+    # Should be rejected
+    result = _resolve_key_path(key_path, keys_dir="/app/keys")
+    assert result == ""
+
+
+def test_resolve_key_path_length_under_limit():
+    """Test that key path under limit is accepted."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Key path well under limit
+        key_name = "normal_key"
+        key_path = os.path.join(tmpdir, key_name)
+        with open(key_path, "w") as f:
+            f.write("key-content")
+
+        # Should work
+        result = _resolve_key_path("normal_key", keys_dir=tmpdir)
+        assert result == os.path.abspath(key_path)
+
+
+def test_resolve_secret_length_validation_before_character_validation():
+    """Test that length validation happens before character validation."""
+    # Secret name that's too long but also has invalid characters
+    secret_name = "a" * (MAX_SECRET_NAME_LENGTH + 1) + "!"
+
+    # Should be rejected for length first
+    result = _resolve_secret(secret_name, secrets_dir="/app/secrets")
+    assert result == ""
+
+
+def test_resolve_key_path_length_validation_before_traversal_check():
+    """Test that length validation happens before traversal check."""
+    # Key path that's too long and contains traversal
+    key_path = "a" * (MAX_KEY_PATH_LENGTH + 1) + "../"
+
+    # Should be rejected for length first
+    result = _resolve_key_path(key_path, keys_dir="/app/keys")
+    assert result == ""

@@ -199,6 +199,43 @@ All user-controlled parameters are validated before processing to prevent inject
 
 **Effect**: Prevents injection attacks (null bytes, control characters) and resource exhaustion (length limits) via malformed user inputs.
 
+#### Input Length Limits for Configuration Parameters
+
+String parameters in configuration files have length limits to prevent resource exhaustion:
+
+1. **Secret Names** (`credentials.yml`):
+   - Maximum length: 100 characters
+   - Validated in `_resolve_secret()` function
+   - Rejects names exceeding limit with security event logging
+
+2. **SSH Key Paths** (`credentials.yml`):
+   - Maximum length: 500 characters
+   - Validated in `_resolve_key_path()` function
+   - Rejects paths exceeding limit with security event logging
+
+3. **MCP Tool Parameters** (from PR6):
+   - **Alias**: Maximum 100 characters
+   - **Command**: Maximum 10,000 characters
+   - **Tag**: Maximum 50 characters
+   - **Task ID**: Maximum 200 characters
+
+4. **Length Validation Order**: Length validation occurs before other validations (character validation, path traversal checks) to prevent processing of oversized inputs.
+
+5. **Security Event Logging**: Length limit violations are logged:
+   ```json
+   {
+     "level": "error",
+     "kind": "security_event",
+     "type": "input_length_limit_exceeded",
+     "field": "secret_name",
+     "length": 150,
+     "max_length": 100,
+     "reason": "secret_name_too_long"
+   }
+   ```
+
+**Effect**: Prevents resource exhaustion attacks via oversized string inputs in configuration files and user-controlled parameters.
+
 #### DNS Rate Limiting
 
 DNS resolution is rate-limited and cached to prevent DNS-based DoS attacks:

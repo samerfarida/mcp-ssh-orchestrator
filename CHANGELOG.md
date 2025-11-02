@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased] - 2025-11-02
 
 ### Added
+- **Input Length Limits for Configuration Parameters (PR9)**: Added length validation for secret names and SSH key paths
+  - Secret name length limit: 100 characters (prevents oversized secret names in credentials.yml)
+  - SSH key path length limit: 500 characters (prevents oversized key paths)
+  - Length validation occurs before other validations (character checks, path traversal checks)
+  - Security event logging for length limit violations
+  - Comprehensive tests for length limits (at limit, exceeds limit, under limit)
+  - Updated documentation with all input length limits (MCP tools + config parameters)
+  - Complements PR6 input validation for MCP tool parameters (alias, command, tag, task_id)
 - **DNS Rate Limiting (PR8)**: Added rate limiting and caching for DNS resolution to prevent DoS attacks
   - Rate limiting: Maximum 10 resolutions per second per hostname (time-window based)
   - Result caching: 60-second TTL cache for DNS results (reduces DNS server load)

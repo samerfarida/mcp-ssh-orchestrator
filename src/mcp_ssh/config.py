@@ -14,6 +14,11 @@ DEFAULT_SECRETS_DIR = os.environ.get("MCP_SSH_SECRETS_DIR", "/app/secrets")
 # Prevents resource exhaustion attacks via oversized YAML files
 MAX_YAML_FILE_SIZE = 10 * 1024 * 1024  # 10MB in bytes
 
+# Input length limits for configuration parameters
+# Prevents resource exhaustion attacks via oversized string inputs
+MAX_SECRET_NAME_LENGTH = 100  # Maximum length for secret names
+MAX_KEY_PATH_LENGTH = 500  # Maximum length for SSH key paths
+
 
 def _load_yaml(path: str) -> dict:
     """Load YAML file to dict with size limit protection.
@@ -164,8 +169,23 @@ def _resolve_secret(secret_name: str, secrets_dir: str = "") -> str:
 
     Security: Validates against path traversal attacks and only allows
     safe characters in secret names (alphanumeric, dash, underscore).
+    Also validates length to prevent resource exhaustion.
     """
     if not secret_name:
+        return ""
+
+    # Length validation: prevent resource exhaustion
+    if len(secret_name) > MAX_SECRET_NAME_LENGTH:
+        _log_err(
+            "security_event",
+            {
+                "type": "input_length_limit_exceeded",
+                "field": "secret_name",
+                "length": len(secret_name),
+                "max_length": MAX_SECRET_NAME_LENGTH,
+                "reason": "secret_name_too_long",
+            },
+        )
         return ""
 
     # Try environment variable first (format: MCP_SSH_SECRET_<name>)
@@ -240,9 +260,24 @@ def _resolve_key_path(key_path: str, keys_dir: str = "") -> str:
 
     Security: Validates against path traversal attacks. For absolute paths,
     validates they're within keys_dir. For relative paths, validates they
-    stay within keys_dir after normalization.
+    stay within keys_dir after normalization. Also validates length to prevent
+    resource exhaustion.
     """
     if not key_path:
+        return ""
+
+    # Length validation: prevent resource exhaustion
+    if len(key_path) > MAX_KEY_PATH_LENGTH:
+        _log_err(
+            "security_event",
+            {
+                "type": "input_length_limit_exceeded",
+                "field": "key_path",
+                "length": len(key_path),
+                "max_length": MAX_KEY_PATH_LENGTH,
+                "reason": "key_path_too_long",
+            },
+        )
         return ""
 
     # Security check: reject paths containing traversal patterns
