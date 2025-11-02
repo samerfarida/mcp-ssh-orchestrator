@@ -27,6 +27,68 @@ All threats are addressed through defense-in-depth controls documented below.
 
 ## Authentication & Credentials
 
+### Path Traversal Protection
+
+**Security Enhancement:** All credential and key path resolution includes path traversal protection to prevent unauthorized file access.
+
+#### Secret Path Protection
+
+Secret names and paths are validated to prevent directory traversal attacks:
+
+1. **Secret Name Validation**: Only alphanumeric characters, dashes, and underscores are allowed
+   ```yaml
+   # ✅ Valid secret names
+   password_secret: "prod_password"
+   password_secret: "key-passphrase-2024"
+   password_secret: "admin_password_1"
+   
+   # ❌ Invalid (will be rejected)
+   password_secret: "../etc/passwd"     # Path traversal
+   password_secret: "/absolute/path"    # Absolute path
+   password_secret: "secret.name"       # Special characters
+   ```
+
+2. **Path Normalization**: All paths are normalized and validated to stay within `/app/secrets`
+   - Relative paths are resolved relative to secrets directory
+   - Absolute paths are rejected for secrets
+   - Paths containing `../` or `..\\` are blocked
+
+3. **Security Event Logging**: Path traversal attempts are logged for monitoring:
+   ```json
+   {
+     "level": "error",
+     "kind": "security_event",
+     "type": "path_traversal_attempt",
+     "secret_name": "../etc/passwd",
+     "reason": "path_outside_allowed_directory"
+   }
+   ```
+
+#### SSH Key Path Protection
+
+SSH key paths include similar protections:
+
+1. **Traversal Pattern Detection**: Paths containing `..` patterns are rejected
+   ```yaml
+   # ✅ Valid key paths
+   key_path: "id_ed25519"
+   key_path: "prod_key"
+   key_path: "/app/keys/id_ed25519"  # Absolute within keys_dir
+   
+   # ❌ Invalid (will be rejected)
+   key_path: "../outside_key"        # Path traversal
+   key_path: "/etc/passwd"           # Outside keys_dir
+   key_path: "key/../../etc/passwd"   # Encoded traversal
+   ```
+
+2. **Absolute Path Validation**: Absolute paths must be within the configured `keys_dir`
+   - Paths outside `/app/keys` (or custom keys_dir) are rejected
+   - Prevents accessing keys from other locations
+
+3. **Security Event Logging**: All path traversal attempts are logged with full context
+
+**Effect**: Prevents reading files outside intended directories, blocking common path traversal attack vectors.
+
 ### SSH Key Management
 
 **Best Practices:**
