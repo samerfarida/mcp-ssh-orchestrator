@@ -62,8 +62,8 @@ class Policy:
         self.default_limits = {
             "max_seconds": 60,
             "max_output_bytes": 1024 * 1024,
-            "host_key_auto_add": False,
-            "require_known_host": True,  # new: fail if no known_hosts entry when strict
+            "host_key_auto_add": False,  # Deprecated: ignored for security (CWE-295)
+            "require_known_host": True,  # Security: always enforced, prevents MITM attacks
             "task_result_ttl": 300,  # 5 minutes default (SEP-1686 keepAlive)
             "task_progress_interval": 5,  # 5 seconds default
             # Expanded egress hardening defaults (can be overridden in policy.yml)

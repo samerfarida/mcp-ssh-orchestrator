@@ -76,14 +76,6 @@ def _log_rate_limit_violation(hostname: str):
     print(json.dumps(entry), file=sys.stderr)
 
 
-class AcceptPolicy(paramiko.MissingHostKeyPolicy):
-    """Accept unknown host keys without saving them."""
-
-    def missing_host_key(self, client, hostname, key):
-        # Accept the key but don't save it
-        pass
-
-
 class SSHClient:
     """Paramiko SSH wrapper with streaming, cancellation, and IP auditing."""
 
@@ -106,8 +98,37 @@ class SSHClient:
         self.password = password or ""
         self.passphrase = passphrase or ""
         self.known_hosts_path = known_hosts_path or ""
-        self.auto_add_host_keys = bool(auto_add_host_keys)
-        self.require_known_host = bool(require_known_host)
+        # Security: auto_add_host_keys is deprecated and ignored for security (CWE-295)
+        # Always use RejectPolicy to prevent MITM attacks
+        if auto_add_host_keys:
+            print(
+                json.dumps(
+                    {
+                        "level": "warn",
+                        "msg": "deprecation_warning",
+                        "type": "host_key_policy_deprecated",
+                        "detail": "auto_add_host_keys is deprecated and ignored. Always using RejectPolicy for security.",
+                        "cwe": "CWE-295",
+                    }
+                ),
+                file=sys.stderr,
+            )
+        # Security: require_known_host must always be True for security
+        # RejectPolicy is always used to prevent MITM attacks
+        if not require_known_host:
+            print(
+                json.dumps(
+                    {
+                        "level": "warn",
+                        "msg": "deprecation_warning",
+                        "type": "host_key_policy_deprecated",
+                        "detail": "require_known_host=False is deprecated and ignored. Always requiring known_hosts entry for security.",
+                        "cwe": "CWE-295",
+                    }
+                ),
+                file=sys.stderr,
+            )
+        self.require_known_host = True  # Always enforce strict host key verification
 
     @staticmethod
     def resolve_ips(hostname: str):
@@ -183,15 +204,13 @@ class SSHClient:
                 except Exception:
                     pass
 
-            # Strict or permissive behavior
-            if self.auto_add_host_keys:
-                client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            elif not self.require_known_host:
-                client.set_missing_host_key_policy(AcceptPolicy())
-            else:
-                client.set_missing_host_key_policy(paramiko.RejectPolicy())
+            # Security: Always use RejectPolicy to prevent MITM attacks (CWE-295)
+            # Unsafe policies (AutoAddPolicy, AcceptPolicy) are never used
+            # This fixes CodeQL alert: py/paramiko-missing-host-key-validation
+            client.set_missing_host_key_policy(paramiko.RejectPolicy())
 
-            # If strict is requested, ensure an entry exists before connecting
+            # Security: Always require known_hosts entry to prevent MITM attacks
+            # This ensures host identity is verified before connection
             if self.require_known_host:
                 try:
                     hk = client.get_host_keys()

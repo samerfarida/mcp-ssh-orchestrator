@@ -247,8 +247,7 @@ entries:
 # policy.yml - Permissive development policy
 limits:
   max_seconds: 120
-  host_key_auto_add: true
-  require_known_host: false
+  require_known_host: true  # Always enforced for security (CWE-295)
 
 rules:
   - action: "allow"

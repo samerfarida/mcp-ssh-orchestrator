@@ -1,5 +1,8 @@
 """Tests for SSH client."""
 
+import io
+import json
+import sys
 import threading
 import time
 
@@ -81,21 +84,61 @@ def test_ssh_client_known_hosts_settings():
     )
 
     assert client.known_hosts_path == "/app/keys/known_hosts"
-    assert client.auto_add_host_keys is False
+    # Security: require_known_host is always True regardless of input
     assert client.require_known_host is True
 
 
-def test_ssh_client_auto_add_host_keys():
-    """Test auto-add host keys mode."""
-    client = SSHClient(
-        host="10.0.0.1",
-        username="testuser",
-        auto_add_host_keys=True,
-        require_known_host=False,
-    )
+def test_ssh_client_require_known_host_always_enforced():
+    """Test that require_known_host is always enforced for security."""
+    # Capture stderr to check for deprecation warning
+    stderr_capture = io.StringIO()
+    original_stderr = sys.stderr
+    sys.stderr = stderr_capture
 
-    assert client.auto_add_host_keys is True
-    assert client.require_known_host is False
+    try:
+        # Even if require_known_host=False is passed, it should be True
+        client = SSHClient(
+            host="10.0.0.1",
+            username="testuser",
+            require_known_host=False,
+        )
+
+        # Security: require_known_host must always be True (CWE-295)
+        assert client.require_known_host is True
+
+        # Check that deprecation warning was logged
+        stderr_output = stderr_capture.getvalue()
+        assert "deprecation_warning" in stderr_output
+        assert "require_known_host=False is deprecated" in stderr_output
+        assert "CWE-295" in stderr_output
+    finally:
+        sys.stderr = original_stderr
+
+
+def test_ssh_client_auto_add_host_keys_deprecation():
+    """Test that auto_add_host_keys triggers deprecation warning."""
+    # Capture stderr to check for deprecation warning
+    stderr_capture = io.StringIO()
+    original_stderr = sys.stderr
+    sys.stderr = stderr_capture
+
+    try:
+        client = SSHClient(
+            host="10.0.0.1",
+            username="testuser",
+            auto_add_host_keys=True,
+        )
+
+        # Security: require_known_host must always be True (CWE-295)
+        assert client.require_known_host is True
+
+        # Check that deprecation warning was logged
+        stderr_output = stderr_capture.getvalue()
+        assert "deprecation_warning" in stderr_output
+        assert "auto_add_host_keys is deprecated" in stderr_output
+        assert "CWE-295" in stderr_output
+    finally:
+        sys.stderr = original_stderr
 
 
 # Note: Full integration tests with actual SSH connections would require

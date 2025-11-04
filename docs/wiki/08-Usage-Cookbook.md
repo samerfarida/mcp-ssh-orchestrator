@@ -45,14 +45,13 @@ entries:
 limits:
   max_seconds: 120
   max_output_bytes: 2097152  # 2MB
-  host_key_auto_add: true
-  require_known_host: false
+  require_known_host: true  # Always enforced for security (CWE-295)
 
 network:
   allow_cidrs:
     - "192.168.0.0/16"
     - "10.0.0.0/8"
-  require_known_host: false
+      require_known_host: true  # Always enforced for security (CWE-295)
 
 rules:
   # Allow all commands in development
@@ -104,13 +103,12 @@ hosts:
 limits:
   max_seconds: 90
   max_output_bytes: 1048576  # 1MB
-  host_key_auto_add: true
-  require_known_host: false
+  require_known_host: true  # Always enforced for security (CWE-295)
 
 network:
   allow_cidrs:
     - "10.0.0.0/8"
-  require_known_host: false
+      require_known_host: true  # Always enforced for security (CWE-295)
 
 rules:
   # Read-only commands for all hosts

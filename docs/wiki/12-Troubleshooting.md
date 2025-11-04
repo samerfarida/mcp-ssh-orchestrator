@@ -168,10 +168,13 @@ ssh-keyscan 10.0.0.11 >> ~/mcp-ssh/keys/known_hosts
 # Verify host key
 ssh-keygen -l -f ~/mcp-ssh/keys/known_hosts
 
-# Update policy to allow host key auto-add (development only)
+# Security: Host key verification is always enforced (CWE-295)
+# Populate known_hosts file instead:
 # In policy.yml:
-host_key_auto_add: true
-require_known_host: false
+require_known_host: true  # Always enforced for security (CWE-295)
+
+# Populate known_hosts:
+ssh-keyscan -H <hostname> >> /app/keys/known_hosts
 ```
 
 ### Container Issues

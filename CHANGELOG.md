@@ -102,6 +102,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated credentials and configuration documentation with security features
 
 ### Fixed
+- **Security Fix: SSH Host Key Validation (CWE-295)**: Fixed CodeQL security alert by removing unsafe Paramiko host key policies
+  - Removed `AcceptPolicy` class and `AutoAddPolicy()` usage which accept unknown host keys
+  - Always use `RejectPolicy()` for strict host key verification to prevent MITM attacks
+  - `host_key_auto_add` and `require_known_host=False` are now deprecated and ignored
+  - Deprecation warnings logged when unsafe configurations are detected
+  - All SSH connections now require known_hosts entry for security
+  - Updated documentation to reflect security requirements and migration path
+  - References CodeQL alert: py/paramiko-missing-host-key-validation
 - **CI/CD Workflow Fix**: Fixed lint and build workflows to run on documentation-only PRs
   - Removed restrictive `paths:` filter from `pull_request` triggers in `lint.yml` and `build.yml`
   - Added `check-changes` job using `dorny/paths-filter` to detect code vs documentation changes

@@ -404,16 +404,21 @@ chmod 0400 ~/mcp-ssh/secrets/key_passphrase
 
 ### Host Key Verification
 
-**Always enable in production:**
+**Security Requirement (CWE-295)**: Host key verification is **always enforced** for security. The system always uses `RejectPolicy()` to prevent MITM attacks. Unsafe policies (`AutoAddPolicy`, `AcceptPolicy`) are never used.
+
+**Configuration:**
 
 ```yaml
 # policy.yml
 limits:
-  require_known_host: true
+  require_known_host: true   # Always enforced (default)
+  host_key_auto_add: false   # Deprecated: ignored for security
 
 network:
-  require_known_host: true  # Overrides limits setting
+  require_known_host: true   # Always enforced (default)
 ```
+
+**Note**: `host_key_auto_add: true` and `require_known_host: false` are deprecated and ignored. Deprecation warnings are logged when these unsafe configurations are detected.
 
 **Populate known_hosts:**
 
@@ -426,7 +431,12 @@ ssh-keyscan -H 10.0.0.21 >> ~/mcp-ssh/keys/known_hosts
 cp ~/.ssh/known_hosts ~/mcp-ssh/keys/
 ```
 
-**Effect**: Prevents MITM attacks by verifying host identity before connection.
+**Effect**: Prevents MITM attacks by verifying host identity before connection. All SSH connections require a known_hosts entry.
+
+**Migration**: If you have existing configurations using `host_key_auto_add: true` or `require_known_host: false`, you must:
+1. Populate your `known_hosts` file using `ssh-keyscan`
+2. Remove unsafe configuration options
+3. Ensure `require_known_host: true` is set (default)
 
 ### IP Allowlisting
 

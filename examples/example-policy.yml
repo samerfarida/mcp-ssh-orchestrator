@@ -143,10 +143,10 @@ overrides:
       max_seconds: 30
       max_output_bytes: 524288
     
-    # Lab: relaxed for experimentation
+    # Lab: relaxed timeout for experimentation
+    # Note: host_key_auto_add and require_known_host=False are deprecated for security
+    # All connections require known_hosts entry (CWE-295)
     lab:
-      host_key_auto_add: true
-      require_known_host: false
       max_seconds: 90
     
     # Long-running maintenance

@@ -39,6 +39,19 @@ def _client_for(alias: str, limits: dict, require_known_host: bool) -> SSHClient
     creds = config.get_credentials(creds_ref) if creds_ref else {}
     known_hosts_path = (config.get_policy() or {}).get("known_hosts_path", "")
     auto_add = bool(limits.get("host_key_auto_add", False))
+    
+    # Security: Log deprecation warning if host_key_auto_add is set (CWE-295)
+    if auto_add:
+        log_json(
+            {
+                "level": "warn",
+                "msg": "deprecation_warning",
+                "type": "host_key_policy_deprecated",
+                "detail": "host_key_auto_add is deprecated and ignored. Always using RejectPolicy for security.",
+                "alias": alias,
+                "cwe": "CWE-295",
+            }
+        )
 
     # Input validation
     hostname = host.get("host", "").strip()
@@ -378,9 +391,22 @@ def ssh_run(alias: str = "", command: str = "") -> str:
         limits = pol.limits_for(alias, tags)
         max_seconds = int(limits.get("max_seconds", 60))
         max_output_bytes = int(limits.get("max_output_bytes", 1024 * 1024))
-        require_known_host = bool(
+        require_known_host_config = bool(
             limits.get("require_known_host", pol.require_known_host())
         )
+        # Security: Always require known_host for security (CWE-295)
+        if not require_known_host_config:
+            log_json(
+                {
+                    "level": "warn",
+                    "msg": "deprecation_warning",
+                    "type": "host_key_policy_deprecated",
+                    "detail": "require_known_host=False is deprecated and ignored. Always requiring known_hosts entry for security.",
+                    "alias": alias,
+                    "cwe": "CWE-295",
+                }
+            )
+        require_known_host = True  # Always enforce strict host key verification
 
         task_id = TASKS.create(alias, cmd_hash)
 
@@ -515,9 +541,22 @@ def ssh_run_on_tag(tag: str = "", command: str = "") -> str:
             limits = pol.limits_for(alias, tags)
             max_seconds = int(limits.get("max_seconds", 60))
             max_output_bytes = int(limits.get("max_output_bytes", 1024 * 1024))
-            require_known_host = bool(
+            require_known_host_config = bool(
                 limits.get("require_known_host", pol.require_known_host())
             )
+            # Security: Always require known_host for security (CWE-295)
+            if not require_known_host_config:
+                log_json(
+                    {
+                        "level": "warn",
+                        "msg": "deprecation_warning",
+                        "type": "host_key_policy_deprecated",
+                        "detail": "require_known_host=False is deprecated and ignored. Always requiring known_hosts entry for security.",
+                        "alias": alias,
+                        "cwe": "CWE-295",
+                    }
+                )
+            require_known_host = True  # Always enforce strict host key verification
 
             task_id = TASKS.create(alias, cmd_hash)
 
@@ -673,9 +712,22 @@ def ssh_run_async(alias: str = "", command: str = "") -> str:
             return f"Denied by network policy: {reason}"
 
         limits = pol.limits_for(alias, tags)
-        require_known_host = bool(
+        require_known_host_config = bool(
             limits.get("require_known_host", pol.require_known_host())
         )
+        # Security: Always require known_host for security (CWE-295)
+        if not require_known_host_config:
+            log_json(
+                {
+                    "level": "warn",
+                    "msg": "deprecation_warning",
+                    "type": "host_key_policy_deprecated",
+                    "detail": "require_known_host=False is deprecated and ignored. Always requiring known_hosts entry for security.",
+                    "alias": alias,
+                    "cwe": "CWE-295",
+                }
+            )
+        require_known_host = True  # Always enforce strict host key verification
 
         # Create SSH client
         client = _client_for(alias, limits, require_known_host)
