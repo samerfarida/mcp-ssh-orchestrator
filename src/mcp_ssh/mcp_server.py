@@ -39,7 +39,7 @@ def _client_for(alias: str, limits: dict, require_known_host: bool) -> SSHClient
     creds = config.get_credentials(creds_ref) if creds_ref else {}
     known_hosts_path = (config.get_policy() or {}).get("known_hosts_path", "")
     auto_add = bool(limits.get("host_key_auto_add", False))
-    
+
     # Security: Log deprecation warning if host_key_auto_add is set (CWE-295)
     if auto_add:
         log_json(

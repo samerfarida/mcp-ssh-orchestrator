@@ -1,7 +1,6 @@
 """Tests for SSH client."""
 
 import io
-import json
 import sys
 import threading
 import time
