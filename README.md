@@ -28,6 +28,10 @@
   <img src="assets/demo.gif" alt="MCP SSH Orchestrator Demo">
 </div>
 
+<a href="https://glama.ai/mcp/servers/@samerfarida/mcp-ssh-orchestrator">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@samerfarida/mcp-ssh-orchestrator/badge" alt="SSH Orchestrator MCP server" />
+</a>
+
 ## What Problem Does This Solve?
 
 **Imagine this:** Your AI assistant (Claude, ChatGPT, etc.) can access your servers, but you're terrified of what it might do. `rm -rf /`? Delete your databases? Change firewall rules?
