@@ -21,16 +21,17 @@
 [![GitHub last commit](https://img.shields.io/github/last-commit/samerfarida/mcp-ssh-orchestrator)](https://github.com/samerfarida/mcp-ssh-orchestrator/commits/main)
 [![GitHub Actions](https://img.shields.io/github/actions/workflow/status/samerfarida/mcp-ssh-orchestrator/build.yml?branch=main&label=Build)](https://github.com/samerfarida/mcp-ssh-orchestrator/actions)
 [![CodeQL Analysis](https://github.com/samerfarida/mcp-ssh-orchestrator/actions/workflows/codeql.yml/badge.svg)](https://github.com/samerfarida/mcp-ssh-orchestrator/actions/workflows/codeql.yml)
+<div align="center">
+<a href="https://glama.ai/mcp/servers/@samerfarida/mcp-ssh-orchestrator">
+  <img width="200" height="100" src="https://glama.ai/mcp/servers/@samerfarida/mcp-ssh-orchestrator/badge" alt="SSH Orchestrator MCP server" />
+</a>
+</div>
 
 ---
 
 <div align="center">
   <img src="assets/demo.gif" alt="MCP SSH Orchestrator Demo">
 </div>
-
-<a href="https://glama.ai/mcp/servers/@samerfarida/mcp-ssh-orchestrator">
-  <img width="380" height="200" src="https://glama.ai/mcp/servers/@samerfarida/mcp-ssh-orchestrator/badge" alt="SSH Orchestrator MCP server" />
-</a>
 
 ## What Problem Does This Solve?
 
