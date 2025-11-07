@@ -9,11 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **MCP Notification Handler Builder (Unreleased)**: Added `_build_notification_handler()` so async tasks broadcast lifecycle events through the MCP context APIs while retaining structured logging fallback when no session loop is available.
+### Fixed
+
+## [0.3.2] - 2025-11-07
+
+### Added
+
+- **MCP Notification Handler Builder**: Added `_build_notification_handler()` so async tasks broadcast lifecycle events through the MCP context APIs while retaining structured logging fallback when no session loop is available.
 
 ### Fixed
 
-- **Async Task Notifications (Unreleased)**: Reworked async task notifications to use the MCP 2025-06-18 notification pathway—`ssh_run_async` now captures the tool `Context`, schedules updates on the active event loop, and reports progress/info via `ctx.report_progress` / `ctx.info`, eliminating `notification_failed` warnings and restoring real-time updates ([MCP Spec](https://modelcontextprotocol.io/specification/2025-06-18/basic/index#notifications), [Python SDK](https://github.com/modelcontextprotocol/python-sdk/blob/main/README.md)).
+- **Async Task Notifications**: Reworked async task notifications to use the MCP 2025-06-18 notification pathway—`ssh_run_async` now captures the tool `Context`, schedules updates on the active event loop, and reports progress/info via `ctx.report_progress` / `ctx.info`, eliminating `notification_failed` warnings and restoring real-time updates ([MCP Spec](https://modelcontextprotocol.io/specification/2025-06-18/basic/index#notifications), [Python SDK](https://github.com/modelcontextprotocol/python-sdk/blob/main/README.md)).
 - **Security: SSH Host Key Validation (CWE-295)**: Documented the hardening work from commit 46a8919d95ce8e0106bf9bd0c1895ebde4d771d7 that enforces Paramiko's `RejectPolicy()`, ignores unsafe host-key options, and requires known_hosts entries to mitigate MITM risks.
 
 ## [0.3.0] - 2025-11-02
