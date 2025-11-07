@@ -518,15 +518,18 @@ class AsyncTaskManager:
 
     def _send_notification(self, event_type: str, task_id: str, data: dict[str, Any]):
         """Send MCP notification for task events."""
-        if self._notification_callback:
-            try:
-                self._notification_callback(
-                    f"tasks/{event_type}", {"task_id": task_id, **data}
-                )
-            except Exception as e:
-                log_json(
-                    {"level": "warn", "msg": "notification_failed", "error": str(e)}
-                )
+        if not self._notification_callback:
+            return
+
+        # Ensure we don't mutate the original data payload
+        payload = dict(data or {})
+
+        try:
+            self._notification_callback(event_type, task_id, payload)
+        except Exception as e:
+            log_json(
+                {"level": "warn", "msg": "notification_failed", "error": str(e)}
+            )
 
 
 # Legacy TaskManager for backward compatibility

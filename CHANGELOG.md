@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Fixed
+- **Async Task Notifications (Unreleased)**: Fixed the async notification bridge so `_send_task_notification()` receives the expected `(event_type, task_id, data)` parameters, resolving "notification_failed" warnings and restoring MCP task updates.
+- **Security: SSH Host Key Validation (CWE-295)**: Documented the hardening work from commit 46a8919d95ce8e0106bf9bd0c1895ebde4d771d7 that enforces Paramiko's `RejectPolicy()`, ignores unsafe host-key options, and requires known_hosts entries to mitigate MITM risks.
+
 ## [0.3.0] - 2025-11-02
 
 ### Added
