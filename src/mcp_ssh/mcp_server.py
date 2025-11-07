@@ -1,8 +1,10 @@
+import asyncio
 import json
 import re
 import time
+from collections.abc import Callable
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import Context, FastMCP
 
 from mcp_ssh.config import Config
 from mcp_ssh.policy import Policy
@@ -19,17 +21,74 @@ mcp = FastMCP()
 config = Config()
 
 
-# Set up notification callback for async tasks
-def _send_task_notification(event_type: str, task_id: str, data: dict):
-    """Send MCP notification for task events."""
-    try:
-        mcp.send_notification(f"tasks/{event_type}", {"task_id": task_id, **data})
-    except Exception as e:
-        log_json({"level": "warn", "msg": "notification_failed", "error": str(e)})
+def _format_task_event(event_type: str, task_id: str, payload: dict) -> str:
+    """Return human-readable message for async task events."""
+    base = f"task {task_id} {event_type}"
+    if payload:
+        safe_payload = json.dumps(payload, default=str, separators=(",", ":"))
+        return f"{base} {safe_payload}"
+    return base
 
 
-# Configure async task manager with notification callback
-ASYNC_TASKS.set_notification_callback(_send_task_notification)
+def _build_notification_handler(
+    ctx: Context | None,
+    loop: asyncio.AbstractEventLoop | None,
+) -> Callable[[str, str, dict], None]:
+    """Return notification handler that emits MCP-compliant notifications."""
+    if ctx is None or loop is None:
+
+        def _log_only(event_type: str, task_id: str, payload: dict):
+            log_json(
+                {
+                    "level": "info",
+                    "msg": "async_task_event",
+                    "event_type": event_type,
+                    "task_id": task_id,
+                    "payload": payload,
+                }
+            )
+
+        return _log_only
+
+    async def _emit(event_type: str, task_id: str, payload: dict):
+        message = _format_task_event(event_type, task_id, payload)
+
+        if event_type == "progress":
+            max_seconds = payload.get("max_seconds")
+            elapsed_ms = payload.get("elapsed_ms")
+            progress = None
+            total = None
+            if max_seconds and elapsed_ms is not None:
+                total = 100.0
+                progress = min(100.0, (elapsed_ms / (max_seconds * 1000)) * 100)
+            if progress is not None and total is not None:
+                await ctx.report_progress(progress, total, message=message)
+            await ctx.debug(
+                message, task_id=task_id, event_type=event_type, payload=payload
+            )
+        else:
+            await ctx.info(
+                message, task_id=task_id, event_type=event_type, payload=payload
+            )
+
+    def _handler(event_type: str, task_id: str, payload: dict):
+        async def _invoke() -> None:
+            await _emit(event_type, task_id, payload)
+
+        def _schedule() -> None:
+            loop.create_task(_invoke())
+
+        try:
+            running_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop.call_soon_threadsafe(_schedule)
+        else:
+            if running_loop is loop:
+                loop.create_task(_invoke())
+            else:
+                loop.call_soon_threadsafe(_schedule)
+
+    return _handler
 
 
 def _client_for(alias: str, limits: dict, require_known_host: bool) -> SSHClient:
@@ -674,7 +733,9 @@ def ssh_reload_config() -> str:
 
 
 @mcp.tool()
-def ssh_run_async(alias: str = "", command: str = "") -> str:
+async def ssh_run_async(
+    alias: str = "", command: str = "", ctx: Context | None = None
+) -> str:
     """Start SSH command asynchronously (SEP-1686 compliant).
 
     Returns immediately with task_id for polling. Use ssh_get_task_status
@@ -738,6 +799,15 @@ def ssh_run_async(alias: str = "", command: str = "") -> str:
                 f"async:{alias}:{cmd_hash}", phase, int(bytes_read), int(elapsed_ms)
             )
 
+        current_loop: asyncio.AbstractEventLoop | None = None
+        if ctx is not None:
+            try:
+                current_loop = asyncio.get_running_loop()
+            except RuntimeError:
+                current_loop = None
+
+        notification_handler = _build_notification_handler(ctx, current_loop)
+
         # Start async task
         task_id = ASYNC_TASKS.start_async_task(
             alias=alias,
@@ -745,6 +815,7 @@ def ssh_run_async(alias: str = "", command: str = "") -> str:
             ssh_client=client,
             limits=limits,
             progress_cb=progress_cb,
+            notification_handler=notification_handler,
         )
 
         # Return SEP-1686 compliant response

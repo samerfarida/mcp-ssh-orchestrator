@@ -1,5 +1,6 @@
 """Tests for MCP server tools."""
 
+import asyncio
 import json
 import os
 import tempfile
@@ -146,7 +147,9 @@ def test_default_parameters():
 
 def test_ssh_run_async_invalid_alias():
     """Test ssh_run_async with invalid alias."""
-    result = mcp_server.ssh_run_async(alias="nonexistent", command="uptime")
+    result = asyncio.run(
+        mcp_server.ssh_run_async(alias="nonexistent", command="uptime")
+    )
 
     assert "Error" in result or "error" in result.lower()
     assert "not found" in result.lower()
@@ -154,7 +157,7 @@ def test_ssh_run_async_invalid_alias():
 
 def test_ssh_run_async_no_alias():
     """Test ssh_run_async without alias."""
-    result = mcp_server.ssh_run_async(alias="", command="uptime")
+    result = asyncio.run(mcp_server.ssh_run_async(alias="", command="uptime"))
 
     assert "Error" in result
     assert "required" in result.lower()
@@ -162,7 +165,7 @@ def test_ssh_run_async_no_alias():
 
 def test_ssh_run_async_no_command():
     """Test ssh_run_async without command."""
-    result = mcp_server.ssh_run_async(alias="test1", command="")
+    result = asyncio.run(mcp_server.ssh_run_async(alias="test1", command=""))
 
     assert "Error" in result
     assert "required" in result.lower()

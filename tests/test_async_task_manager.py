@@ -13,6 +13,7 @@ class TestAsyncTaskManager:
         """Set up test fixtures."""
         self.task_manager = AsyncTaskManager()
         self.mock_ssh_client = Mock()
+        self.notification_handler = Mock()
         # Mock the run_streaming method to avoid actual SSH execution
         self.mock_ssh_client.run_streaming.return_value = (
             0,
@@ -41,13 +42,6 @@ class TestAsyncTaskManager:
         assert self.task_manager._tasks == {}
         assert self.task_manager._results == {}
         assert self.task_manager._output_buffers == {}
-        assert self.task_manager._notification_callback is None
-
-    def test_set_notification_callback(self):
-        """Test setting notification callback."""
-        callback = Mock()
-        self.task_manager.set_notification_callback(callback)
-        assert self.task_manager._notification_callback == callback
 
     def test_start_async_task(self):
         """Test starting an async task."""
@@ -58,6 +52,7 @@ class TestAsyncTaskManager:
                 ssh_client=self.mock_ssh_client,
                 limits=self.mock_limits,
                 progress_cb=None,
+                notification_handler=self.notification_handler,
             )
 
             assert task_id.startswith("test1:")
@@ -70,6 +65,68 @@ class TestAsyncTaskManager:
             assert task_info["command"] == "uptime"
             assert task_info["ssh_client"] == self.mock_ssh_client
             assert task_info["limits"] == self.mock_limits
+            assert task_info["notification_handler"] is self.notification_handler
+
+        # Creation notification should fire immediately
+        self.notification_handler.assert_called_with(
+            "created",
+            task_id,
+            {"alias": "test1", "command": "uptime", "status": "pending"},
+        )
+
+    def test_notification_handler_called_on_send(self):
+        """Ensure notification handler is invoked for task events."""
+        with patch.object(self.task_manager, "_execute_task_in_thread"):
+            task_id = self.task_manager.start_async_task(
+                alias="test1",
+                command="uptime",
+                ssh_client=self.mock_ssh_client,
+                limits=self.mock_limits,
+                progress_cb=None,
+                notification_handler=self.notification_handler,
+            )
+
+        payload = {"phase": "running"}
+        self.task_manager._send_notification("progress", task_id, payload)
+
+        # First notification happens at task creation time
+        assert self.notification_handler.call_args_list[0] == (
+            (
+                "created",
+                task_id,
+                {"alias": "test1", "command": "uptime", "status": "pending"},
+            ),
+            {},
+        )
+        # Progress notification should follow
+        assert self.notification_handler.call_args_list[1] == (
+            ("progress", task_id, payload),
+            {},
+        )
+
+    def test_send_notification_without_handler_logs(self):
+        """Verify that missing handler falls back to structured logging."""
+        with patch.object(self.task_manager, "_execute_task_in_thread"):
+            task_id = self.task_manager.start_async_task(
+                alias="test1",
+                command="uptime",
+                ssh_client=self.mock_ssh_client,
+                limits=self.mock_limits,
+                progress_cb=None,
+                notification_handler=None,
+            )
+
+        with patch("mcp_ssh.tools.utilities.log_json") as mock_log_json:
+            self.task_manager._send_notification("completed", task_id, {"exit_code": 0})
+            mock_log_json.assert_called_with(
+                {
+                    "level": "info",
+                    "msg": "async_task_event",
+                    "event_type": "completed",
+                    "task_id": task_id,
+                    "payload": {"exit_code": 0},
+                }
+            )
 
     def test_get_task_status_pending(self):
         """Test getting status of pending task."""
@@ -103,6 +160,7 @@ class TestAsyncTaskManager:
             ssh_client=self.mock_ssh_client,
             limits=self.mock_limits,
             progress_cb=None,
+            notification_handler=self.notification_handler,
         )
 
         # Simulate task running
@@ -124,6 +182,7 @@ class TestAsyncTaskManager:
             ssh_client=self.mock_ssh_client,
             limits=self.mock_limits,
             progress_cb=None,
+            notification_handler=self.notification_handler,
         )
 
         # Simulate task completion
@@ -147,6 +206,7 @@ class TestAsyncTaskManager:
             ssh_client=self.mock_ssh_client,
             limits=self.mock_limits,
             progress_cb=None,
+            notification_handler=self.notification_handler,
         )
 
         # Simulate task completion and store result
@@ -170,6 +230,7 @@ class TestAsyncTaskManager:
             "target_ip": "10.0.0.1",
             "created": time.time(),
             "expires": time.time() + 300,  # 5 minutes from now
+            "max_seconds": 60,
         }
 
         result = self.task_manager.get_task_result(task_id)
@@ -179,6 +240,7 @@ class TestAsyncTaskManager:
         assert result["exit_code"] == 0
         assert result["output"] == "up 1 day, 2:30"
         assert result["target_ip"] == "10.0.0.1"
+        assert result["max_seconds"] == 60
 
     def test_get_task_result_not_found(self):
         """Test getting result of non-existent task."""
@@ -198,6 +260,7 @@ class TestAsyncTaskManager:
             ssh_client=self.mock_ssh_client,
             limits=self.mock_limits,
             progress_cb=None,
+            notification_handler=self.notification_handler,
         )
 
         # Simulate task running
@@ -247,6 +310,7 @@ class TestAsyncTaskManager:
             ssh_client=self.mock_ssh_client,
             limits=self.mock_limits,
             progress_cb=None,
+            notification_handler=self.notification_handler,
         )
 
         # Task ID should be in format: alias:hash:timestamp
@@ -269,6 +333,7 @@ class TestAsyncTaskManager:
                     ssh_client=self.mock_ssh_client,
                     limits=self.mock_limits,
                     progress_cb=None,
+                    notification_handler=self.notification_handler,
                 )
                 task_ids.append(task_id)
 

@@ -168,13 +168,12 @@ class AsyncTaskManager:
     """Enhanced task manager for async operations with SEP-1686 compliance."""
 
     def __init__(self):
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._tasks: dict[str, dict[str, Any]] = {}  # task_id -> TaskInfo
         self._results: dict[str, dict[str, Any]] = (
             {}
         )  # task_id -> TaskResult (TTL: 5min) - Black formatted
         self._output_buffers: dict[str, deque] = {}  # task_id -> deque of output lines
-        self._notification_callback: Callable | None = None
         self._cleanup_thread = None
         self._start_cleanup_thread()
 
@@ -195,10 +194,6 @@ class AsyncTaskManager:
             except Exception:
                 pass  # Ignore cleanup errors
 
-    def set_notification_callback(self, callback: Callable):
-        """Set callback for MCP notifications."""
-        self._notification_callback = callback
-
     def start_async_task(
         self,
         alias: str,
@@ -206,6 +201,7 @@ class AsyncTaskManager:
         ssh_client,
         limits: dict[str, Any],
         progress_cb: Callable | None = None,
+        notification_handler: Callable[[str, str, dict[str, Any]], None] | None = None,
     ) -> str:
         """Start task in background thread, return task_id immediately."""
         cmd_hash = hash_command(command)
@@ -235,6 +231,7 @@ class AsyncTaskManager:
                 "limits": limits,
                 "progress_cb": progress_cb,
                 "ssh_client": ssh_client,
+                "notification_handler": notification_handler,
             }
             self._output_buffers[task_id] = deque(maxlen=1000)  # Keep last 1000 lines
 
@@ -290,6 +287,7 @@ class AsyncTaskManager:
                             "phase": phase,
                             "bytes_read": bytes_read,
                             "elapsed_ms": elapsed_ms,
+                            "max_seconds": int(limits.get("max_seconds", 60)),
                             "output_lines": len(
                                 self._output_buffers.get(task_id, deque())
                             ),
@@ -345,6 +343,7 @@ class AsyncTaskManager:
                         "output": combined,
                         "created": time.time(),
                         "expires": time.time() + ttl,
+                        "max_seconds": int(limits.get("max_seconds", 60)),
                     }
 
             # Send completion notification
@@ -358,6 +357,7 @@ class AsyncTaskManager:
                     "cancelled": cancelled,
                     "timeout": timeout,
                     "target_ip": peer_ip,
+                    "max_seconds": int(limits.get("max_seconds", 60)),
                 },
             )
 
@@ -370,7 +370,18 @@ class AsyncTaskManager:
                     self._tasks[task_id]["completed"] = time.time()
 
             # Send failure notification
-            self._send_notification("failed", task_id, {"error": str(e)})
+            self._send_notification(
+                "failed",
+                task_id,
+                {
+                    "error": str(e),
+                    "max_seconds": int(
+                        self._tasks.get(task_id, {})
+                        .get("limits", {})
+                        .get("max_seconds", 60)
+                    ),
+                },
+            )
 
     def get_task_status(self, task_id: str) -> dict[str, Any] | None:
         """Get current status with SEP-1686 metadata."""
@@ -426,6 +437,7 @@ class AsyncTaskManager:
                     "cancelled": result["cancelled"],
                     "timeout": result["timeout"],
                     "target_ip": result["target_ip"],
+                    "max_seconds": result.get("max_seconds"),
                 }
             return None
 
@@ -496,7 +508,14 @@ class AsyncTaskManager:
 
                 # Send cancellation notification
                 self._send_notification(
-                    "cancelled", task_id, {"reason": "user_requested"}
+                    "cancelled",
+                    task_id,
+                    {
+                        "reason": "user_requested",
+                        "max_seconds": int(
+                            task_info.get("limits", {}).get("max_seconds", 60)
+                        ),
+                    },
                 )
                 return True
             return False
@@ -518,14 +537,29 @@ class AsyncTaskManager:
 
     def _send_notification(self, event_type: str, task_id: str, data: dict[str, Any]):
         """Send MCP notification for task events."""
-        if not self._notification_callback:
-            return
-
         # Ensure we don't mutate the original data payload
         payload = dict(data or {})
 
+        handler: Callable | None = None
+        with self._lock:
+            task_info = self._tasks.get(task_id)
+            if task_info:
+                handler = task_info.get("notification_handler")
+
+        if not handler:
+            log_json(
+                {
+                    "level": "info",
+                    "msg": "async_task_event",
+                    "event_type": event_type,
+                    "task_id": task_id,
+                    "payload": payload,
+                }
+            )
+            return
+
         try:
-            self._notification_callback(event_type, task_id, payload)
+            handler(event_type, task_id, payload)
         except Exception as e:
             log_json({"level": "warn", "msg": "notification_failed", "error": str(e)})
 
