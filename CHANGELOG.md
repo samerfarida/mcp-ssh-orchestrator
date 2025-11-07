@@ -10,12 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 ### Fixed
+
 - **Async Task Notifications (Unreleased)**: Fixed the async notification bridge so `_send_task_notification()` receives the expected `(event_type, task_id, data)` parameters, resolving "notification_failed" warnings and restoring MCP task updates.
 - **Security: SSH Host Key Validation (CWE-295)**: Documented the hardening work from commit 46a8919d95ce8e0106bf9bd0c1895ebde4d771d7 that enforces Paramiko's `RejectPolicy()`, ignores unsafe host-key options, and requires known_hosts entries to mitigate MITM risks.
 
 ## [0.3.0] - 2025-11-02
 
 ### Added
+
 - **Security Audit Logging (PR10)**: Added comprehensive security audit logging for security-relevant events
   - Created `_log_security_event()` function with structured JSON format
   - Unified all security event logging to use audit format
@@ -106,6 +108,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated credentials and configuration documentation with security features
 
 ### Fixed
+
 - **Security Fix: SSH Host Key Validation (CWE-295)**: Fixed CodeQL security alert by removing unsafe Paramiko host key policies
   - Removed `AcceptPolicy` class and `AutoAddPolicy()` usage which accept unknown host keys
   - Always use `RejectPolicy()` for strict host key verification to prevent MITM attacks
@@ -126,22 +129,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.1] - 2025-10-31
 
 ### Changed
+
 - Updated Dockerfile to use Python 3.13-slim with pinned SHA256 digest for reproducibility
 - Switched from Python 3.14 (pre-release) to stable Python 3.13
 - Changed from editable install (`pip install -e .`) to production install (`pip install .`)
 
 ### Removed
+
 - Removed `openssh-client` from Docker image (debug tool not needed in production)
 - Removed `libffi8` system dependency (not required by Python wheels)
 - Removed redundant example configuration file copies in Docker image
 - Removed unused PATH modification for user local bin directory
 
 ### Fixed
+
 - Fixed trailing whitespace in Dockerfile apt-get command
 
 ## [0.2.0] - 2025-10-25
 
 ### Added
+
 - **Async Task Support (SEP-1686)**: Complete implementation of asynchronous task execution with real-time progress monitoring
   - `ssh_run_async`: Start SSH commands asynchronously with immediate task ID return
   - `ssh_get_task_status`: Poll task status with progress percentage and elapsed time
@@ -171,6 +178,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Standardized array formatting rules for improved readability
 
 ### Changed
+
 - Renamed docker-compose files to follow convention: `docker-compose.yml` for production (default), `docker-compose.dev.yml` for development
 - Updated `compose/setup.sh` to support both dev and end-user workflows with auto-detection
 - Refactored compose README to clearly distinguish production and development setup paths
@@ -185,9 +193,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Refactored all YAML configuration files to follow unified style guidelines
 
 ### Removed
+
 - Old `docker-compose.prod.yml` file (consolidated into default `docker-compose.yml`)
 
 ### Files Modified
+
 - `compose/docker-compose.yml` (now default production)
 - `compose/docker-compose.dev.yml` (new development file)
 - `compose/setup.sh` (enhanced with dev/enduser modes)
@@ -325,4 +335,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Audit trail for all commands
 - Read-only container mounts
 - Non-root container execution
-
