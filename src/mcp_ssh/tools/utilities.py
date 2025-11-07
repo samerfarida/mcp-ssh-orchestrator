@@ -527,9 +527,7 @@ class AsyncTaskManager:
         try:
             self._notification_callback(event_type, task_id, payload)
         except Exception as e:
-            log_json(
-                {"level": "warn", "msg": "notification_failed", "error": str(e)}
-            )
+            log_json({"level": "warn", "msg": "notification_failed", "error": str(e)})
 
 
 # Legacy TaskManager for backward compatibility
