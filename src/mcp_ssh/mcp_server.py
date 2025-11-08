@@ -63,13 +63,9 @@ def _build_notification_handler(
                 progress = min(100.0, (elapsed_ms / (max_seconds * 1000)) * 100)
             if progress is not None and total is not None:
                 await ctx.report_progress(progress, total, message=message)
-            await ctx.debug(
-                message, task_id=task_id, event_type=event_type, payload=payload
-            )
+            await ctx.debug(message)
         else:
-            await ctx.info(
-                message, task_id=task_id, event_type=event_type, payload=payload
-            )
+            await ctx.info(message)
 
     def _handler(event_type: str, task_id: str, payload: dict):
         async def _invoke() -> None:
