@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Async Notification Handler**: Removed unsupported keyword arguments from `_build_notification_handler()` so `ctx.info` emits messages without errors while preserving `ctx.report_progress` updates for progress events.
+
 ## [0.3.2] - 2025-11-07
 
 ### Added

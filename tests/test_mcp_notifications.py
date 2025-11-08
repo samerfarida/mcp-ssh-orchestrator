@@ -70,4 +70,3 @@ def test_notification_handler_progress_reports_via_ctx():
     assert math.isclose(progress, 50.0, rel_tol=1e-2)
     assert message and message.startswith("task task-456 progress")
     assert ctx.debug_calls == [message]
-
