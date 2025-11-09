@@ -4,35 +4,62 @@
 # Copy this to config/servers.yml and customize for your fleet.
 #
 # Fields:
-#   alias: unique identifier for the host (required)
-#   host: hostname or IP address (required)
-#   port: SSH port number (default: 22)
-#   credentials: reference to credentials.yml entry name (required)
-#   tags: list of labels for policy rules and tag-based execution
+#   alias        : unique identifier for the host (required)
+#   host         : hostname or IP address (required)
+#   port         : SSH port number (default: 22)
+#   credentials  : reference to credentials.yml entry name (required)
+#   tags         : list of labels for policy rules, overrides, and tag-based execution
+#   description  : (optional) free-form context for humans / audit trail
+#
+# Tips:
+#   - Aliases are referenced everywhere (policy overrides, async task ids, audit logs).
+#     Consider names that encode environment, role, and position, e.g., prod-web-1.
+#   - Tags fuel higher-level operations: `ssh_run_on_tag` and policy overrides leverage them.
+#   - Keep production and non-production separated with tags like "production", "staging", etc.
+#   - Add a known_hosts entry for each host (see wiki/06.1-servers.yml.md).
 
 hosts:
-  - alias: "web1"
+  # Production web node
+  - alias: "prod-web-1"
     host: "10.0.0.11"
     port: 22
-    credentials: "default"
+    credentials: "prod-admin"
     tags:
+      - "production"
       - "web"
-      - "prod"
+      - "critical-service"
       - "linux"
+    description: "Primary public web front-end"
 
-  - alias: "db1"
+  # Production database node (stricter policy override in example-policy.yml)
+  - alias: "prod-db-1"
     host: "10.0.0.21"
     port: 22
-    credentials: "staging"
+    credentials: "prod-admin"
     tags:
+      - "production"
       - "db"
-      - "staging"
       - "linux"
+    description: "Customer data PostgreSQL cluster"
 
-  - alias: "app1"
-    host: "192.168.1.100"
-    port: 2222
-    credentials: "default"
+  # Staging application server (allows limited service restarts & network diagnostics)
+  - alias: "stg-app-1"
+    host: "10.20.0.15"
+    port: 22
+    credentials: "stg-deploy"
     tags:
+      - "staging"
       - "app"
-      - "dev"
+      - "linux"
+    description: "Staging API node – safe for controlled restarts"
+
+  # Lab / development sensor node (longer timeouts for experimentation)
+  - alias: "lab-sensor-1"
+    host: "192.168.1.140"
+    port: 2222
+    credentials: "lab-maint"
+    tags:
+      - "lab"
+      - "longrun"
+      - "iot"
+    description: "Hardware lab sensor box reachable via jump host"

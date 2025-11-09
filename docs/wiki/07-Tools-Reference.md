@@ -57,13 +57,8 @@ MCP SSH Orchestrator provides **13 MCP tools** that enable secure SSH command ex
 ```
 
 **Response:**
-```json
-{
-  "status": "ok",
-  "message": "mcp-ssh-orchestrator is running",
-  "timestamp": 1729512345.67,
-  "version": "0.1.0"
-}
+```text
+pong
 ```
 
 **Use Cases:**
@@ -144,13 +139,8 @@ ssh_list_hosts
   "host": "10.0.0.11",
   "port": 22,
   "credentials": "prod_admin",
-  "tags": ["production", "web", "linux"],
-  "description": "Primary web server",
-  "policy_limits": {
-    "max_seconds": 30,
-    "max_output_bytes": 524288,
-    "require_known_host": true
-  }
+  "tags": ["production", "web"],
+  "description": "Primary web server"
 }
 ```
 
@@ -194,23 +184,23 @@ ssh_describe_host --alias "web1"
 {
   "alias": "web1",
   "command": "uptime",
-  "policy_decision": "allow",
-  "rule_matched": "prod-readonly",
-  "network_check": "passed",
-  "execution_limits": {
-    "max_seconds": 30,
-    "max_output_bytes": 524288
-  },
-  "would_execute": true
+  "hash": "4c2d8a8f7b1e",
+  "allowed": true,
+  "limits": {
+    "max_seconds": 60,
+    "max_output_bytes": 1048576,
+    "host_key_auto_add": false,
+    "require_known_host": true
+  }
 }
 ```
 
 **Use Cases:**
 
 - Test policy rules before execution
+- Inspect effective execution limits
 - Debug policy configuration
 - Validate command authorization
-- Learn about policy behavior
 
 **Example:**
 ```bash
@@ -245,36 +235,30 @@ ssh_plan --alias "prod-web-1" --command "systemctl restart nginx"
 **Response:**
 ```json
 {
-  "task_id": "web1:a1b2c3d4:1234567890",
+  "task_id": "web1:4c2d8a8f7b1e:1700000000000",
   "alias": "web1",
-  "command": "uptime",
+  "hash": "4c2d8a8f7b1e",
   "exit_code": 0,
-  "duration_ms": 123,
+  "duration_ms": 1234,
   "cancelled": false,
   "timeout": false,
   "target_ip": "10.0.0.11",
-  "output": " 14:30:45 up 42 days,  3:14,  1 user,  load average: 0.15, 0.08, 0.05",
-  "error": "",
-  "policy_decision": "allow",
-  "rule_matched": "prod-readonly"
+  "output": "14:30:45 up 42 days,  3:14,  1 user,  load average: 0.15, 0.08, 0.05"
 }
 ```
 
 **Response Fields:**
 | Field | Type | Description |
 |-------|------|-------------|
-| `task_id` | string | Unique task identifier |
+| `task_id` | string | Unique task identifier (`alias:hash:timestamp`) |
 | `alias` | string | Target host alias |
-| `command` | string | Executed command |
+| `hash` | string | Short SHA256 hash of the command |
 | `exit_code` | integer | Command exit status (0 = success) |
 | `duration_ms` | integer | Execution time in milliseconds |
 | `cancelled` | boolean | Whether command was cancelled |
-| `timeout` | boolean | Whether command timed out |
+| `timeout` | boolean | Whether command hit the time limit |
 | `target_ip` | string | Actual IP address connected to |
-| `output` | string | Command stdout output |
-| `error` | string | Command stderr output |
-| `policy_decision` | string | Policy decision (allow/deny) |
-| `rule_matched` | string | Policy rule that matched |
+| `output` | string | Combined stdout/stderr output (truncated to limit) |
 
 **Use Cases:**
 
@@ -322,40 +306,31 @@ ssh_run --alias "web1" --command "systemctl status nginx"
 ```json
 {
   "tag": "production",
-  "command": "uptime",
-  "hosts_matched": ["prod-web-1", "prod-web-2", "prod-db-1"],
   "results": [
     {
-      "task_id": "prod-web-1:a1b2c3d4:1234567890",
       "alias": "prod-web-1",
+      "task_id": "prod-web-1:4c2d8a8f7b1e:1700000000000",
+      "hash": "4c2d8a8f7b1e",
       "exit_code": 0,
-      "duration_ms": 123,
-      "output": " 14:30:45 up 42 days,  3:14,  1 user,  load average: 0.15, 0.08, 0.05"
+      "duration_ms": 1100,
+      "cancelled": false,
+      "timeout": false,
+      "target_ip": "10.0.0.11",
+      "output": "uptime output..."
     },
     {
-      "task_id": "prod-web-2:a1b2c3d4:1234567891",
-      "alias": "prod-web-2", 
-      "exit_code": 0,
-      "duration_ms": 145,
-      "output": " 14:30:45 up 41 days,  2:45,  2 users,  load average: 0.25, 0.12, 0.08"
-    },
-    {
-      "task_id": "prod-db-1:a1b2c3d4:1234567892",
       "alias": "prod-db-1",
-      "exit_code": 0,
-      "duration_ms": 98,
-      "output": " 14:30:45 up 43 days,  1:23,  0 users,  load average: 0.05, 0.03, 0.02"
+      "hash": "4c2d8a8f7b1e",
+      "denied": true,
+      "reason": "policy"
     }
-  ],
-  "summary": {
-    "total_hosts": 3,
-    "successful": 3,
-    "failed": 0,
-    "cancelled": 0,
-    "timeout": 0
-  }
+  ]
 }
 ```
+
+**Notes:**
+- Entries include `task_id` when a command was executed. Denied hosts omit `task_id` and include `denied`/`reason`.
+- No summary object is returned; aggregate stats can be derived from the `results` array.
 
 **Use Cases:**
 
@@ -398,13 +373,12 @@ ssh_run_on_tag --tag "database" --command "systemctl status postgresql"
 ```
 
 **Response:**
-```json
-{
-  "task_id": "web1:a1b2c3d4:1234567890",
-  "cancelled": true,
-  "message": "Command cancelled successfully"
-}
+```text
+Cancellation signaled for task_id: web1:4c2d8a8f7b1e:1700000000000
 ```
+
+**Errors:**
+- `Task not found: <task_id>` — the ID is unknown or already completed.
 
 **Use Cases:**
 
@@ -436,17 +410,8 @@ ssh_cancel --task_id "web1:a1b2c3d4:1234567890"
 ```
 
 **Response:**
-```json
-{
-  "status": "success",
-  "message": "Configuration reloaded successfully",
-  "files_reloaded": [
-    "servers.yml",
-    "credentials.yml", 
-    "policy.yml"
-  ],
-  "timestamp": 1729512345.67
-}
+```text
+Configuration reloaded.
 ```
 
 **Use Cases:**
@@ -488,13 +453,13 @@ ssh_reload_config
 **Response:**
 ```json
 {
-  "task_id": "async:web1:abc123def456",
+  "task_id": "web1:4c2d8a8f7b1e:1700000000000",
   "status": "pending",
   "keepAlive": 300,
   "pollFrequency": 5,
   "alias": "web1",
   "command": "long-running-script.sh",
-  "hash": "abc123def456"
+  "hash": "4c2d8a8f7b1e"
 }
 ```
 
@@ -549,27 +514,31 @@ ssh_run_async --alias "prod-web" --command "./deploy.sh"
 **Response:**
 ```json
 {
-  "task_id": "async:web1:abc123def456",
+  "task_id": "web1:4c2d8a8f7b1e:1700000000000",
   "status": "running",
-  "progress": {
-    "percentage": 45,
-    "elapsed_ms": 45000,
-    "bytes_read": 2048000
-  },
-  "alias": "web1",
-  "command": "long-running-script.sh"
+  "keepAlive": 300,
+  "pollFrequency": 5,
+  "progress_percent": 42,
+  "elapsed_ms": 18000,
+  "bytes_read": 8192,
+  "output_lines_available": 24
 }
 ```
 
-**Status Values:**
+**Response Fields:**
+| Field | Description |
+|-------|-------------|
+| `task_id` | Async task identifier |
+| `status` | `pending`, `running`, `completed`, `failed`, or `cancelled` |
+| `keepAlive` | Seconds the result will be retained (approximate) |
+| `pollFrequency` | Suggested polling interval in seconds |
+| `progress_percent` | Progress estimate based on elapsed time vs `max_seconds` |
+| `elapsed_ms` | Milliseconds since task started |
+| `bytes_read` | Bytes collected from stdout/stderr so far |
+| `output_lines_available` | Number of buffered output lines retrievable via `ssh_get_task_output` |
 
-- `pending` - Task not yet started
-- `running` - Task in progress
-- `completed` - Task finished successfully
-- `failed` - Task failed with error
-- `cancelled` - Task was cancelled
-- `timeout` - Task exceeded time limit
-- `not_found` - Task ID doesn't exist
+**Errors:**
+- `Error: Task not found: <task_id>` — unknown or expired ID.
 
 **Use Cases:**
 
@@ -611,30 +580,20 @@ watch -n 5 ssh_get_task_status --task_id "async:web1:abc123def456"
 **Response:**
 ```json
 {
-  "task_id": "async:web1:abc123def456",
+  "task_id": "web1:4c2d8a8f7b1e:1700000000000",
   "status": "completed",
-  "result": {
-    "exit_code": 0,
-    "duration_ms": 125000,
-    "bytes_out": 4096000,
-    "bytes_err": 0,
-    "output": "Backup completed successfully...",
-    "error": ""
-  },
-  "alias": "web1",
-  "command": "long-running-script.sh"
+  "exit_code": 0,
+  "duration_ms": 42000,
+  "output": "backup complete",
+  "cancelled": false,
+  "timeout": false,
+  "target_ip": "10.0.0.11",
+  "max_seconds": 3600
 }
 ```
 
-**Result Fields:**
-| Field | Type | Description |
-|-------|------|-------------|
-| `exit_code` | integer | Command exit status (0 = success) |
-| `duration_ms` | integer | Total execution time |
-| `bytes_out` | integer | Bytes of stdout captured |
-| `bytes_err` | integer | Bytes of stderr captured |
-| `output` | string | Complete stdout output |
-| `error` | string | Complete stderr output |
+**Errors:**
+- `Error: Task not found or expired: <task_id>` — result exceeded TTL or never existed.
 
 **Use Cases:**
 
@@ -680,17 +639,26 @@ fi
 **Response:**
 ```json
 {
-  "task_id": "async:web1:abc123def456",
-  "status": "running",
+  "task_id": "web1:4c2d8a8f7b1e:1700000000000",
   "output_lines": [
-    "Starting backup...",
-    "Processing directory /data/subdir1...",
-    "Processing directory /data/subdir2...",
-    "Current progress: 45%"
+    "[2025-11-09 14:30:41] backup chunk 12/42",
+    "[2025-11-09 14:30:42] backup chunk 13/42"
   ],
-  "total_lines_available": 100
+  "total_lines": 384,
+  "has_more": true
 }
 ```
+
+**Response Fields:**
+| Field | Description |
+|-------|-------------|
+| `task_id` | Async task identifier |
+| `output_lines` | Most recent lines from stdout/stderr (bounded by `max_lines`) |
+| `total_lines` | Total buffered lines available |
+| `has_more` | `true` if additional lines can be retrieved |
+
+**Errors:**
+- `Error: Task not found or no output available: <task_id>` — ID invalid or no buffered output.
 
 **Use Cases:**
 
@@ -723,26 +691,25 @@ done
 **Parameters:**
 | Parameter | Type | Required | Description | Example |
 |-----------|------|----------|-------------|---------|
-| `task_id` | string | Yes | Async task ID to cancel | `"async:web1:abc123"` |
+| `task_id` | string | Yes | Async task ID to cancel | "web1:4c2d8a8f7b1e:1700000000000" |
 
 **Request:**
 ```json
 {
   "name": "ssh_cancel_async_task",
   "arguments": {
-    "task_id": "async:web1:abc123def456"
+    "task_id": "web1:4c2d8a8f7b1e:1700000000000"
   }
 }
 ```
 
 **Response:**
-```json
-{
-  "task_id": "async:web1:abc123def456",
-  "cancelled": true,
-  "message": "Cancellation signaled for async task"
-}
+```text
+Cancellation signaled for async task: web1:4c2d8a8f7b1e:1700000000000
 ```
+
+**Errors:**
+- `Task not found or not cancellable: <task_id>` — task already finished or unknown.
 
 **Use Cases:**
 
@@ -754,7 +721,7 @@ done
 **Example:**
 ```bash
 # Cancel async task
-ssh_cancel_async_task --task_id "async:web1:abc123def456"
+ssh_cancel_async_task --task_id "web1:4c2d8a8f7b1e:1700000000000"
 ```
 
 ## Tool Usage Patterns
@@ -872,46 +839,11 @@ done
 
 ### Common Error Responses
 
-**Policy Denied:**
-```json
-{
-  "error": "Policy denied",
-  "alias": "web1",
-  "command": "rm -rf /",
-  "policy_decision": "deny",
-  "reason": "Command contains blocked substring: rm -rf /"
-}
-```
-
-**Host Not Found:**
-```json
-{
-  "error": "Host not found",
-  "alias": "nonexistent",
-  "available_hosts": ["web1", "web2", "db1"]
-}
-```
-
-**Network Blocked:**
-```json
-{
-  "error": "Network access denied",
-  "alias": "web1",
-  "target_ip": "8.8.8.8",
-  "reason": "IP not in allowlist"
-}
-```
-
-**SSH Connection Failed:**
-```json
-{
-  "error": "SSH connection failed",
-  "alias": "web1",
-  "target_ip": "10.0.0.11",
-  "reason": "Connection refused",
-  "exit_code": 255
-}
-```
+- **Policy denied:** `Denied by policy: <command>` — command matches a deny rule or substring.
+- **Host not found:** `Error: Host alias not found: <alias>` — configuration missing the requested host.
+- **Invalid alias/tag/command:** `Error: <reason>` — input validation failed (length, characters, null bytes, etc.).
+- **Network blocked:** `Denied by network policy: <reason>` — DNS resolution failed allowlist checks or post-connect IP blocked.
+- **SSH connection issues:** `Run error: <sanitized message>` — authentication, host key, or connection failures. Detailed context is logged to stderr for auditing.
 
 **Command Timeout:**
 ```json

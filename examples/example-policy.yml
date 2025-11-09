@@ -4,24 +4,29 @@
 # Copy this to config/policy.yml and customize for your security requirements.
 #
 # This file defines:
-#   - Command allow/deny rules with glob patterns
-#   - Execution limits (timeouts, output caps)
+#   - Command allow/deny rules with glob patterns (deny-by-default)
+#   - Execution limits (timeouts, output caps, async TTLs)
 #   - Network controls (IP allowlists/blocklists)
 #   - Per-host and per-tag overrides
+#
+# IMPORTANT:
+#   - Host key verification is always enforced. `host_key_auto_add: true` and
+#     `require_known_host: false` are deprecated and ignored for security (CWE-295).
+#   - Maintain a known_hosts file and mount it read-only into /app/keys.
 
 # Strict host-key validation file (mount read-only)
 known_hosts_path: "/app/keys/known_hosts"
 
-# Global execution limits (can be overridden per host/tag)
+# Global execution limits (overrides can change these per alias/tag)
 limits:
   max_seconds: 60
   max_output_bytes: 1048576
-  host_key_auto_add: false
-  require_known_host: true
-  task_result_ttl: 300  # 5 minutes (SEP-1686 keepAlive)
-  task_progress_interval: 5  # seconds
-  
-  # Hard-blocked command substrings (checked before rules)
+  host_key_auto_add: false            # kept for backwards compatibility (ignored)
+  require_known_host: true            # keep this enabled to enforce strict host key verification
+  task_result_ttl: 300                # seconds; async results retained for 5 minutes
+  task_progress_interval: 5           # seconds between progress notifications
+
+  # Hard-blocked command substrings (checked before rule evaluation)
   deny_substrings:
     # Destructive commands
     - "rm -rf /"
@@ -41,18 +46,25 @@ limits:
     - "nc "
     - "nmap "
     - "telnet "
+    - "kubectl "
+    - "aws "
+    - "gcloud "
+    - "az "
 
 # Network egress controls
 network:
-  # Allow only these IPs/CIDRs (empty = allow all)
+  # Allow only RFC1918 ranges by default (empty list = allow all)
   allow_ips: []
-  allow_cidrs: []
-  
-  # Block these IPs/CIDRs
+  allow_cidrs:
+    - "10.0.0.0/8"
+    - "172.16.0.0/12"
+    - "192.168.0.0/16"
+
+  # Explicit denies win over allows
   block_ips: []
   block_cidrs: []
-  
-  # Require known_hosts entry before connection
+
+  # Require known_hosts entry before connection (enforced in code)
   require_known_host: true
 
 # Command allow/deny rules (deny-by-default)
@@ -66,6 +78,7 @@ rules:
       - "uptime*"
       - "whoami"
       - "df -h*"
+      - "free -m*"
       - "cat /etc/os-release*"
       - "ls*"
       - "echo*"
@@ -88,33 +101,36 @@ rules:
     tags: []
     commands:
       - "systemctl status *"
+      - "journalctl --no-pager -n 200 *"
       - "docker ps*"
       - "docker inspect*"
 
-  # Network diagnostics on non-production
+  # Network diagnostics on non-production environments
   - action: "allow"
     aliases:
       - "stg-*"
-      - "dev-*"
       - "lab-*"
+      - "dev-*"
     tags:
       - "staging"
-      - "dev"
       - "lab"
+      - "dev"
     commands:
       - "ping*"
       - "traceroute*"
       - "ss -tulpn*"
       - "netstat*"
 
-  # Service restarts on staging only
+  # Controlled service restarts on staging only
   - action: "allow"
     aliases: ["stg-*"]
     tags: ["staging"]
     commands:
       - "sudo systemctl restart *"
+      - "sudo systemctl start *"
+      - "sudo systemctl stop *"
 
-  # Explicit denies (redundant with deny_substrings but clear)
+  # Explicit denies (for clarity, redundant with deny_substrings)
   - action: "deny"
     aliases: ["*"]
     tags: []
@@ -128,28 +144,25 @@ rules:
 # Per-alias and per-tag limit overrides
 overrides:
   aliases:
-    # Production hosts: stricter limits
+    # Production hosts: tighter timeouts/output limits
     prod-web-1:
       max_seconds: 30
       max_output_bytes: 524288
-    
     prod-db-1:
       max_seconds: 20
       max_output_bytes: 262144
 
   tags:
-    # Production: strict
+    # Production: apply stricter defaults automatically
     production:
       max_seconds: 30
       max_output_bytes: 524288
-    
-    # Lab: relaxed timeout for experimentation
-    # Note: host_key_auto_add and require_known_host=False are deprecated for security
-    # All connections require known_hosts entry (CWE-295)
+
+    # Lab: relaxed timeout for experimentation (host key rules still enforced)
     lab:
       max_seconds: 90
-    
-    # Long-running maintenance
+
+    # Long-running operations: extend async result TTL for post-run inspection
     longrun:
       max_seconds: 180
-      task_result_ttl: 1800  # 30 minutes for long-running workflows
+      task_result_ttl: 1800   # 30 minutes

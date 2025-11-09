@@ -851,23 +851,7 @@ docker logs -f mcp-ssh-orchestrator 2>&1 | \
 
 ### Security Features Supporting Compliance
 
-This tool provides security controls that can support organizations seeking compliance with frameworks like SOC 2, ISO 27001, PCI-DSS, and HIPAA:
-
-**Access Control & Audit**
-- Policy enforcement provides least-privilege access
-- JSON logs provide non-repudiation and complete audit trails
-- All administrative access logged
-
-**Encryption & Network Security**
-- SSH provides transport encryption
-- Ed25519/RSA keys for strong cryptography
-- IP allowlists enforce network segmentation
-
-**Secrets Management**
-- Docker secrets or environment variables (not hardcoded)
-- No persistent credential storage
-
-**Note**: Compliance is ultimately the responsibility of the deploying organization. This tool provides security features that can support compliance efforts but is not itself certified to these standards.
+This tool provides structured logging, policy enforcement, and network safeguards that can support your internal governance and audit requirements. Formal regulatory compliance remains the responsibility of the deploying organization.
 
 ## Security Checklist
 

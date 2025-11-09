@@ -1,37 +1,65 @@
 # Security Policy
 
-## Reporting Security Issues
+## Supported Versions
 
-**Do not open public issues for security vulnerabilities.**
+Security fixes are applied to actively maintained releases of mcp-ssh-orchestrator. Older releases receive fixes only when the backport effort is low and the issue is high severity.
 
-Email: security@example.com
+| Version | Status |
+|---------|--------|
+| `main` branch | ✅ actively supported |
+| Latest tagged release | ✅ supported |
+| Older releases | ⚠️ best effort (consider upgrading) |
 
-## Quick Security Checklist
+If you are running an older release and cannot upgrade, please highlight that in your report so we can discuss options.
 
-- [ ] Use Ed25519 or RSA 4096-bit keys
-- [ ] Enable `require_known_host: true`
-- [ ] Configure IP allowlists (`allow_cidrs`)
-- [ ] Use deny-by-default policy model
-- [ ] Mount config and keys as read-only (`:ro`)
+## Reporting a Vulnerability
 
-## Comprehensive Security Guide
+Please follow the steps below to report a potential vulnerability:
 
-For detailed security documentation, see our [Security Model](https://github.com/samerfarida/mcp-ssh-orchestrator/wiki/05-Security-Model) wiki page.
+1. **Do not open a public GitHub issue or discussion.**
+2. Submit a private report using one of the following channels:
+   - **GitHub Security Advisories:** <https://github.com/samerfarida/mcp-ssh-orchestrator/security/advisories/new>
+   - **Email:** `samer.farida@yahoo.com`
+3. Include as much detail as possible:
+   - Proof-of-concept or reproduction steps
+   - Affected versions (commit SHA or release tag)
+   - Impact assessment and suggested mitigations, if known
+   - Preferred contact information and availability
+4. (Optional) If you require encryption, let us know and we will provide a PGP key for follow-up.
 
-## Security Features
+## What Happens Next
 
-This project implements MCP security best practices:
-- **Containerized execution** with resource limits
-- **Policy-based access control** with deny-by-default
-- **Network segmentation** with IP allowlists
-- **Comprehensive audit logging** for all operations
-- **Secret management** via Docker secrets or environment variables
+- **Acknowledgement:** We aim to acknowledge receipt within **2 business days**.
+- **Initial assessment:** We will triage and respond with initial findings or questions within **5 business days**.
+- **Remediation plan:** For confirmed vulnerabilities, we will coordinate on a fix, testing, and target release timeline. We may request additional information to reproduce or validate the issue.
+- **Coordinated disclosure:** We prefer to coordinate disclosure so end users can patch before details are public. We will agree on a disclosure window (typically 30–90 days depending on severity) and keep you updated on progress.
 
-## Security Framework Alignment
+If you believe a vulnerability is being actively exploited or needs immediate attention, please mark your report as **URGENT** and include a reachable contact method.
 
-- **OWASP LLM07** (Insecure Plugin Design) - Policy-based command validation
-- **OWASP LLM08** (Excessive Agency) - Role-based access restrictions
-- **MITRE ATT&CK** - SSH protocol monitoring and logging
-- Security features support compliance efforts (SOC 2, ISO 27001, PCI-DSS, HIPAA)
+## Preferred Languages
 
-*Note: Compliance is the responsibility of the deploying organization. This tool provides security controls that can support compliance frameworks.*
+We are comfortable receiving reports in **English**. If English is not convenient, please still contact us and we will work with you using translation tools.
+
+## Safe Harbor
+
+We value legitimate security research. When you follow this policy and report issues responsibly, we will not pursue legal action or DMCA claims against you. Please:
+
+- Avoid privacy violations, service degradation, or destruction of data
+- Respect rate limits and always obtain consent before testing on systems you do not own
+
+## Security Guidance for Deployers
+
+To keep your deployment secure, we recommend the following controls:
+
+- Use Ed25519 or 4096-bit RSA keys for SSH authentication
+- Keep `require_known_host: true` (enforced by default)
+- Configure network allowlists via `network.allow_cidrs`
+- Maintain a deny-by-default policy
+- Mount configuration, keys, and secrets as read-only volumes (`:ro`)
+
+A fuller discussion of the orchestration controls, threat model, and audit pipeline is available in our wiki:
+
+- [Security Model](https://github.com/samerfarida/mcp-ssh-orchestrator/wiki/05-Security-Model)
+- [Observability & Audit](https://github.com/samerfarida/mcp-ssh-orchestrator/wiki/11-Observability-Audit)
+
+Thank you for helping keep mcp-ssh-orchestrator and its users safe.

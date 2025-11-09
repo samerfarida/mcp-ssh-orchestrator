@@ -2,9 +2,9 @@
 
 <div align="center">
   <img src="assets/logo/logo-v1.png" alt="MCP SSH Orchestrator Logo" width="200" height="200">
-  <h1>Give AI Secure SSH Access to Your Server Fleet</h1>
-  <p><strong>Policy-driven, auditable SSH orchestration for Claude, ChatGPT, and AI assistants</strong></p>
-  <p>Let AI manage your infrastructure safely with zero-trust security controls</p>
+  <h1>Zero-Trust SSH Orchestration for AI Assistants</h1>
+  <p><strong>Enforce declarative policy and audited access for Claude Desktop, Cursor, and any MCP-aware client.</strong></p>
+  <p>Launch in minutes with Docker + MCP tooling, deny-by-default controls, and hardened SSH key management.</p>
 </div>
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
@@ -115,26 +115,113 @@ That's exactly what MCP SSH Orchestrator provides: **the power of AI-driven serv
 
 ## Quick Start
 
-### Using Docker (Recommended)
+### 1. Prepare local configuration (one-time)
 
 ```bash
-# Pull the image
-docker pull ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
+# Optional: bootstrap everything with the compose helper script
+# (runs from the repo root or from your target config directory)
+./compose/setup.sh enduser
 
-# Run interactively
-docker run -i --rm \
-  -v ~/mcp-ssh/config:/app/config:ro \
-  -v ~/mcp-ssh/keys:/app/keys:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
+# Or download it separately
+curl -fsSLO https://raw.githubusercontent.com/samerfarida/mcp-ssh-orchestrator/main/compose/setup.sh
+chmod +x setup.sh
+./setup.sh enduser
 ```
 
-**Want to see it in action?** Check out our [Usage Cookbook](https://github.com/samerfarida/mcp-ssh-orchestrator/wiki/08-Usage-Cookbook) with real examples!
+If you prefer to lay things out manually, follow the steps below.
+
+```bash
+# Pull the latest release
+docker pull ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.3
+
+# Create directories for config, keys, and secrets
+mkdir -p ~/mcp-ssh/{config,keys,secrets}
+
+# Copy example configs to get started quickly
+cp examples/example-servers.yml ~/mcp-ssh/config/servers.yml
+cp examples/example-credentials.yml ~/mcp-ssh/config/credentials.yml
+cp examples/example-policy.yml ~/mcp-ssh/config/policy.yml
+
+# Add your SSH key (replace with your private key file)
+cp ~/.ssh/id_ed25519 ~/mcp-ssh/keys/
+chmod 0400 ~/mcp-ssh/keys/id_ed25519
+
+# (Optional) Pin trusted hosts and prepare secret files
+cp ~/.ssh/known_hosts ~/mcp-ssh/keys/known_hosts
+cat > ~/mcp-ssh/secrets/prod_db_password.txt <<'EOF'
+CHANGE-ME
+EOF
+```
+
+### 2. Launch the orchestrator container
+
+```bash
+docker run -d --name mcp-ssh-orchestrator \
+  -v ~/mcp-ssh/config:/app/config:ro \
+  -v ~/mcp-ssh/keys:/app/keys:ro \
+  -v ~/mcp-ssh/secrets:/app/secrets:ro \
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.3
+```
+
+Restart later with `docker start mcp-ssh-orchestrator`. Prefer disposable containers? Use `docker run -i --rm ...` instead.
+
+### 3. Connect your MCP client
+
+- **Cursor:** Add to `~/.cursor/mcp.json`
+
+  ```json
+  {
+    "mcpServers": {
+      "mcp-ssh-orchestrator": {
+        "command": "docker",
+        "args": ["start", "-a", "mcp-ssh-orchestrator"],
+        "env": {"PYTHONUNBUFFERED": "1"}
+      }
+    }
+  }
+  ```
+- **Claude Desktop (macOS):** Update `~/Library/Application Support/Claude/claude_desktop_config.json`
+
+  ```json
+  {
+    "mcpServers": {
+      "ssh-orchestrator": {
+        "command": "docker",
+        "args": [
+          "run", "-i", "--rm",
+          "-v", "/Users/YOUR_USERNAME/mcp-ssh/config:/app/config:ro",
+          "-v", "/Users/YOUR_USERNAME/mcp-ssh/keys:/app/keys:ro",
+          "-v", "/Users/YOUR_USERNAME/mcp-ssh/secrets:/app/secrets:ro",
+          "ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.3"
+        ]
+      }
+    }
+  }
+  ```
+
+  (Windows path: `%APPDATA%\\Claude\\claude_desktop_config.json`.)
+
+More examples (Docker Desktop, multi-environment, SDK usage) live in the [Integrations guide](docs/wiki/10-Integrations.md).
+
+### 4. Test the connection
+
+```bash
+# List configured hosts through the MCP server
+echo '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"ssh_list_hosts","arguments":{}},"id":1}' | \
+  docker run -i --rm \
+    -v ~/mcp-ssh/config:/app/config:ro \
+    -v ~/mcp-ssh/keys:/app/keys:ro \
+    -v ~/mcp-ssh/secrets:/app/secrets:ro \
+    ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.3
+```
+
+Cursor/Claude should now show the orchestrator as connected. Jump to the [Usage Cookbook](https://github.com/samerfarida/mcp-ssh-orchestrator/wiki/08-Usage-Cookbook) for guided scenarios.
 
 ## How Security Works (The Technical Details)
 
 ### Defense-in-Depth Architecture
 
-```
+```text
 Layer 1: Transport Security    → stdio, container isolation
 Layer 2: Network Security      → IP allowlists, host key verification  
 Layer 3: Policy Security        → Deny-by-default, pattern matching
@@ -146,11 +233,28 @@ Layer 4: Application Security  → Non-root execution, resource limits
 ```yaml
 # Dangerous commands automatically denied
 deny_substrings:
-  - "rm -rf"
-  - "dd if="
-  - "mkfs"
-  - "fdisk"
-  - "> /dev"
+  # Destructive operations
+  - "rm -rf /"
+  - ":(){ :|:& };:"
+  - "mkfs "
+  - "dd if=/dev/zero"
+  - "shutdown -h"
+  - "reboot"
+  - "userdel "
+  - "passwd "
+  # Lateral movement / egress tools
+  - "ssh "
+  - "scp "
+  - "rsync -e ssh"
+  - "curl "
+  - "wget "
+  - "nc "
+  - "nmap "
+  - "telnet "
+  - "kubectl "
+  - "aws "
+  - "gcloud "
+  - "az "
 
 # Network isolation enforced
 network:
@@ -163,17 +267,39 @@ network:
 ```yaml
 # Safe, read-only commands
 rules:
-  - patterns: ["uptime", "df -h", "free -m"]
-    action: allow
-    
-# Log inspection (safe)
-  - patterns: ["tail -f", "grep", "journalctl"]
-    action: allow
-    
-# Service management (controlled)
-  - patterns: ["systemctl restart"]
-    action: allow
-    tags: ["web", "db"]  # Only on specific servers
+  - action: "allow"
+    aliases:
+      - "*"
+    tags:
+      - "observability"
+    commands:
+      - "uptime*"
+      - "df -h*"
+      - "free -m*"
+
+  # Log inspection (safe)
+  - action: "allow"
+    aliases:
+      - "*"
+    tags:
+      - "observability"
+    commands:
+      - "tail -n 200 /var/log/*"
+      - "grep -n * /var/log/*"
+      - "journalctl --no-pager -n 100 *"
+
+  # Service management (controlled)
+  - action: "allow"
+    aliases:
+      - "web-*"
+      - "db-*"
+    tags:
+      - "production"
+      - "critical-service"
+    commands:
+      - "systemctl restart nginx"
+      - "systemctl status nginx"
+      - "systemctl status postgresql"
 ```
 
 ### Protection Against Real Threats

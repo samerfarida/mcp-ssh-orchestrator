@@ -40,7 +40,7 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies
 pip install -e .
-pip install -r requirements-dev.txt
+pip install -e ".[dev,test]"
 ```
 
 **3. Set up pre-commit hooks:**

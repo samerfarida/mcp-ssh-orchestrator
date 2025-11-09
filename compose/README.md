@@ -39,15 +39,22 @@ If you just want to use the tool and don't plan to modify the code:
    ```bash
    cp ~/.ssh/id_ed25519 ~/mcp-ssh/keys/
    chmod 0400 ~/mcp-ssh/keys/id_ed25519
+   cp ~/.ssh/known_hosts ~/mcp-ssh/keys/known_hosts  # optional but recommended
    ```
 
-4. **Run with compose (default production setup):**
+4. **Bootstrap with the setup script (recommended):**
    ```bash
    cd mcp-ssh-orchestrator/compose
+   ./setup.sh enduser   # or simply ./setup.sh (auto-detects)
+   ```
+   This creates `config/`, `keys/`, `secrets/`, and `.env`, copying the latest example configs.
+
+5. **Run with compose (default production setup):**
+   ```bash
    docker compose up
    ```
 
-The production compose file automatically pulls the `ghcr.io/samerfarida/mcp-ssh-orchestrator:latest` image.
+The production compose file pulls `ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.3` by default.
 
 ---
 
@@ -103,10 +110,10 @@ Before running the container:
    
    **Note**: The script auto-detects if you're in the repo, so just `./setup.sh` works too.
 
-**For end users**: You can also use the setup script:
+**For end users**: You can also fetch the script directly:
    ```bash
-   cd ~/mcp-ssh  # or wherever you want your config
-   wget https://raw.githubusercontent.com/samerfarida/mcp-ssh-orchestrator/main/compose/setup.sh
+   mkdir -p ~/mcp-ssh && cd ~/mcp-ssh
+   curl -fsSLO https://raw.githubusercontent.com/samerfarida/mcp-ssh-orchestrator/main/compose/setup.sh
    chmod +x setup.sh
    ./setup.sh enduser
    ```

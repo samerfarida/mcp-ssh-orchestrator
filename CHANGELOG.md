@@ -9,9 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
 ### Fixed
 
-- **Async Notification Handler**: Removed unsupported keyword arguments from `_build_notification_handler()` so `ctx.info` emits messages without errors while preserving `ctx.report_progress` updates for progress events.
+## [0.3.3] - 2025-11-08
+
+### Changed
+
+- **Compose Workflow Polish**: Pinned `docker-compose.yml` to `ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.3`, refreshed compose documentation, and updated `compose/setup.sh` to generate a baseline `.env` automatically when no template is present.
+- **Quick Start Bootstrap**: README now highlights the compose setup script as the fastest path to create config/keys/secrets before running Docker, aligning the hero pitch around declarative policy and zero-trust SSH orchestration.
+- **Documentation Cleanup**: Removed references to external compliance frameworks, replaced security tag examples with neutral labels (`critical`, `restricted`, `audit`, `sandbox`), and clarified governance messaging across SECURITY.md and the wiki.
+
+### Removed
+
+- **Legacy Requirements Files**: Dropped `requirements-dev.*` and `requirements-test.*` in favor of installing extras via `pip install -e ".[dev,test]"`, updating the contributor guide accordingly.
+
+### Fixed
+
+- **Unreleased Notification Note**: Carried forward the async notification handler clarification so MCP `ctx.info` calls continue emitting without keyword errors while progress updates still flow via `ctx.report_progress`.
 
 ## [0.3.2] - 2025-11-07
 

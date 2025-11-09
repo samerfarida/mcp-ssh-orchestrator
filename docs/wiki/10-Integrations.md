@@ -6,29 +6,96 @@
 
 mcp-ssh-orchestrator integrates with MCP clients through the **stdio transport** protocol. This section covers setup for popular MCP clients and custom integrations.
 
-## Claude Desktop Integration
+## Common Local Setup
 
-### Basic Setup
+Complete these steps once on the machine where your MCP client (Cursor, Claude Desktop, etc.) runs. Replace `/Users/YOUR_USERNAME` with your absolute path and adjust filenames if you use non-default keys.
 
-**1. Create configuration directory:**
+**1. Pull the image:**
+
+```bash
+docker pull ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.3
+```
+
+**2. Create configuration directories:**
+
 ```bash
 mkdir -p ~/mcp-ssh/{config,keys,secrets}
 ```
 
-**2. Copy example configurations:**
+**3. Copy example configuration files:**
+
 ```bash
 cp examples/example-servers.yml ~/mcp-ssh/config/servers.yml
 cp examples/example-credentials.yml ~/mcp-ssh/config/credentials.yml
 cp examples/example-policy.yml ~/mcp-ssh/config/policy.yml
 ```
 
-**3. Add SSH keys:**
+**4. Add SSH materials:**
+
 ```bash
 cp ~/.ssh/id_ed25519 ~/mcp-ssh/keys/
 chmod 0400 ~/mcp-ssh/keys/id_ed25519
+# (optional) Restrict trusted hosts
+cp ~/.ssh/known_hosts ~/mcp-ssh/keys/known_hosts
 ```
 
-**4. Configure Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+**5. Populate secrets files (optional but recommended):**
+
+```text
+~/mcp-ssh/secrets/
+├── prod_db_password.txt
+└── jump_host_passphrase.txt
+```
+
+Reference these files in `credentials.yml` to keep sensitive values out of environment variables.
+
+Once the shared setup is in place, connect your MCP client using the appropriate guide below.
+
+## Cursor Integration
+
+1. **Run a long-lived container** (prevents Cursor from launching multiple instances):
+
+   ```bash
+   docker run -d --name mcp-ssh-orchestrator \
+     -v ~/mcp-ssh/config:/app/config:ro \
+     -v ~/mcp-ssh/keys:/app/keys:ro \
+     -v ~/mcp-ssh/secrets:/app/secrets:ro \
+     ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.3
+   ```
+
+   Restart it later with `docker start mcp-ssh-orchestrator` if needed.
+
+2. **Configure Cursor** (`~/.cursor/mcp.json` on macOS/Linux):
+
+   ```json
+   {
+     "mcpServers": {
+       "mcp-ssh-orchestrator": {
+         "command": "docker",
+         "args": [
+           "start",
+           "-a",
+           "mcp-ssh-orchestrator"
+         ],
+         "env": {
+           "PYTHONUNBUFFERED": "1"
+         }
+       }
+     }
+   }
+   ```
+
+   Notes:
+   - `docker start -a` attaches Cursor’s multiple MCP clients (chat, composer, code actions) to the same container.
+   - Prefer ephemeral containers instead? Replace the args with the `docker run -i --rm …` command from the Claude Desktop example.
+
+3. **Validate the integration:** launch Cursor, run `ssh_list_hosts`, and confirm activity in `docker logs mcp-ssh-orchestrator`.
+
+## Claude Desktop Integration
+
+### Basic Setup
+
+Configure Claude Desktop (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
 ```json
 {
@@ -42,16 +109,19 @@ chmod 0400 ~/mcp-ssh/keys/id_ed25519
         "-v", "/Users/YOUR_USERNAME/mcp-ssh/config:/app/config:ro",
         "-v", "/Users/YOUR_USERNAME/mcp-ssh/keys:/app/keys:ro",
         "-v", "/Users/YOUR_USERNAME/mcp-ssh/secrets:/app/secrets:ro",
-        "ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0"
+        "ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.3"
       ]
     }
   }
 }
 ```
 
+On Windows the path is `%APPDATA%\Claude\claude_desktop_config.json`.
+
 ### Advanced Configuration
 
-**With environment variables for secrets:**
+#### With Environment Variables for Secrets
+
 ```json
 {
   "mcpServers": {
@@ -65,14 +135,16 @@ chmod 0400 ~/mcp-ssh/keys/id_ed25519
         "-e", "MCP_SSH_SECRET_KEY_PASSPHRASE=your-passphrase",
         "-v", "/Users/YOUR_USERNAME/mcp-ssh/config:/app/config:ro",
         "-v", "/Users/YOUR_USERNAME/mcp-ssh/keys:/app/keys:ro",
-        "ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0"
+        "-v", "/Users/YOUR_USERNAME/mcp-ssh/secrets:/app/secrets:ro",
+        "ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.3"
       ]
     }
   }
 }
 ```
 
-**With resource limits:**
+#### With Resource Limits
+
 ```json
 {
   "mcpServers": {
@@ -87,7 +159,8 @@ chmod 0400 ~/mcp-ssh/keys/id_ed25519
         "--user=10001:10001",
         "-v", "/Users/YOUR_USERNAME/mcp-ssh/config:/app/config:ro",
         "-v", "/Users/YOUR_USERNAME/mcp-ssh/keys:/app/keys:ro",
-        "ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0"
+        "-v", "/Users/YOUR_USERNAME/mcp-ssh/secrets:/app/secrets:ro",
+        "ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.3"
       ]
     }
   }
@@ -98,9 +171,12 @@ chmod 0400 ~/mcp-ssh/keys/id_ed25519
 
 ### Using Docker MCP Toolkit
 
-**1. Install Docker Desktop** with MCP Toolkit extension
+#### Step 1: Install Docker Desktop
 
-**2. Configure MCP Toolkit:**
+Install Docker Desktop with the MCP Toolkit extension enabled.
+
+#### Step 2: Configure MCP Toolkit
+
 ```json
 {
   "mcpServers": {
@@ -112,29 +188,33 @@ chmod 0400 ~/mcp-ssh/keys/id_ed25519
         "--rm",
         "-v", "/Users/YOUR_USERNAME/mcp-ssh/config:/app/config:ro",
         "-v", "/Users/YOUR_USERNAME/mcp-ssh/keys:/app/keys:ro",
-        "ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0"
+        "-v", "/Users/YOUR_USERNAME/mcp-ssh/secrets:/app/secrets:ro",
+        "ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.3"
       ]
     }
   }
 }
 ```
 
-**3. Test integration:**
+#### Step 3: Test the integration
+
 ```bash
 # Test MCP server
 docker run -i --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+  -v ~/mcp-ssh/secrets:/app/secrets:ro \
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.3
 ```
 
 ## OpenAI Codex Integration
 
 ### Via Docker MCP Toolkit
 
-**1. Install Docker MCP Toolkit**
+#### Step 1: Install Docker MCP Toolkit
 
-**2. Configure Codex integration:**
+#### Step 2: Configure Codex integration
+
 ```json
 {
   "mcpServers": {
@@ -146,21 +226,24 @@ docker run -i --rm \
         "--rm",
         "-v", "/Users/YOUR_USERNAME/mcp-ssh/config:/app/config:ro",
         "-v", "/Users/YOUR_USERNAME/mcp-ssh/keys:/app/keys:ro",
-        "ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0"
+        "-v", "/Users/YOUR_USERNAME/mcp-ssh/secrets:/app/secrets:ro",
+        "ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.3"
       ]
     }
   }
 }
 ```
 
-**3. Test with Codex:**
+#### Step 3: Test with Codex
+
 ```bash
 # Test MCP tools
 echo '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"ssh_ping","arguments":{}},"id":1}' | \
   docker run -i --rm \
-  -v ~/mcp-ssh/config:/app/config:ro \
-  -v ~/mcp-ssh/keys:/app/keys:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+    -v ~/mcp-ssh/config:/app/config:ro \
+    -v ~/mcp-ssh/keys:/app/keys:ro \
+    -v ~/mcp-ssh/secrets:/app/secrets:ro \
+    ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.3
 ```
 
 ## Custom Application Integration
@@ -168,6 +251,7 @@ echo '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"ssh_ping","argume
 ### Python Integration
 
 **Using MCP SDK:**
+
 ```python
 import asyncio
 from mcp import ClientSession, StdioServerParameters
@@ -181,7 +265,8 @@ async def main():
             "run", "-i", "--rm",
             "-v", "/path/to/config:/app/config:ro",
             "-v", "/path/to/keys:/app/keys:ro",
-            "ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0"
+            "-v", "/path/to/secrets:/app/secrets:ro",
+            "ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.3"
         ]
     )
     
@@ -209,6 +294,7 @@ if __name__ == "__main__":
 ### Node.js Integration
 
 **Using MCP client library:**
+
 ```javascript
 const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
 const { StdioClientTransport } = require('@modelcontextprotocol/sdk/client/stdio.js');
@@ -222,7 +308,8 @@ async function main() {
       'run', '-i', '--rm',
       '-v', '/path/to/config:/app/config:ro',
       '-v', '/path/to/keys:/app/keys:ro',
-      'ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0'
+      '-v', '/path/to/secrets:/app/secrets:ro',
+      'ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.3'
     ]
   });
   
@@ -263,7 +350,8 @@ main().catch(console.error);
 
 ### Development Environment
 
-**Claude Desktop config for development:**
+#### Claude Desktop config for development
+
 ```json
 {
   "mcpServers": {
@@ -276,7 +364,8 @@ main().catch(console.error);
         "-e", "MCP_SSH_DEBUG=1",
         "-v", "/Users/YOUR_USERNAME/mcp-ssh-dev/config:/app/config:ro",
         "-v", "/Users/YOUR_USERNAME/mcp-ssh-dev/keys:/app/keys:ro",
-        "ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0"
+        "-v", "/Users/YOUR_USERNAME/mcp-ssh-dev/secrets:/app/secrets:ro",
+        "ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.3"
       ]
     }
   }
@@ -285,7 +374,8 @@ main().catch(console.error);
 
 ### Staging Environment
 
-**Claude Desktop config for staging:**
+#### Claude Desktop config for staging
+
 ```json
 {
   "mcpServers": {
@@ -297,7 +387,8 @@ main().catch(console.error);
         "--rm",
         "-v", "/Users/YOUR_USERNAME/mcp-ssh-staging/config:/app/config:ro",
         "-v", "/Users/YOUR_USERNAME/mcp-ssh-staging/keys:/app/keys:ro",
-        "ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0"
+        "-v", "/Users/YOUR_USERNAME/mcp-ssh-staging/secrets:/app/secrets:ro",
+        "ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.3"
       ]
     }
   }
@@ -306,7 +397,8 @@ main().catch(console.error);
 
 ### Production Environment
 
-**Claude Desktop config for production:**
+#### Claude Desktop config for production
+
 ```json
 {
   "mcpServers": {
@@ -322,7 +414,7 @@ main().catch(console.error);
         "-v", "/Users/YOUR_USERNAME/mcp-ssh-prod/config:/app/config:ro",
         "-v", "/Users/YOUR_USERNAME/mcp-ssh-prod/keys:/app/keys:ro",
         "-v", "/Users/YOUR_USERNAME/mcp-ssh-prod/secrets:/app/secrets:ro",
-        "ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0"
+        "ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.3"
       ]
     }
   }
@@ -334,45 +426,53 @@ main().catch(console.error);
 ### Health Check
 
 **Test MCP server connectivity:**
+
 ```bash
 # Test ping
 echo '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"ssh_ping","arguments":{}},"id":1}' | \
   docker run -i --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+  -v ~/mcp-ssh/secrets:/app/secrets:ro \
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.3
 ```
 
 **Test host listing:**
+
 ```bash
 # List hosts
 echo '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"ssh_list_hosts","arguments":{}},"id":1}' | \
   docker run -i --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+  -v ~/mcp-ssh/secrets:/app/secrets:ro \
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.3
 ```
 
 ### Command Testing
 
 **Test policy with dry-run:**
+
 ```bash
 # Test policy
 echo '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"ssh_plan","arguments":{"alias":"web1","command":"uptime"}},"id":1}' | \
   docker run -i --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+  -v ~/mcp-ssh/secrets:/app/secrets:ro \
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.3
 ```
 
 **Execute test command:**
+
 ```bash
 # Execute command
 echo '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"ssh_run","arguments":{"alias":"web1","command":"uptime"}},"id":1}' | \
   docker run -i --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+  -v ~/mcp-ssh/secrets:/app/secrets:ro \
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.3
 ```
 
 ## Troubleshooting
@@ -380,20 +480,23 @@ echo '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"ssh_run","argumen
 ### Common Issues
 
 **MCP server not responding:**
+
 ```bash
 # Check container logs
-docker logs $(docker ps -q --filter "ancestor=ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0")
+docker logs $(docker ps -q --filter "ancestor=ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.3")
 
 # Test container health
-docker run --rm ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0 python -c "import mcp_ssh; print('OK')"
+docker run --rm ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.3 python -c "import mcp_ssh; print('OK')"
 ```
 
 **Configuration errors:**
+
 ```bash
 # Validate configuration
 docker run --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0 \
+  -v ~/mcp-ssh/secrets:/app/secrets:ro \
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.3 \
   python -c "
 from mcp_ssh.config import Config
 config = Config('/app/config')
@@ -402,6 +505,7 @@ print('Config valid:', config.validate())
 ```
 
 **SSH connection issues:**
+
 ```bash
 # Test SSH connectivity
 ssh -i ~/mcp-ssh/keys/id_ed25519 ubuntu@10.0.0.11

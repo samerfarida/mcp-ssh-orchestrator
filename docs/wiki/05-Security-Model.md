@@ -358,6 +358,13 @@ overrides:
 **Example:**
 ```json
 {
+  "type": "policy_decision",
+  "ts": 1729512345.12,
+  "alias": "prod-web-1",
+  "hash": "a1b2c3d4e5f6",
+  "allowed": true
+}
+{
   "type": "audit",
   "ts": 1729512345.67,
   "alias": "prod-web-1",
@@ -368,9 +375,7 @@ overrides:
   "bytes_err": 0,
   "cancelled": false,
   "timeout": false,
-  "target_ip": "10.0.0.11",
-  "policy_decision": "allow",
-  "rule_matched": "prod-readonly"
+  "target_ip": "10.0.0.11"
 }
 ```
 

@@ -21,8 +21,8 @@ This glossary provides definitions for technical terms, concepts, and acronyms u
 - **Context**: Used to reference hosts instead of IP addresses (e.g., "web1" instead of "10.0.0.11")
 
 **Audit Log**
-- **Definition**: A chronological record of events and activities for security and compliance purposes
-- **Context**: MCP SSH Orchestrator maintains comprehensive audit logs of all command executions and policy decisions
+- **Definition**: A chronological record of events and activities for security oversight
+- **Context**: MCP SSH Orchestrator provides structured JSON audit logs for every command execution
 
 **Authentication**
 - **Definition**: The process of verifying the identity of a user or system
@@ -45,8 +45,8 @@ This glossary provides definitions for technical terms, concepts, and acronyms u
 - **Context**: MCP SSH Orchestrator prevents command injection through policy enforcement and input validation
 
 **Compliance**
-- **Definition**: Adherence to laws, regulations, and industry standards
-- **Context**: MCP SSH Orchestrator provides security features (audit logs, access control, encryption) that can support compliance efforts. Compliance is the responsibility of the deploying organization.
+- **Definition**: Adherence to regulatory or organizational policies and standards
+- **Context**: MCP SSH Orchestrator provides security features that can assist with internal governance. Certification against external standards is the responsibility of the deploying organization.
 
 **Container**
 - **Definition**: A lightweight, portable unit of software that packages code and dependencies
@@ -178,10 +178,6 @@ This glossary provides definitions for technical terms, concepts, and acronyms u
 
 ## P
 
-**PCI DSS**
-- **Definition**: Payment Card Industry Data Security Standard, a security standard for organizations handling credit card data
-- **Context**: MCP SSH Orchestrator supports PCI DSS compliance requirements
-
 **Policy**
 - **Definition**: A set of rules that govern behavior or access control
 - **Context**: MCP SSH Orchestrator uses policies to control SSH command execution
@@ -219,10 +215,6 @@ This glossary provides definitions for technical terms, concepts, and acronyms u
 - **Context**: MCP SSH Orchestrator containers use read-only filesystems for security
 
 ## S
-
-**SOC 2**
-- **Definition**: System and Organization Controls 2, a security framework for service organizations
-- **Context**: MCP SSH Orchestrator provides security controls (audit logs, access control, encryption) that can support SOC 2 requirements. SOC 2 compliance is achieved through organizational certification, not by the tool itself.
 
 **SSH**
 - **Definition**: Secure Shell, a cryptographic network protocol for secure remote access
