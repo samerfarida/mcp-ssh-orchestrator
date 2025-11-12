@@ -18,7 +18,7 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-  "mcp>=1.1.0,<2.0.0",
+  "mcp>=1.21.0,<2.0.0",
   "PyYAML>=6.0.2,<7.0.0",
   "paramiko>=3.5.0,<5.0.0",
 ]

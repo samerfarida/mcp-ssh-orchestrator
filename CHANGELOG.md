@@ -11,6 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Dependencies**: Bumped MCP SDK from 1.19.0 to 1.21.0
+  - Updated to latest MCP SDK version with bug fixes and improvements
+  - Includes SEP-985: OAuth Protected Resource Metadata discovery fallback
+  - Added `get_server_capabilities()` to ClientSession
+  - All tests passing, no breaking changes detected
+  - See: https://github.com/modelcontextprotocol/python-sdk/releases/tag/v1.21.0
+
 ### Fixed
 
 ## [0.3.6] - 2025-11-12
