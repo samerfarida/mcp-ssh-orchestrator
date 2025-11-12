@@ -1,5 +1,11 @@
 name: Build and Test
 
+# Top-level permissions set to read-only for OSSF Scorecard Token-Permissions check
+# See: https://github.com/ossf/scorecard/blob/main/docs/checks.md#token-permissions
+permissions:
+  contents: read
+  packages: read
+
 on:
   push:
     branches: [main, develop]

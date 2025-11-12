@@ -1,5 +1,11 @@
 name: Sync Wiki Documentation
 
+# Top-level permissions set to read-only for OSSF Scorecard Token-Permissions check
+# Write permissions are declared at job level where needed
+# See: https://github.com/ossf/scorecard/blob/main/docs/checks.md#token-permissions
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main]
