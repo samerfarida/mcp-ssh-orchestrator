@@ -10,9 +10,12 @@ on:
   # To guarantee Maintained check is occasionally updated. See
   # https://github.com/ossf/scorecard/blob/main/docs/checks.md#maintained
   schedule:
-    - cron: '32 18 * * 4'
+    - cron: '0 0 * * *'  # Daily at midnight UTC
   push:
     branches: [ "main" ]
+  # Trigger on releases to detect Signed-Releases and SBOM checks
+  release:
+    types: [published]
 
 # Declare default permissions as read only.
 permissions: read-all
