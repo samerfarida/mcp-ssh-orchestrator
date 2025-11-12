@@ -13,6 +13,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [0.3.6] - 2025-11-12
+
+### Changed
+
+- **Release Workflow**: Simplified release process by removing problematic Python SBOM generation
+  - Workflow now relies on GitHub's native dependency graph for Python package SBOM
+  - Container SBOM generation (Trivy) continues to work reliably
+
+## [0.3.5] - 2025-11-12
+
+### Changed
+
+- **SBOM Generation**: Removed Python package SBOM generation from release workflow
+  - GitHub's native dependency graph already provides Python package SBOM via UI/API
+  - Container SBOM (Trivy) remains in releases for OSSF Scorecard compliance
+  - Simplifies workflow and eliminates cyclonedx-py dependency issues
+
+## [0.3.4] - 2025-11-12
+
+### Added
+
+- **OSSF Scorecard Compliance**: Enhanced release workflow to meet OSSF Scorecard security requirements
+  - Added Python package SBOM generation (CycloneDX format) for supply chain transparency
+  - Implemented least-privilege token permissions (read-only at top level, write only at job level)
+  - Added concurrency control to prevent multiple simultaneous releases
+  - Added job timeouts to prevent runaway workflows (15min for tests, 45min for release)
+  - Improved SBOM generation to include only production dependencies
+
+### Changed
+
+- **Release Workflow Security**: Restructured GitHub Actions permissions following principle of least privilege
+  - Top-level permissions set to read-only for Token-Permissions check compliance
+  - Write permissions scoped to release job only where needed
+  - Added comprehensive documentation comments referencing OSSF Scorecard requirements
+
+### Fixed
+
+- **Container Tagging**: Fixed `latest` tag generation in release workflow (removed incorrect branch condition)
+- **SBOM Error Handling**: Improved SBOM generation error handling with graceful fallback when Trivy fails
+
 ## [0.3.3] - 2025-11-08
 
 ### Changed
