@@ -1,5 +1,10 @@
 # syntax=docker/dockerfile:1.7
-FROM python:3.14-slim@sha256:9813eecff3a08a6ac88aea5b43663c82a931fd9557f6aceaa847f0d8ce738978 AS base
+# NOTE: Python 3.13 is pinned here because MCP SDK (mcp>=1.21.0) officially
+# supports only Python 3.10-3.13. Python 3.14 is not yet officially supported.
+# DO NOT update to Python 3.14 until MCP SDK adds official support.
+# See: https://github.com/modelcontextprotocol/python-sdk
+# To prevent Dependabot from bumping this, see .github/dependabot.yml
+FROM python:3.13-slim@sha256:85dfbf1b566b7addfe645faea9938e81a0a01a83580b0ea05fb23706357d77fb AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
