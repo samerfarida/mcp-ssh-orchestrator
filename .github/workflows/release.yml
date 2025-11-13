@@ -172,7 +172,7 @@ jobs:
 
       # --- Install cosign (keyless) ---
       - name: Install cosign
-        uses: sigstore/cosign-installer@v3.6.0
+        uses: sigstore/cosign-installer@v4.0.0
 
       # --- Keyless sign image (Fulcio/Rekor) ---
 
