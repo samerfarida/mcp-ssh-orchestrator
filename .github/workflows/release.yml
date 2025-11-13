@@ -165,8 +165,10 @@ jobs:
           cache-to: type=gha,mode=max
           platforms: linux/amd64,linux/arm64
           provenance: true  # embed buildkit provenance in the image
-          # Labels are set via metadata action and Dockerfile - these will be applied to both
-          # the individual platform images and the multi-arch manifest index
+          # Add annotations for multi-arch image manifest (required for description to appear on GHCR)
+          # Note: Labels are set via metadata action and Dockerfile for individual images
+          # Outputs annotations are required for multi-arch manifest index description
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},annotation-index.org.opencontainers.image.description=A secure SSH fleet orchestrator for MCP STDIO transport. Enforces declarative policy and audited access for Claude Desktop Cursor and MCP-aware clients,annotation-index.org.opencontainers.image.source=https://github.com/${{ github.repository }},annotation-index.org.opencontainers.image.licenses=Apache-2.0
 
       # --- Install cosign (keyless) ---
       - name: Install cosign
