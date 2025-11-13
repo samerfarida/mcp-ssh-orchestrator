@@ -8,6 +8,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     MCP_SSH_KEYS_DIR=/app/keys \
     MCP_SSH_SECRETS_DIR=/app/secrets
 
+# Container image metadata labels (OCI annotations)
+LABEL org.opencontainers.image.source=https://github.com/samerfarida/mcp-ssh-orchestrator
+LABEL org.opencontainers.image.description="A secure SSH fleet orchestrator for MCP (STDIO transport). Enforces declarative policy and audited access for Claude Desktop, Cursor, and any MCP-aware client."
+LABEL org.opencontainers.image.licenses=Apache-2.0
+
 # Non-root user
 RUN useradd -u 10001 -m appuser
 WORKDIR /app
