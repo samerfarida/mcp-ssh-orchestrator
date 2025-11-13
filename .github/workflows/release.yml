@@ -192,7 +192,7 @@ jobs:
       # Container SBOM is included in releases for OSSF Scorecard compliance
       - name: Generate SBOM with Trivy
         id: sbom
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.33.1
         continue-on-error: true  # Don't fail on vulnerabilities, just generate SBOM
         with:
           scan-type: 'image'
