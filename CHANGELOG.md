@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [0.3.8] - 2025-11-13
+
+### Fixed
+
 - **Dockerfile & Dependabot**: Prevented accidental Python 3.14 updates
   - Reverted Dockerfile from Python 3.14-slim to Python 3.13-slim (MCP SDK doesn't officially support 3.14 yet)
   - Added Dependabot ignore rules to block Python 3.14+ updates in Docker ecosystem

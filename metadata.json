@@ -2,7 +2,7 @@
   "name": "mcp-ssh-orchestrator",
   "displayName": "MCP SSH Orchestrator",
   "description": "A Model Context Protocol (MCP) server for orchestrating SSH operations across multiple servers with security policies and parallel execution capabilities.",
-  "version": "0.3.2",
+  "version": "0.3.8",
   "author": "samerfarida",
   "license": "Apache-2.0",
   "repository": {

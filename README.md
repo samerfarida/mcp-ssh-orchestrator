@@ -132,7 +132,7 @@ If you prefer to lay things out manually, follow the steps below.
 
 ```bash
 # Pull the latest release
-docker pull ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.3
+docker pull ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.8
 
 # Create directories for config, keys, and secrets
 mkdir -p ~/mcp-ssh/{config,keys,secrets}
@@ -160,7 +160,7 @@ docker run -d --name mcp-ssh-orchestrator \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
   -v ~/mcp-ssh/secrets:/app/secrets:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.3
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.8
 ```
 
 Restart later with `docker start mcp-ssh-orchestrator`. Prefer disposable containers? Use `docker run -i --rm ...` instead.
@@ -192,7 +192,7 @@ Restart later with `docker start mcp-ssh-orchestrator`. Prefer disposable contai
           "-v", "/Users/YOUR_USERNAME/mcp-ssh/config:/app/config:ro",
           "-v", "/Users/YOUR_USERNAME/mcp-ssh/keys:/app/keys:ro",
           "-v", "/Users/YOUR_USERNAME/mcp-ssh/secrets:/app/secrets:ro",
-          "ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.3"
+          "ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.8"
         ]
       }
     }
@@ -212,7 +212,7 @@ echo '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"ssh_list_hosts","
     -v ~/mcp-ssh/config:/app/config:ro \
     -v ~/mcp-ssh/keys:/app/keys:ro \
     -v ~/mcp-ssh/secrets:/app/secrets:ro \
-    ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.3
+    ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.8
 ```
 
 Cursor/Claude should now show the orchestrator as connected. Jump to the [Usage Cookbook](https://github.com/samerfarida/mcp-ssh-orchestrator/wiki/08-Usage-Cookbook) for guided scenarios.

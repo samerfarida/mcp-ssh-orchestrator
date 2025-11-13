@@ -54,7 +54,7 @@ If you just want to use the tool and don't plan to modify the code:
    docker compose up
    ```
 
-The production compose file pulls `ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.3` by default.
+The production compose file pulls `ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.8` by default.
 
 ---
 
