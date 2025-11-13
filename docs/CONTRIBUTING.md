@@ -95,16 +95,16 @@ git checkout -b fix/issue-number-description
 
 Per the project instructions:
 
-1. ❌ NO `@mcp.prompt()` decorators
-2. ❌ NO `prompt` parameter to `FastMCP()`
-3. ❌ NO complex typing annotations
-4. ✅ Use primitive types only (all params as `str = ""`)
-5. ✅ Single-line docstrings only
-6. ✅ Default to empty strings
-7. ✅ MCP tools return structured types (dict | str) - FastMCP automatically generates schemas
-8. ✅ Always run in Docker
-9. ✅ Log to stderr
-10. ✅ Graceful error handling only
+1. NO complex typing annotations
+2. Use primitive types only (all params as `str = ""`)
+3. Single-line docstrings only
+4. Default to empty strings
+5. MCP tools return structured types (dict | str) - FastMCP automatically generates schemas
+6. Always run in Docker
+7. Log to stderr
+8. Graceful error handling only
+
+**Note on Prompts:** Prompts are not currently implemented but will be supported in the future following the [MCP Prompts specification](https://pypi.org/project/mcp/1.21.0/#prompts). When implementing prompts, use `@mcp.prompt()` decorators as documented in the MCP SDK.
 
 **Example MCP Tool:**
 
