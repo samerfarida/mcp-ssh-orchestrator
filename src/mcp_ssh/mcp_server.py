@@ -5,9 +5,6 @@ import time
 from collections.abc import Callable
 from typing import Any
 
-# Type alias for tool return values (dict for success, str for errors)
-ToolResult = dict[str, Any] | str
-
 from mcp.server.fastmcp import Context, FastMCP
 
 from mcp_ssh.config import Config
@@ -20,6 +17,9 @@ from mcp_ssh.tools.utilities import (
     log_json,
     sanitize_error,
 )
+
+# Type alias for tool return values (dict for success, str for errors)
+ToolResult = dict[str, Any] | str
 
 mcp = FastMCP()
 config = Config()
@@ -618,7 +618,11 @@ def ssh_run_on_tag(tag: str = "", command: str = "") -> ToolResult:
             task_id = TASKS.create(alias, cmd_hash)
 
             def progress_cb(
-                phase: str, bytes_read: int, elapsed_ms: int, pol_ref: Policy = pol, task_ref: str = task_id
+                phase: str,
+                bytes_read: int,
+                elapsed_ms: int,
+                pol_ref: Policy = pol,
+                task_ref: str = task_id,
             ) -> None:
                 pol_ref.log_progress(task_ref, phase, int(bytes_read), int(elapsed_ms))
 

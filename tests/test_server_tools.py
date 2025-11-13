@@ -1,7 +1,6 @@
 """Tests for MCP server tools."""
 
 import asyncio
-import json
 import os
 import tempfile
 
@@ -133,7 +132,9 @@ def test_ssh_cancel_no_task_id():
     """Test cancel tool without task_id."""
     result = mcp_server.ssh_cancel(task_id="")
     # Error case - still returns string
-    assert isinstance(result, str) or (isinstance(result, dict) and "error" in str(result).lower())
+    assert isinstance(result, str) or (
+        isinstance(result, dict) and "error" in str(result).lower()
+    )
     assert "required" in str(result).lower()
 
 
@@ -228,14 +229,19 @@ def test_ssh_cancel_async_task_invalid_task():
     result = mcp_server.ssh_cancel_async_task(task_id="invalid:task:id")
     assert isinstance(result, dict)
     assert result.get("cancelled") is False
-    assert "not found" in result.get("message", "").lower() or "not cancellable" in result.get("message", "").lower()
+    assert (
+        "not found" in result.get("message", "").lower()
+        or "not cancellable" in result.get("message", "").lower()
+    )
 
 
 def test_ssh_cancel_async_task_no_task_id():
     """Test ssh_cancel_async_task without task_id."""
     result = mcp_server.ssh_cancel_async_task(task_id="")
     # Error case - still returns string
-    assert isinstance(result, str) or (isinstance(result, dict) and "error" in str(result).lower())
+    assert isinstance(result, str) or (
+        isinstance(result, dict) and "error" in str(result).lower()
+    )
     assert "required" in str(result).lower()
 
 
