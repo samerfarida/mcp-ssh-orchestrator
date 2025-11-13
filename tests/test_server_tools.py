@@ -70,13 +70,15 @@ def mock_config():
 def test_ssh_ping():
     """Test ping tool."""
     result = mcp_server.ssh_ping()
-    assert result == "pong"
+    assert isinstance(result, dict)
+    assert result == {"status": "pong"}
 
 
 def test_ssh_list_hosts(mock_config):
     """Test list_hosts tool."""
     result = mcp_server.ssh_list_hosts()
-    hosts = json.loads(result)
+    assert isinstance(result, dict)
+    hosts = result.get("hosts", result)
 
     assert isinstance(hosts, list)
     assert len(hosts) == 2
@@ -87,11 +89,11 @@ def test_ssh_list_hosts(mock_config):
 def test_ssh_describe_host(mock_config):
     """Test describe_host tool."""
     result = mcp_server.ssh_describe_host(alias="test1")
-    host = json.loads(result)
+    assert isinstance(result, dict)
 
-    assert host["alias"] == "test1"
-    assert host["host"] == "10.0.0.1"
-    assert host["port"] == 22
+    assert result["alias"] == "test1"
+    assert result["host"] == "10.0.0.1"
+    assert result["port"] == 22
 
 
 def test_ssh_describe_host_not_found(mock_config):
@@ -104,33 +106,35 @@ def test_ssh_describe_host_not_found(mock_config):
 def test_ssh_plan(mock_config):
     """Test plan tool."""
     result = mcp_server.ssh_plan(alias="test1", command="uptime")
-    plan = json.loads(result)
+    assert isinstance(result, dict)
 
-    assert plan["alias"] == "test1"
-    assert plan["command"] == "uptime"
-    assert "allowed" in plan
-    assert "limits" in plan
+    assert result["alias"] == "test1"
+    assert result["command"] == "uptime"
+    assert "allowed" in result
+    assert "limits" in result
 
 
 def test_ssh_reload_config(mock_config):
     """Test reload_config tool."""
     result = mcp_server.ssh_reload_config()
-
-    assert "reloaded" in result.lower()
+    assert isinstance(result, dict)
+    assert result.get("status") == "reloaded"
 
 
 def test_ssh_cancel_not_found():
     """Test cancel tool with non-existent task."""
     result = mcp_server.ssh_cancel(task_id="nonexistent")
-
-    assert "not found" in result.lower()
+    assert isinstance(result, dict)
+    assert result.get("cancelled") is False
+    assert "not found" in result.get("message", "").lower()
 
 
 def test_ssh_cancel_no_task_id():
     """Test cancel tool without task_id."""
     result = mcp_server.ssh_cancel(task_id="")
-
-    assert "required" in result.lower()
+    # Error case - still returns string
+    assert isinstance(result, str) or (isinstance(result, dict) and "error" in str(result).lower())
+    assert "required" in str(result).lower()
 
 
 # Note: Testing ssh_run and ssh_run_on_tag requires mocking SSH connections,
@@ -222,16 +226,17 @@ def test_ssh_get_task_output_no_task_id():
 def test_ssh_cancel_async_task_invalid_task():
     """Test ssh_cancel_async_task with invalid task ID."""
     result = mcp_server.ssh_cancel_async_task(task_id="invalid:task:id")
-
-    assert "Error" in result or "not found" in result.lower()
+    assert isinstance(result, dict)
+    assert result.get("cancelled") is False
+    assert "not found" in result.get("message", "").lower() or "not cancellable" in result.get("message", "").lower()
 
 
 def test_ssh_cancel_async_task_no_task_id():
     """Test ssh_cancel_async_task without task_id."""
     result = mcp_server.ssh_cancel_async_task(task_id="")
-
-    assert "Error" in result
-    assert "required" in result.lower()
+    # Error case - still returns string
+    assert isinstance(result, str) or (isinstance(result, dict) and "error" in str(result).lower())
+    assert "required" in str(result).lower()
 
 
 # Note: Testing actual async task execution requires mocking SSH connections,

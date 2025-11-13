@@ -3,6 +3,10 @@ import json
 import re
 import time
 from collections.abc import Callable
+from typing import Any
+
+# Type alias for tool return values (dict for success, str for errors)
+ToolResult = dict[str, Any] | str
 
 from mcp.server.fastmcp import Context, FastMCP
 
@@ -37,7 +41,7 @@ def _build_notification_handler(
     """Return notification handler that emits MCP-compliant notifications."""
     if ctx is None or loop is None:
 
-        def _log_only(event_type: str, task_id: str, payload: dict):
+        def _log_only(event_type: str, task_id: str, payload: dict) -> None:
             log_json(
                 {
                     "level": "info",
@@ -50,7 +54,7 @@ def _build_notification_handler(
 
         return _log_only
 
-    async def _emit(event_type: str, task_id: str, payload: dict):
+    async def _emit(event_type: str, task_id: str, payload: dict) -> None:
         message = _format_task_event(event_type, task_id, payload)
 
         if event_type == "progress":
@@ -67,7 +71,7 @@ def _build_notification_handler(
         else:
             await ctx.info(message)
 
-    def _handler(event_type: str, task_id: str, payload: dict):
+    def _handler(event_type: str, task_id: str, payload: dict) -> None:
         async def _invoke() -> None:
             await _emit(event_type, task_id, payload)
 
@@ -335,17 +339,17 @@ def _precheck_network(pol: Policy, hostname: str) -> tuple[bool, str]:
 
 
 @mcp.tool()
-def ssh_ping() -> str:
+def ssh_ping() -> ToolResult:
     """Health check."""
-    return "pong"
+    return {"status": "pong"}
 
 
 @mcp.tool()
-def ssh_list_hosts() -> str:
+def ssh_list_hosts() -> ToolResult:
     """List configured hosts."""
     try:
         hosts = config.list_hosts()
-        return json.dumps(hosts)
+        return {"hosts": hosts}
     except Exception as e:
         error_str = str(e)
         log_json({"level": "error", "msg": "list_hosts_exception", "error": error_str})
@@ -353,7 +357,7 @@ def ssh_list_hosts() -> str:
 
 
 @mcp.tool()
-def ssh_describe_host(alias: str = "") -> str:
+def ssh_describe_host(alias: str = "") -> ToolResult:
     """Return host definition in JSON."""
     try:
         # Input validation
@@ -362,7 +366,7 @@ def ssh_describe_host(alias: str = "") -> str:
             return f"Error: {error_msg}"
 
         host = config.get_host(alias)
-        return json.dumps(host, indent=2)
+        return host
     except Exception as e:
         error_str = str(e)
         log_json(
@@ -372,7 +376,7 @@ def ssh_describe_host(alias: str = "") -> str:
 
 
 @mcp.tool()
-def ssh_plan(alias: str = "", command: str = "") -> str:
+def ssh_plan(alias: str = "", command: str = "") -> ToolResult:
     """Show what would be executed and if policy allows."""
     try:
         # Input validation
@@ -401,7 +405,7 @@ def ssh_plan(alias: str = "", command: str = "") -> str:
                 "require_known_host": bool(limits.get("require_known_host", True)),
             },
         }
-        return json.dumps(preview, indent=2)
+        return preview
     except Exception as e:
         error_str = str(e)
         log_json({"level": "error", "msg": "plan_exception", "error": error_str})
@@ -409,7 +413,7 @@ def ssh_plan(alias: str = "", command: str = "") -> str:
 
 
 @mcp.tool()
-def ssh_run(alias: str = "", command: str = "") -> str:
+def ssh_run(alias: str = "", command: str = "") -> ToolResult:
     """Execute SSH command with policy, network checks, progress, timeout, and cancellation."""
     start = time.time()
     try:
@@ -465,7 +469,7 @@ def ssh_run(alias: str = "", command: str = "") -> str:
 
         task_id = TASKS.create(alias, cmd_hash)
 
-        def progress_cb(phase, bytes_read, elapsed_ms):
+        def progress_cb(phase: str, bytes_read: int, elapsed_ms: int) -> None:
             pol.log_progress(task_id, phase, int(bytes_read), int(elapsed_ms))
 
         client = _client_for(alias, limits, require_known_host)
@@ -525,7 +529,7 @@ def ssh_run(alias: str = "", command: str = "") -> str:
             "target_ip": peer_ip,
             "output": combined,
         }
-        return json.dumps(result, indent=2)
+        return result
     except Exception as e:
         error_str = str(e)
         log_json({"level": "error", "msg": "run_exception", "error": error_str})
@@ -536,7 +540,7 @@ def ssh_run(alias: str = "", command: str = "") -> str:
 
 
 @mcp.tool()
-def ssh_run_on_tag(tag: str = "", command: str = "") -> str:
+def ssh_run_on_tag(tag: str = "", command: str = "") -> ToolResult:
     """Execute SSH command on all hosts with a tag (with network checks)."""
     try:
         # Input validation
@@ -554,9 +558,7 @@ def ssh_run_on_tag(tag: str = "", command: str = "") -> str:
 
         aliases = config.find_hosts_by_tag(tag)
         if not aliases:
-            return json.dumps(
-                {"tag": tag, "results": [], "note": "No hosts matched."}, indent=2
-            )
+            return {"tag": tag, "results": [], "note": "No hosts matched."}
 
         results = []
         for alias in aliases:
@@ -616,8 +618,8 @@ def ssh_run_on_tag(tag: str = "", command: str = "") -> str:
             task_id = TASKS.create(alias, cmd_hash)
 
             def progress_cb(
-                phase, bytes_read, elapsed_ms, pol_ref=pol, task_ref=task_id
-            ):
+                phase: str, bytes_read: int, elapsed_ms: int, pol_ref: Policy = pol, task_ref: str = task_id
+            ) -> None:
                 pol_ref.log_progress(task_ref, phase, int(bytes_read), int(elapsed_ms))
 
             client = _client_for(alias, limits, require_known_host)
@@ -689,7 +691,7 @@ def ssh_run_on_tag(tag: str = "", command: str = "") -> str:
                 }
             )
 
-        return json.dumps({"tag": tag, "results": results}, indent=2)
+        return {"tag": tag, "results": results}
     except Exception as e:
         error_str = str(e)
         log_json({"level": "error", "msg": "run_on_tag_exception", "error": error_str})
@@ -697,7 +699,7 @@ def ssh_run_on_tag(tag: str = "", command: str = "") -> str:
 
 
 @mcp.tool()
-def ssh_cancel(task_id: str = "") -> str:
+def ssh_cancel(task_id: str = "") -> ToolResult:
     """Request cancellation for a running task."""
     try:
         # Input validation
@@ -708,8 +710,12 @@ def ssh_cancel(task_id: str = "") -> str:
         task_id = task_id.strip()
         ok = TASKS.cancel(task_id)
         if ok:
-            return f"Cancellation signaled for task_id: {task_id}"
-        return f"Task not found: {task_id}"
+            return {
+                "task_id": task_id,
+                "cancelled": True,
+                "message": "Cancellation signaled",
+            }
+        return {"task_id": task_id, "cancelled": False, "message": "Task not found"}
     except Exception as e:
         error_str = str(e)
         log_json({"level": "error", "msg": "cancel_exception", "error": error_str})
@@ -717,21 +723,21 @@ def ssh_cancel(task_id: str = "") -> str:
 
 
 @mcp.tool()
-def ssh_reload_config() -> str:
+def ssh_reload_config() -> ToolResult:
     """Reload configuration files."""
     try:
         config.reload()
-        return "Configuration reloaded."
+        return {"status": "reloaded"}
     except Exception as e:
         error_str = str(e)
         log_json({"level": "error", "msg": "reload_exception", "error": error_str})
-        return f"Reload error: {sanitize_error(error_str)}"
+        return {"status": "error", "error": sanitize_error(error_str)}
 
 
 @mcp.tool()
 async def ssh_run_async(
     alias: str = "", command: str = "", ctx: Context | None = None
-) -> str:
+) -> ToolResult:
     """Start SSH command asynchronously (SEP-1686 compliant).
 
     Returns immediately with task_id for polling. Use ssh_get_task_status
@@ -790,7 +796,7 @@ async def ssh_run_async(
         client = _client_for(alias, limits, require_known_host)
 
         # Enhanced progress callback for async tasks
-        def progress_cb(phase, bytes_read, elapsed_ms):
+        def progress_cb(phase: str, bytes_read: int, elapsed_ms: int) -> None:
             pol.log_progress(
                 f"async:{alias}:{cmd_hash}", phase, int(bytes_read), int(elapsed_ms)
             )
@@ -824,7 +830,7 @@ async def ssh_run_async(
             "command": command,
             "hash": cmd_hash,
         }
-        return json.dumps(result, indent=2)
+        return result
 
     except Exception as e:
         error_str = str(e)
@@ -833,7 +839,7 @@ async def ssh_run_async(
 
 
 @mcp.tool()
-def ssh_get_task_status(task_id: str = "") -> str:
+def ssh_get_task_status(task_id: str = "") -> ToolResult:
     """Get current status of an async task (SEP-1686 compliant).
 
     Returns task state, progress, elapsed time, and output summary.
@@ -849,7 +855,7 @@ def ssh_get_task_status(task_id: str = "") -> str:
         if not status:
             return f"Error: Task not found: {task_id}"
 
-        return json.dumps(status, indent=2)
+        return status
 
     except Exception as e:
         error_str = str(e)
@@ -858,7 +864,7 @@ def ssh_get_task_status(task_id: str = "") -> str:
 
 
 @mcp.tool()
-def ssh_get_task_result(task_id: str = "") -> str:
+def ssh_get_task_result(task_id: str = "") -> ToolResult:
     """Get final result of completed task (SEP-1686 compliant).
 
     Returns complete output, exit code, and execution metadata.
@@ -874,7 +880,7 @@ def ssh_get_task_result(task_id: str = "") -> str:
         if not result:
             return f"Error: Task not found or expired: {task_id}"
 
-        return json.dumps(result, indent=2)
+        return result
 
     except Exception as e:
         error_str = str(e)
@@ -883,7 +889,7 @@ def ssh_get_task_result(task_id: str = "") -> str:
 
 
 @mcp.tool()
-def ssh_get_task_output(task_id: str = "", max_lines: int = 50) -> str:
+def ssh_get_task_output(task_id: str = "", max_lines: int = 50) -> ToolResult:
     """Get recent output lines from running or completed task.
 
     Enhanced beyond SEP-1686: enables streaming output visibility.
@@ -902,7 +908,7 @@ def ssh_get_task_output(task_id: str = "", max_lines: int = 50) -> str:
         if not output:
             return f"Error: Task not found or no output available: {task_id}"
 
-        return json.dumps(output, indent=2)
+        return output
 
     except Exception as e:
         error_str = str(e)
@@ -911,7 +917,7 @@ def ssh_get_task_output(task_id: str = "", max_lines: int = 50) -> str:
 
 
 @mcp.tool()
-def ssh_cancel_async_task(task_id: str = "") -> str:
+def ssh_cancel_async_task(task_id: str = "") -> ToolResult:
     """Cancel a running async task."""
     try:
         # Input validation
@@ -922,9 +928,17 @@ def ssh_cancel_async_task(task_id: str = "") -> str:
         task_id = task_id.strip()
         success = ASYNC_TASKS.cancel_task(task_id)
         if success:
-            return f"Cancellation signaled for async task: {task_id}"
+            return {
+                "task_id": task_id,
+                "cancelled": True,
+                "message": "Cancellation signaled",
+            }
         else:
-            return f"Task not found or not cancellable: {task_id}"
+            return {
+                "task_id": task_id,
+                "cancelled": False,
+                "message": "Task not found or not cancellable",
+            }
 
     except Exception as e:
         error_str = str(e)
@@ -934,7 +948,7 @@ def ssh_cancel_async_task(task_id: str = "") -> str:
         return f"Cancel error: {sanitize_error(error_str)}"
 
 
-def main():
+def main() -> None:
     """Main entry point for MCP server."""
     mcp.run(transport="stdio")
 

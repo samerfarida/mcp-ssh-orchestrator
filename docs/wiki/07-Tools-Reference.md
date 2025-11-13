@@ -17,6 +17,13 @@ Invalid inputs are rejected with clear error messages. Security events are logge
 
 MCP SSH Orchestrator provides **13 MCP tools** that enable secure SSH command execution, host management, and policy testing. All tools follow the MCP specification and return structured JSON responses.
 
+**Structured Output:** All tools return structured Python dicts (not JSON strings). FastMCP automatically:
+- Generates JSON schemas for clients
+- Validates tool outputs
+- Wraps responses in MCP tool response format
+
+This provides better type safety, schema validation, and improved client experience compared to manual JSON string encoding.
+
 ## Tool Categories
 
 ### Health & Discovery Tools
@@ -57,9 +64,13 @@ MCP SSH Orchestrator provides **13 MCP tools** that enable secure SSH command ex
 ```
 
 **Response:**
-```text
-pong
+```json
+{
+  "status": "pong"
+}
 ```
+
+**Note:** Tools now return structured JSON objects. FastMCP automatically generates schemas and validates outputs.
 
 **Use Cases:**
 
@@ -91,13 +102,17 @@ ssh_ping
 
 **Response:**
 ```json
-[
-  "web1",
-  "web2", 
-  "db1",
-  "monitor1"
-]
+{
+  "hosts": [
+    "web1",
+    "web2", 
+    "db1",
+    "monitor1"
+  ]
+}
 ```
+
+**Note:** Returns a structured object with a `hosts` array. FastMCP generates the schema automatically.
 
 **Use Cases:**
 
