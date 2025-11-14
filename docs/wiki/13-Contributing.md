@@ -416,6 +416,39 @@ def test_ssh_command_execution():
         assert "load average" in result["output"]
 ```
 
+### MCP Inspector Testing
+
+**Interactive Testing with MCP Inspector:**
+
+The [MCP Inspector](https://modelcontextprotocol.io/docs/tools/inspector) provides a web-based interface for testing MCP servers. It's essential for verifying structured output, schema generation, and tool behavior.
+
+**Setup:**
+
+```bash
+# Test with local Python server
+cd /path/to/mcp-ssh-orchestrator
+export MCP_SSH_CONFIG_DIR=$(pwd)/config
+source venv/bin/activate
+npx -y @modelcontextprotocol/inspector python -m mcp_ssh.mcp_server
+
+# Or test with Docker-based server
+npx -y @modelcontextprotocol/inspector docker compose -f compose/docker-compose.dev.yml run --rm -T mcp-ssh python -m mcp_ssh.mcp_server
+```
+
+**What to Verify:**
+
+1. **Schema Generation**: All tools should show generated JSON schemas
+2. **Structured Output**: Tools return structured dicts (verify "Valid according to output schema")
+3. **Error Handling**: Error cases return appropriate responses
+4. **Tool Execution**: All tools execute correctly with various inputs
+
+**Best Practices:**
+
+- Use MCP Inspector during development to verify tool changes
+- Test all tools after major refactoring
+- Verify schema generation for new tools
+- Test edge cases and error conditions
+
 ### Performance Tests
 
 **Load testing:**
