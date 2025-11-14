@@ -338,6 +338,216 @@ def _precheck_network(pol: Policy, hostname: str) -> tuple[bool, str]:
     return False, "No resolved IPs allowed by policy.network"
 
 
+# === PROMPTS ===
+@mcp.prompt()
+def ssh_orchestrator_usage() -> str:
+    """
+    Explain how to safely use the SSH orchestration tools.
+    This is exposed as a prompt template to MCP clients.
+    """
+    return """
+You are using an SSH Orchestrator that enforces strict security policy.
+
+Available tools:
+- ssh_list_hosts: list known hosts and tags
+- ssh_describe_host: inspect a single host's configuration
+- ssh_plan: dry-run and validate a command against policy
+- ssh_run: execute a validated command on a single host
+- ssh_run_on_tag: execute on all hosts matching a tag
+- ssh_run_async: start long-running jobs, then use:
+    - ssh_get_task_status
+    - ssh_get_task_output
+    - ssh_get_task_result
+    - ssh_cancel_async_task
+
+Rules:
+1. ALWAYS call ssh_plan before ssh_run / ssh_run_on_tag / ssh_run_async.
+2. NEVER attempt to run commands that ssh_plan marks as not allowed.
+3. Prefer read-only diagnostics (logs, status) before making changes.
+4. Use async flows only for tasks that may legitimately take a long time.
+
+When a user asks you to do something on servers, first restate their goal,
+then plan a small, safe sequence of tool calls that respects these rules.
+"""
+
+
+@mcp.prompt()
+def ssh_policy_denied_guidance() -> str:
+    """
+    How the LLM should respond when a command is denied by policy.
+    """
+    return """
+You are using an SSH orchestrator with a strict policy.
+
+When you see that a command is denied by policy (check for JSON response with
+status: "denied" and reason: "policy"):
+
+1. DO NOT try to work around the policy.
+2. Explain to the user, in plain language, why the command is probably blocked
+   (for example: dangerous pattern, not in allowlist, wrong tag, etc.).
+3. Ask the user what they want:
+   - Do they want to change the policy to allow this *class* of command?
+   - Or do they want to adjust the command to fit existing policy?
+
+If the user explicitly wants a policy change:
+
+4. Ask clarifying questions:
+   - Which host(s) or tag(s) should this apply to?
+   - Should this be permanent or temporary?
+5. Propose a minimal, least-privilege YAML snippet for policy.yml that would
+   allow this command pattern, using the existing policy structure.
+6. Show ONLY the snippet and clearly label it as a suggestion that a human
+   should review and apply manually. Never claim that you applied it yourself.
+
+Always emphasize:
+- Policy changes are security-sensitive.
+- A human must review and apply any suggested policy changes outside the LLM.
+"""
+
+
+@mcp.prompt()
+def ssh_network_denied_guidance() -> str:
+    """
+    How the LLM should respond when network policy denies a host.
+    """
+    return """
+When a command is denied by network policy (check for JSON response with
+status: "denied" and reason: "network"):
+
+1. Tell the user that the orchestrator is blocking connections based on an
+   IP/network allowlist, for security.
+2. DO NOT suggest bypassing DNS or adding arbitrary IPs.
+
+Ask the user:
+- Is this host actually supposed to be reachable by this orchestrator?
+- If yes, ask them for:
+  - The host's expected IP or CIDR block.
+  - Whether this is a prod/non-prod environment.
+
+Then:
+- Propose a minimal change to the network allowlist in policy.yml to include
+  just that IP or the smallest reasonable CIDR.
+- Clearly mark it as a suggestion for a human to review/apply manually.
+
+Never:
+- Suggest disabling network checks.
+- Suggest broad CIDRs (like 0.0.0.0/0) unless the user explicitly demands it,
+  and even then warn strongly about the risk.
+"""
+
+
+@mcp.prompt()
+def ssh_missing_host_guidance() -> str:
+    """
+    What to do when a host alias doesn't exist in servers.yml.
+    """
+    return """
+When the orchestrator reports a missing host alias (for example:
+'Host alias not found: <alias>'):
+
+1. Explain that hosts are defined in servers.yml under 'servers.hosts'.
+2. Ask the user what this host is:
+   - hostname or IP
+   - environment (prod, staging, dev)
+   - tags it should have
+   - which credential entry it should reference (if any)
+
+Then propose a minimal YAML entry like:
+
+servers:
+  hosts:
+    - alias: <alias>
+      host: <hostname_or_ip>
+      port: 22
+      tags: [<tag1>, <tag2>]
+      credentials: <creds_name>
+
+Tell the user:
+- 'Add or update this entry in servers.yml, then reload config using the
+   ssh_reload_config tool.'
+Do NOT claim you modified any files; you only suggest changes.
+"""
+
+
+@mcp.prompt()
+def ssh_missing_credentials_guidance() -> str:
+    """
+    How to handle missing or incomplete credentials entries.
+    """
+    return """
+When a host references credentials that are missing or incomplete, or when
+the orchestrator reports that no authentication method is configured:
+
+1. Explain that credentials are defined in credentials.yml under
+   'credentials.entries', and secrets may be stored in the secrets dir or env.
+
+2. Ask the user:
+   - What username should be used?
+   - Will they use an SSH key, a password, or both?
+   - If SSH key: the key path (relative within keys dir) and optional passphrase.
+   - If password/passphrase should come from a Docker secret or env var.
+
+3. Propose a minimal YAML entry, for example:
+
+credentials:
+  entries:
+    - name: <creds_name>
+      username: <user>
+      key_path: <relative_or_absolute_key_path>
+      # One of the following:
+      password_secret: <secret_name>      # preferred
+      # or
+      password: <only_if_temporary>
+
+      # Optional:
+      key_passphrase_secret: <secret_name>
+
+4. Remind the user:
+   - Secret names should be safe, simple identifiers.
+   - Secret values live in the secrets directory or environment variables
+     (MCP_SSH_SECRET_<NAME>), not inside the YAML file whenever possible.
+
+Tell them to update credentials.yml and then call ssh_reload_config.
+"""
+
+
+@mcp.prompt()
+def ssh_config_change_workflow() -> str:
+    """
+    Global rules for suggesting config changes (servers, credentials, policy).
+    """
+    return """
+You are assisting a user with an SSH orchestrator that reads configuration
+from three YAML files:
+
+- servers.yml (host definitions, tags, credentials references)
+- credentials.yml (usernames, SSH keys, secrets)
+- policy.yml (command and network policy)
+
+Rules:
+1. NEVER assume you can directly edit these files.
+2. Your job is to:
+   - Explain why something failed (missing host, missing creds, policy/network denial).
+   - Ask the user whether they want to change config.
+   - If yes, propose small, least-privilege YAML snippets they can paste into
+     the appropriate file.
+   - Remind them to run ssh_reload_config after changing files.
+
+3. For each suggestion:
+   - Include ONLY the minimal YAML needed.
+   - Clearly label it as a suggestion.
+   - Warn about security trade-offs (especially for broad policies or networks).
+
+4. Prefer:
+   - password_secret / key_passphrase_secret over inline plaintext passwords.
+   - narrow command patterns over broad wildcard allow rules.
+   - narrow CIDR ranges over broad ones.
+
+You must always keep the orchestrator's security posture conservative.
+"""
+
+
+# === TOOLS ===
 @mcp.tool()
 def ssh_ping() -> ToolResult:
     """Health check."""
@@ -440,12 +650,30 @@ def ssh_run(alias: str = "", command: str = "") -> ToolResult:
         allowed = pol.is_allowed(alias, tags, command)
         pol.log_decision(alias, cmd_hash, allowed)
         if not allowed:
-            return f"Denied by policy: {command}"
+            return json.dumps(
+                {
+                    "status": "denied",
+                    "reason": "policy",
+                    "alias": alias,
+                    "hash": cmd_hash,
+                    "command": command,
+                },
+                indent=2,
+            )
 
         # Network precheck (DNS -> allowlist)
         ok, reason = _precheck_network(pol, hostname)
         if not ok:
-            return f"Denied by network policy: {reason}"
+            return json.dumps(
+                {
+                    "status": "denied",
+                    "reason": "network",
+                    "alias": alias,
+                    "hostname": hostname,
+                    "detail": reason,
+                },
+                indent=2,
+            )
 
         limits = pol.limits_for(alias, tags)
         max_seconds = int(limits.get("max_seconds", 60))
@@ -505,7 +733,16 @@ def ssh_run(alias: str = "", command: str = "") -> ToolResult:
                 bool(timeout),
                 peer_ip,
             )
-            return f"Denied by network policy: peer IP {peer_ip} not allowed"
+            return json.dumps(
+                {
+                    "status": "denied",
+                    "reason": "network",
+                    "alias": alias,
+                    "hostname": hostname,
+                    "detail": f"peer IP {peer_ip} not allowed",
+                },
+                indent=2,
+            )
 
         pol.log_audit(
             alias,
@@ -771,12 +1008,30 @@ async def ssh_run_async(
         allowed = pol.is_allowed(alias, tags, command)
         pol.log_decision(alias, cmd_hash, allowed)
         if not allowed:
-            return f"Denied by policy: {command}"
+            return json.dumps(
+                {
+                    "status": "denied",
+                    "reason": "policy",
+                    "alias": alias,
+                    "hash": cmd_hash,
+                    "command": command,
+                },
+                indent=2,
+            )
 
         # Network precheck (DNS -> allowlist)
         ok, reason = _precheck_network(pol, hostname)
         if not ok:
-            return f"Denied by network policy: {reason}"
+            return json.dumps(
+                {
+                    "status": "denied",
+                    "reason": "network",
+                    "alias": alias,
+                    "hostname": hostname,
+                    "detail": reason,
+                },
+                indent=2,
+            )
 
         limits = pol.limits_for(alias, tags)
         require_known_host_config = bool(

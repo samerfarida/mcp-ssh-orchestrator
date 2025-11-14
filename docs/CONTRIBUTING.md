@@ -104,7 +104,7 @@ Per the project instructions:
 7. Log to stderr
 8. Graceful error handling only
 
-**Note on Prompts:** Prompts are not currently implemented but will be supported in the future following the [MCP Prompts specification](https://pypi.org/project/mcp/1.21.0/#prompts). When implementing prompts, use `@mcp.prompt()` decorators as documented in the MCP SDK.
+**Note on Prompts:** Prompts are implemented following the [MCP Prompts specification](https://pypi.org/project/mcp/1.21.0/#prompts). Use `@mcp.prompt()` decorators as documented in the MCP SDK. The server includes 6 prompts: `ssh_orchestrator_usage`, `ssh_policy_denied_guidance`, `ssh_network_denied_guidance`, `ssh_missing_host_guidance`, `ssh_missing_credentials_guidance`, and `ssh_config_change_workflow`.
 
 **Example MCP Tool:**
 

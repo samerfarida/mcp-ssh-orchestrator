@@ -850,15 +850,86 @@ while true; do
 done
 ```
 
+## Prompts
+
+MCP SSH Orchestrator provides **6 prompts** that guide LLM behavior when interacting with the orchestrator. Prompts are reusable templates that help LLMs understand how to safely use the tools, handle denials, and suggest configuration changes.
+
+**Available Prompts:**
+
+1. **ssh_orchestrator_usage** - General usage guidance for SSH orchestrator tools
+   - Explains available tools and rules for safe usage
+   - Guides workflow patterns and best practices
+
+2. **ssh_policy_denied_guidance** - How to handle policy denials
+   - Guides LLM on responding to policy denials
+   - Explains how to ask about policy changes and propose YAML snippets
+
+3. **ssh_network_denied_guidance** - How to handle network policy denials
+   - Guides LLM on responding to network policy denials
+   - Explains how to ask about IP/CIDR allowlists and propose network changes
+
+4. **ssh_missing_host_guidance** - How to handle missing host aliases
+   - Guides LLM on handling missing host aliases
+   - Explains how to propose YAML entries for servers.yml
+
+5. **ssh_missing_credentials_guidance** - How to handle missing/incomplete credentials
+   - Guides LLM on handling missing credentials
+   - Explains how to propose YAML entries for credentials.yml
+
+6. **ssh_config_change_workflow** - Global rules for config change suggestions
+   - Global workflow rules for suggesting config changes
+   - Explains how to handle all three YAML files (servers.yml, credentials.yml, policy.yml)
+
+**Using Prompts:**
+
+Prompts are exposed via the MCP protocol and can be retrieved using `prompts/list` and `prompts/get` operations. MCP clients (Claude Desktop, Cursor, etc.) can use these prompts to guide LLM behavior.
+
+**Example:**
+```bash
+# List all available prompts
+prompts/list
+
+# Get a specific prompt
+prompts/get --name ssh_orchestrator_usage
+```
+
+**Note:** Prompts are client-controlled templates. The server does not invoke them automatically - they are used by MCP clients to guide LLM behavior.
+
 ## Error Handling
 
 ### Common Error Responses
 
-- **Policy denied:** `Denied by policy: <command>` — command matches a deny rule or substring.
+- **Policy denied:** Returns structured JSON with `status: "denied"` and `reason: "policy"` — command matches a deny rule or substring.
 - **Host not found:** `Error: Host alias not found: <alias>` — configuration missing the requested host.
 - **Invalid alias/tag/command:** `Error: <reason>` — input validation failed (length, characters, null bytes, etc.).
-- **Network blocked:** `Denied by network policy: <reason>` — DNS resolution failed allowlist checks or post-connect IP blocked.
+- **Network blocked:** Returns structured JSON with `status: "denied"` and `reason: "network"` — DNS resolution failed allowlist checks or post-connect IP blocked.
 - **SSH connection issues:** `Run error: <sanitized message>` — authentication, host key, or connection failures. Detailed context is logged to stderr for auditing.
+
+**Structured JSON Denial Responses:**
+
+Policy and network denials now return structured JSON for better LLM understanding:
+
+```json
+{
+  "status": "denied",
+  "reason": "policy",
+  "alias": "web1",
+  "hash": "a1b2c3d4",
+  "command": "rm -rf /"
+}
+```
+
+```json
+{
+  "status": "denied",
+  "reason": "network",
+  "alias": "web1",
+  "hostname": "10.0.0.1",
+  "detail": "No resolved IPs allowed by policy.network"
+}
+```
+
+This structured format makes it easier for LLMs to parse and respond appropriately using the provided prompts.
 
 **Command Timeout:**
 ```json
