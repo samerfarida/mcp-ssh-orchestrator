@@ -220,7 +220,7 @@ jobs:
       # --- SBOM attestation (bind SBOM -> image digest) via GitHub Artifact Attestations ---
       - name: Attest SBOM to image
         if: steps.move_sbom.outputs.SBOM_GENERATED == 'true'
-        uses: actions/attest-sbom@v1
+        uses: actions/attest-sbom@v3
         with:
           subject-digest: ${{ steps.build_image.outputs.digest }}
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
