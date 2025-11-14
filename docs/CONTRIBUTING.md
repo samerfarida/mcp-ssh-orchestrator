@@ -95,27 +95,34 @@ git checkout -b fix/issue-number-description
 
 Per the project instructions:
 
-1. ❌ NO `@mcp.prompt()` decorators
-2. ❌ NO `prompt` parameter to `FastMCP()`
-3. ❌ NO complex typing annotations
-4. ✅ Use primitive types only (all params as `str = ""`)
-5. ✅ Single-line docstrings only
-6. ✅ Default to empty strings
-7. ✅ All MCP tools must return strings
-8. ✅ Always run in Docker
-9. ✅ Log to stderr
-10. ✅ Graceful error handling only
+1. NO complex typing annotations
+2. Use primitive types only (all params as `str = ""`)
+3. Single-line docstrings only
+4. Default to empty strings
+5. MCP tools return structured types (dict | str) - FastMCP automatically generates schemas
+6. Always run in Docker
+7. Log to stderr
+8. Graceful error handling only
+
+**Note on Prompts:** Prompts are implemented following the [MCP Prompts specification](https://pypi.org/project/mcp/1.21.0/#prompts). Use `@mcp.prompt()` decorators as documented in the MCP SDK. The server includes 6 prompts: `ssh_orchestrator_usage`, `ssh_policy_denied_guidance`, `ssh_network_denied_guidance`, `ssh_missing_host_guidance`, `ssh_missing_credentials_guidance`, and `ssh_config_change_workflow`.
 
 **Example MCP Tool:**
 
 ```python
+from typing import Any
+
+# Type alias for tool return values (dict for success, str for errors)
+ToolResult = dict[str, Any] | str
+
 @mcp.tool()
-def ssh_example(alias: str = "", command: str = "") -> str:
+def ssh_example(alias: str = "", command: str = "") -> ToolResult:
     """Execute an example command."""
     try:
         result = do_something(alias, command)
-        return json.dumps(result, indent=2)
+        # Return dict directly - FastMCP will generate schema and validate
+        return result  # or return {"key": value} for structured output
     except Exception as e:
+        # Errors can return strings (FastMCP handles both)
         return f"Error: {e}"
 ```
 
@@ -340,6 +347,52 @@ def test_ssh_execution_flow():
     # Test policy enforcement
     # Verify audit logging
 ```
+
+### MCP Inspector Testing
+
+**Using MCP Inspector for Interactive Testing:**
+
+The [MCP Inspector](https://modelcontextprotocol.io/docs/tools/inspector) is a powerful tool for testing MCP servers interactively. It provides a web-based interface to test tools, verify schemas, and debug issues.
+
+**Setup:**
+
+```bash
+# Install MCP Inspector (runs via npx, no installation needed)
+# Ensure Node.js and npx are installed
+
+# Test with local Python server
+cd /path/to/mcp-ssh-orchestrator
+export MCP_SSH_CONFIG_DIR=$(pwd)/config
+source venv/bin/activate
+npx -y @modelcontextprotocol/inspector python -m mcp_ssh.mcp_server
+
+# Or test with Docker-based server
+npx -y @modelcontextprotocol/inspector docker compose -f compose/docker-compose.dev.yml run --rm -T mcp-ssh python -m mcp_ssh.mcp_server
+```
+
+**What to Test:**
+
+1. **Tool Schemas**: Verify FastMCP generates correct JSON schemas for all tools
+2. **Structured Output**: Confirm tools return structured dicts (not JSON strings)
+3. **Schema Validation**: Check that "Valid according to output schema" appears
+4. **Error Handling**: Test error cases return appropriate responses
+5. **Tool Execution**: Verify tools execute correctly with various inputs
+
+**Benefits:**
+
+- Visual schema inspection
+- Interactive tool testing
+- Real-time validation feedback
+- Easy debugging of MCP protocol issues
+- Verification of structured output implementation
+
+**Best Practices:**
+
+- Use MCP Inspector during development to verify tool changes
+- Test all tools after major refactoring
+- Verify schema generation for new tools
+- Test edge cases and error conditions
+- Document any schema issues found
 
 ### Docker Tests
 

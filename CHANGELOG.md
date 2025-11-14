@@ -13,6 +13,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [0.4.0] - 2025-11-13
+
+### Added
+
+- **MCP Prompts Support**: Added 6 prompts to guide LLM behavior
+  - `ssh_orchestrator_usage` - General usage guidance for SSH orchestrator tools
+  - `ssh_policy_denied_guidance` - How to handle policy denials
+  - `ssh_network_denied_guidance` - How to handle network policy denials
+  - `ssh_missing_host_guidance` - How to handle missing host aliases
+  - `ssh_missing_credentials_guidance` - How to handle missing/incomplete credentials
+  - `ssh_config_change_workflow` - Global rules for config change suggestions
+  - Prompts are exposed via MCP protocol (`prompts/list` and `prompts/get`)
+  - Prompts help LLMs understand how to safely interact with the orchestrator
+  - See: [MCP Prompts specification](https://pypi.org/project/mcp/1.21.0/#prompts)
+
+### Changed
+
+- **Structured JSON Denial Responses**: All denial responses now return structured JSON format
+  - Policy denials return JSON with `status: "denied"`, `reason: "policy"`, `alias`, `hash`, `command`
+  - Network denials return JSON with `status: "denied"`, `reason: "network"`, `alias`, `hostname`, `detail`
+  - This improves LLM understanding and enables better prompt-based guidance
+  - Per MCP recommendation for better structured outputs
+  - Updated `ssh_run()`, `ssh_run_async()`, and post-connect network denials
+
+### Fixed
+
 ## [0.3.8] - 2025-11-13
 
 ### Fixed
