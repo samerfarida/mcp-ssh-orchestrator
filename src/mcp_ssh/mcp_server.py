@@ -3,6 +3,7 @@ import json
 import re
 import time
 from collections.abc import Callable
+from typing import Any
 
 from mcp.server.fastmcp import Context, FastMCP
 
@@ -16,6 +17,9 @@ from mcp_ssh.tools.utilities import (
     log_json,
     sanitize_error,
 )
+
+# Type alias for tool return values (dict for success, str for errors)
+ToolResult = dict[str, Any] | str
 
 mcp = FastMCP()
 config = Config()
@@ -37,7 +41,7 @@ def _build_notification_handler(
     """Return notification handler that emits MCP-compliant notifications."""
     if ctx is None or loop is None:
 
-        def _log_only(event_type: str, task_id: str, payload: dict):
+        def _log_only(event_type: str, task_id: str, payload: dict) -> None:
             log_json(
                 {
                     "level": "info",
@@ -50,7 +54,7 @@ def _build_notification_handler(
 
         return _log_only
 
-    async def _emit(event_type: str, task_id: str, payload: dict):
+    async def _emit(event_type: str, task_id: str, payload: dict) -> None:
         message = _format_task_event(event_type, task_id, payload)
 
         if event_type == "progress":
@@ -67,7 +71,7 @@ def _build_notification_handler(
         else:
             await ctx.info(message)
 
-    def _handler(event_type: str, task_id: str, payload: dict):
+    def _handler(event_type: str, task_id: str, payload: dict) -> None:
         async def _invoke() -> None:
             await _emit(event_type, task_id, payload)
 
@@ -334,18 +338,282 @@ def _precheck_network(pol: Policy, hostname: str) -> tuple[bool, str]:
     return False, "No resolved IPs allowed by policy.network"
 
 
+# === PROMPTS ===
+@mcp.prompt()
+def ssh_orchestrator_usage() -> str:
+    """
+    Explain how to safely use the SSH orchestration tools.
+    This is exposed as a prompt template to MCP clients.
+    """
+    return """
+You are using an SSH Orchestrator that enforces strict security policy.
+
+Available tools:
+- ssh_list_hosts: list known hosts and tags
+- ssh_describe_host: inspect a single host's configuration
+- ssh_plan: dry-run and validate a command against policy
+- ssh_run: execute a validated command on a single host
+- ssh_run_on_tag: execute on all hosts matching a tag
+- ssh_run_async: start long-running jobs, then use:
+    - ssh_get_task_status
+    - ssh_get_task_output
+    - ssh_get_task_result
+    - ssh_cancel_async_task
+
+Rules:
+1. ALWAYS call ssh_plan before ssh_run / ssh_run_on_tag / ssh_run_async.
+2. NEVER attempt to run commands that ssh_plan marks as not allowed.
+3. Prefer read-only diagnostics (logs, status) before making changes.
+4. Use async flows only for tasks that may legitimately take a long time.
+
+When a user asks you to do something on servers, first restate their goal,
+then plan a small, safe sequence of tool calls that respects these rules.
+"""
+
+
+@mcp.prompt()
+def ssh_policy_denied_guidance() -> str:
+    """
+    How the LLM should respond when a command is denied by policy.
+    """
+    return """
+You are using an SSH orchestrator with a strict policy.
+
+When you see that a command is denied by policy (check for JSON response with
+status: "denied" and reason: "policy"):
+
+1. DO NOT try to work around the policy.
+2. Explain to the user, in plain language, why the command is probably blocked
+   (for example: dangerous pattern, not in allowlist, wrong tag, etc.).
+3. Ask the user what they want:
+   - Do they want to change the policy to allow this *class* of command?
+   - Or do they want to adjust the command to fit existing policy?
+
+If the user explicitly wants a policy change:
+
+4. Ask clarifying questions:
+   - Which host(s) or tag(s) should this apply to?
+   - Should this be permanent or temporary?
+5. Propose a minimal, least-privilege YAML snippet for policy.yml that would
+   allow this command pattern, using the existing policy structure.
+
+   IMPORTANT - Policy Structure:
+   - The policy file uses a `rules:` section (not `allowed_commands:` or `allowed_hashes:`)
+   - Each rule has: `action: "allow"`, `aliases: []`, `tags: []`, `commands: []`
+   - Command hashes (like "ef72e008f0ca") are internal and NOT user-configurable
+   - The config file is `policy.yml` in the config directory (not system paths)
+
+   IMPORTANT - Pattern Matching:
+   - The orchestrator uses GLOB patterns (not regex) for command matching.
+   - Use `*` for wildcards (e.g., `docker ps*` matches "docker ps", "docker ps -a")
+   - Use `?` for single character (e.g., `cat?` matches "cat", "cats" but not "catalog")
+   - Do NOT use regex anchors like `^` or `$` (e.g., use `docker node ls*` not `^docker node ls$`)
+   - Examples: `docker ps*`, `docker service ls*`, `docker info*`, `systemctl status *`
+
+   Example correct YAML structure:
+   ```yaml
+   rules:
+     - action: "allow"
+       aliases: ["docker-prod-*"]  # or ["*"] for all hosts
+       tags: ["docker"]  # or [] for all tags
+       commands:
+         - "docker node ls*"
+         - "docker service ls*"
+         - "docker info*"
+   ```
+
+6. Show ONLY the snippet and clearly label it as a suggestion that a human
+   should review and apply manually. Never claim that you applied it yourself.
+
+Always emphasize:
+- Policy changes are security-sensitive.
+- A human must review and apply any suggested policy changes outside the LLM.
+"""
+
+
+@mcp.prompt()
+def ssh_network_denied_guidance() -> str:
+    """
+    How the LLM should respond when network policy denies a host.
+    """
+    return """
+When a command is denied by network policy (check for JSON response with
+status: "denied" and reason: "network"):
+
+1. Tell the user that the orchestrator is blocking connections based on an
+   IP/network allowlist, for security.
+2. DO NOT suggest bypassing DNS or adding arbitrary IPs.
+
+Ask the user:
+- Is this host actually supposed to be reachable by this orchestrator?
+- If yes, ask them for:
+  - The host's expected IP or CIDR block.
+  - Whether this is a prod/non-prod environment.
+
+Then:
+- Propose a minimal change to the network allowlist in policy.yml to include
+  just that IP or the smallest reasonable CIDR.
+- Clearly mark it as a suggestion for a human to review/apply manually.
+
+Never:
+- Suggest disabling network checks.
+- Suggest broad CIDRs (like 0.0.0.0/0) unless the user explicitly demands it,
+  and even then warn strongly about the risk.
+"""
+
+
+@mcp.prompt()
+def ssh_missing_host_guidance() -> str:
+    """
+    What to do when a host alias doesn't exist in servers.yml.
+    """
+    return """
+When the orchestrator reports a missing host alias (for example:
+'Host alias not found: <alias>'):
+
+1. Explain that hosts are defined in servers.yml under 'servers.hosts'.
+2. Ask the user what this host is:
+   - hostname or IP
+   - environment (prod, staging, dev)
+   - tags it should have
+   - which credential entry it should reference (if any)
+
+Then propose a minimal YAML entry like:
+
+servers:
+  hosts:
+    - alias: <alias>
+      host: <hostname_or_ip>
+      port: 22
+      tags: [<tag1>, <tag2>]
+      credentials: <creds_name>
+
+Tell the user:
+- 'Add or update this entry in servers.yml, then reload config using the
+   ssh_reload_config tool.'
+Do NOT claim you modified any files; you only suggest changes.
+"""
+
+
+@mcp.prompt()
+def ssh_missing_credentials_guidance() -> str:
+    """
+    How to handle missing or incomplete credentials entries.
+    """
+    return """
+When a host references credentials that are missing or incomplete, or when
+the orchestrator reports that no authentication method is configured:
+
+1. Explain that credentials are defined in credentials.yml under
+   'credentials.entries', and secrets may be stored in the secrets dir or env.
+
+2. Ask the user:
+   - What username should be used?
+   - Will they use an SSH key, a password, or both?
+   - If SSH key: the key path (relative within keys dir) and optional passphrase.
+   - If password/passphrase should come from a Docker secret or env var.
+
+3. Propose a minimal YAML entry, for example:
+
+credentials:
+  entries:
+    - name: <creds_name>
+      username: <user>
+      key_path: <relative_or_absolute_key_path>
+      # One of the following:
+      password_secret: <secret_name>      # preferred
+      # or
+      password: <only_if_temporary>
+
+      # Optional:
+      key_passphrase_secret: <secret_name>
+
+4. Remind the user:
+   - Secret names should be safe, simple identifiers.
+   - Secret values live in the secrets directory or environment variables
+     (MCP_SSH_SECRET_<NAME>), not inside the YAML file whenever possible.
+
+Tell them to update credentials.yml and then call ssh_reload_config.
+"""
+
+
+@mcp.prompt()
+def ssh_config_change_workflow() -> str:
+    """
+    Global rules for suggesting config changes (servers, credentials, policy).
+    """
+    return """
+You are assisting a user with an SSH orchestrator that reads configuration
+from three YAML files:
+
+- servers.yml (host definitions, tags, credentials references)
+- credentials.yml (usernames, SSH keys, secrets)
+- policy.yml (command and network policy)
+
+Rules:
+1. NEVER assume you can directly edit these files.
+2. Your job is to:
+   - Explain why something failed (missing host, missing creds, policy/network denial).
+   - Ask the user whether they want to change config.
+   - If yes, propose small, least-privilege YAML snippets they can paste into
+     the appropriate file.
+   - Remind them to run ssh_reload_config after changing files.
+
+3. For each suggestion:
+   - Include ONLY the minimal YAML needed.
+   - Clearly label it as a suggestion.
+   - Warn about security trade-offs (especially for broad policies or networks).
+
+4. Prefer:
+   - password_secret / key_passphrase_secret over inline plaintext passwords.
+   - narrow command patterns over broad wildcard allow rules.
+   - narrow CIDR ranges over broad ones.
+
+5. IMPORTANT - Policy YAML Structure:
+   - Use `rules:` section with `action: "allow"` (NOT `allowed_commands:` or `allowed_hashes:`)
+   - Each rule requires: `action`, `aliases`, `tags`, `commands` fields
+   - Command hashes are internal tracking only - users configure command patterns, not hashes
+   - Config file location: `policy.yml` in the config directory (mounted at `/app/config` in container)
+
+6. IMPORTANT - Pattern Matching:
+   - The orchestrator uses GLOB patterns (Python fnmatch), NOT regex.
+   - Use `*` for wildcards: `docker ps*` matches "docker ps", "docker ps -a"
+   - Use `?` for single character: `cat?` matches "cat", "cats"
+   - Do NOT use regex syntax: `^`, `$`, `[0-9]+`, etc. will NOT work
+   - Examples of correct glob patterns:
+     * `docker ps*` (matches commands starting with "docker ps")
+     * `docker service ls*` (matches "docker service ls" and variations)
+     * `systemctl status *` (matches systemctl status with any service name)
+     * `docker-prod-*` (matches host aliases starting with "docker-prod-")
+
+   Example correct YAML structure:
+   ```yaml
+   rules:
+     - action: "allow"
+       aliases: ["docker-prod-*"]
+       tags: ["docker"]
+       commands:
+         - "docker node ls*"
+         - "docker service ls*"
+   ```
+
+You must always keep the orchestrator's security posture conservative.
+"""
+
+
+# === TOOLS ===
 @mcp.tool()
-def ssh_ping() -> str:
+def ssh_ping() -> ToolResult:
     """Health check."""
-    return "pong"
+    return {"status": "pong"}
 
 
 @mcp.tool()
-def ssh_list_hosts() -> str:
+def ssh_list_hosts() -> ToolResult:
     """List configured hosts."""
     try:
         hosts = config.list_hosts()
-        return json.dumps(hosts)
+        return {"hosts": hosts}
     except Exception as e:
         error_str = str(e)
         log_json({"level": "error", "msg": "list_hosts_exception", "error": error_str})
@@ -353,7 +621,7 @@ def ssh_list_hosts() -> str:
 
 
 @mcp.tool()
-def ssh_describe_host(alias: str = "") -> str:
+def ssh_describe_host(alias: str = "") -> ToolResult:
     """Return host definition in JSON."""
     try:
         # Input validation
@@ -362,7 +630,7 @@ def ssh_describe_host(alias: str = "") -> str:
             return f"Error: {error_msg}"
 
         host = config.get_host(alias)
-        return json.dumps(host, indent=2)
+        return host
     except Exception as e:
         error_str = str(e)
         log_json(
@@ -372,7 +640,7 @@ def ssh_describe_host(alias: str = "") -> str:
 
 
 @mcp.tool()
-def ssh_plan(alias: str = "", command: str = "") -> str:
+def ssh_plan(alias: str = "", command: str = "") -> ToolResult:
     """Show what would be executed and if policy allows."""
     try:
         # Input validation
@@ -401,7 +669,7 @@ def ssh_plan(alias: str = "", command: str = "") -> str:
                 "require_known_host": bool(limits.get("require_known_host", True)),
             },
         }
-        return json.dumps(preview, indent=2)
+        return preview
     except Exception as e:
         error_str = str(e)
         log_json({"level": "error", "msg": "plan_exception", "error": error_str})
@@ -409,7 +677,7 @@ def ssh_plan(alias: str = "", command: str = "") -> str:
 
 
 @mcp.tool()
-def ssh_run(alias: str = "", command: str = "") -> str:
+def ssh_run(alias: str = "", command: str = "") -> ToolResult:
     """Execute SSH command with policy, network checks, progress, timeout, and cancellation."""
     start = time.time()
     try:
@@ -436,12 +704,30 @@ def ssh_run(alias: str = "", command: str = "") -> str:
         allowed = pol.is_allowed(alias, tags, command)
         pol.log_decision(alias, cmd_hash, allowed)
         if not allowed:
-            return f"Denied by policy: {command}"
+            return json.dumps(
+                {
+                    "status": "denied",
+                    "reason": "policy",
+                    "alias": alias,
+                    "hash": cmd_hash,
+                    "command": command,
+                },
+                indent=2,
+            )
 
         # Network precheck (DNS -> allowlist)
         ok, reason = _precheck_network(pol, hostname)
         if not ok:
-            return f"Denied by network policy: {reason}"
+            return json.dumps(
+                {
+                    "status": "denied",
+                    "reason": "network",
+                    "alias": alias,
+                    "hostname": hostname,
+                    "detail": reason,
+                },
+                indent=2,
+            )
 
         limits = pol.limits_for(alias, tags)
         max_seconds = int(limits.get("max_seconds", 60))
@@ -465,7 +751,7 @@ def ssh_run(alias: str = "", command: str = "") -> str:
 
         task_id = TASKS.create(alias, cmd_hash)
 
-        def progress_cb(phase, bytes_read, elapsed_ms):
+        def progress_cb(phase: str, bytes_read: int, elapsed_ms: int) -> None:
             pol.log_progress(task_id, phase, int(bytes_read), int(elapsed_ms))
 
         client = _client_for(alias, limits, require_known_host)
@@ -501,7 +787,16 @@ def ssh_run(alias: str = "", command: str = "") -> str:
                 bool(timeout),
                 peer_ip,
             )
-            return f"Denied by network policy: peer IP {peer_ip} not allowed"
+            return json.dumps(
+                {
+                    "status": "denied",
+                    "reason": "network",
+                    "alias": alias,
+                    "hostname": hostname,
+                    "detail": f"peer IP {peer_ip} not allowed",
+                },
+                indent=2,
+            )
 
         pol.log_audit(
             alias,
@@ -525,7 +820,7 @@ def ssh_run(alias: str = "", command: str = "") -> str:
             "target_ip": peer_ip,
             "output": combined,
         }
-        return json.dumps(result, indent=2)
+        return result
     except Exception as e:
         error_str = str(e)
         log_json({"level": "error", "msg": "run_exception", "error": error_str})
@@ -536,7 +831,7 @@ def ssh_run(alias: str = "", command: str = "") -> str:
 
 
 @mcp.tool()
-def ssh_run_on_tag(tag: str = "", command: str = "") -> str:
+def ssh_run_on_tag(tag: str = "", command: str = "") -> ToolResult:
     """Execute SSH command on all hosts with a tag (with network checks)."""
     try:
         # Input validation
@@ -554,9 +849,7 @@ def ssh_run_on_tag(tag: str = "", command: str = "") -> str:
 
         aliases = config.find_hosts_by_tag(tag)
         if not aliases:
-            return json.dumps(
-                {"tag": tag, "results": [], "note": "No hosts matched."}, indent=2
-            )
+            return {"tag": tag, "results": [], "note": "No hosts matched."}
 
         results = []
         for alias in aliases:
@@ -616,8 +909,12 @@ def ssh_run_on_tag(tag: str = "", command: str = "") -> str:
             task_id = TASKS.create(alias, cmd_hash)
 
             def progress_cb(
-                phase, bytes_read, elapsed_ms, pol_ref=pol, task_ref=task_id
-            ):
+                phase: str,
+                bytes_read: int,
+                elapsed_ms: int,
+                pol_ref: Policy = pol,
+                task_ref: str = task_id,
+            ) -> None:
                 pol_ref.log_progress(task_ref, phase, int(bytes_read), int(elapsed_ms))
 
             client = _client_for(alias, limits, require_known_host)
@@ -689,7 +986,7 @@ def ssh_run_on_tag(tag: str = "", command: str = "") -> str:
                 }
             )
 
-        return json.dumps({"tag": tag, "results": results}, indent=2)
+        return {"tag": tag, "results": results}
     except Exception as e:
         error_str = str(e)
         log_json({"level": "error", "msg": "run_on_tag_exception", "error": error_str})
@@ -697,7 +994,7 @@ def ssh_run_on_tag(tag: str = "", command: str = "") -> str:
 
 
 @mcp.tool()
-def ssh_cancel(task_id: str = "") -> str:
+def ssh_cancel(task_id: str = "") -> ToolResult:
     """Request cancellation for a running task."""
     try:
         # Input validation
@@ -708,8 +1005,12 @@ def ssh_cancel(task_id: str = "") -> str:
         task_id = task_id.strip()
         ok = TASKS.cancel(task_id)
         if ok:
-            return f"Cancellation signaled for task_id: {task_id}"
-        return f"Task not found: {task_id}"
+            return {
+                "task_id": task_id,
+                "cancelled": True,
+                "message": "Cancellation signaled",
+            }
+        return {"task_id": task_id, "cancelled": False, "message": "Task not found"}
     except Exception as e:
         error_str = str(e)
         log_json({"level": "error", "msg": "cancel_exception", "error": error_str})
@@ -717,21 +1018,21 @@ def ssh_cancel(task_id: str = "") -> str:
 
 
 @mcp.tool()
-def ssh_reload_config() -> str:
+def ssh_reload_config() -> ToolResult:
     """Reload configuration files."""
     try:
         config.reload()
-        return "Configuration reloaded."
+        return {"status": "reloaded"}
     except Exception as e:
         error_str = str(e)
         log_json({"level": "error", "msg": "reload_exception", "error": error_str})
-        return f"Reload error: {sanitize_error(error_str)}"
+        return {"status": "error", "error": sanitize_error(error_str)}
 
 
 @mcp.tool()
 async def ssh_run_async(
     alias: str = "", command: str = "", ctx: Context | None = None
-) -> str:
+) -> ToolResult:
     """Start SSH command asynchronously (SEP-1686 compliant).
 
     Returns immediately with task_id for polling. Use ssh_get_task_status
@@ -761,12 +1062,30 @@ async def ssh_run_async(
         allowed = pol.is_allowed(alias, tags, command)
         pol.log_decision(alias, cmd_hash, allowed)
         if not allowed:
-            return f"Denied by policy: {command}"
+            return json.dumps(
+                {
+                    "status": "denied",
+                    "reason": "policy",
+                    "alias": alias,
+                    "hash": cmd_hash,
+                    "command": command,
+                },
+                indent=2,
+            )
 
         # Network precheck (DNS -> allowlist)
         ok, reason = _precheck_network(pol, hostname)
         if not ok:
-            return f"Denied by network policy: {reason}"
+            return json.dumps(
+                {
+                    "status": "denied",
+                    "reason": "network",
+                    "alias": alias,
+                    "hostname": hostname,
+                    "detail": reason,
+                },
+                indent=2,
+            )
 
         limits = pol.limits_for(alias, tags)
         require_known_host_config = bool(
@@ -790,7 +1109,7 @@ async def ssh_run_async(
         client = _client_for(alias, limits, require_known_host)
 
         # Enhanced progress callback for async tasks
-        def progress_cb(phase, bytes_read, elapsed_ms):
+        def progress_cb(phase: str, bytes_read: int, elapsed_ms: int) -> None:
             pol.log_progress(
                 f"async:{alias}:{cmd_hash}", phase, int(bytes_read), int(elapsed_ms)
             )
@@ -824,7 +1143,7 @@ async def ssh_run_async(
             "command": command,
             "hash": cmd_hash,
         }
-        return json.dumps(result, indent=2)
+        return result
 
     except Exception as e:
         error_str = str(e)
@@ -833,7 +1152,7 @@ async def ssh_run_async(
 
 
 @mcp.tool()
-def ssh_get_task_status(task_id: str = "") -> str:
+def ssh_get_task_status(task_id: str = "") -> ToolResult:
     """Get current status of an async task (SEP-1686 compliant).
 
     Returns task state, progress, elapsed time, and output summary.
@@ -849,7 +1168,7 @@ def ssh_get_task_status(task_id: str = "") -> str:
         if not status:
             return f"Error: Task not found: {task_id}"
 
-        return json.dumps(status, indent=2)
+        return status
 
     except Exception as e:
         error_str = str(e)
@@ -858,7 +1177,7 @@ def ssh_get_task_status(task_id: str = "") -> str:
 
 
 @mcp.tool()
-def ssh_get_task_result(task_id: str = "") -> str:
+def ssh_get_task_result(task_id: str = "") -> ToolResult:
     """Get final result of completed task (SEP-1686 compliant).
 
     Returns complete output, exit code, and execution metadata.
@@ -874,7 +1193,7 @@ def ssh_get_task_result(task_id: str = "") -> str:
         if not result:
             return f"Error: Task not found or expired: {task_id}"
 
-        return json.dumps(result, indent=2)
+        return result
 
     except Exception as e:
         error_str = str(e)
@@ -883,7 +1202,7 @@ def ssh_get_task_result(task_id: str = "") -> str:
 
 
 @mcp.tool()
-def ssh_get_task_output(task_id: str = "", max_lines: int = 50) -> str:
+def ssh_get_task_output(task_id: str = "", max_lines: int = 50) -> ToolResult:
     """Get recent output lines from running or completed task.
 
     Enhanced beyond SEP-1686: enables streaming output visibility.
@@ -902,7 +1221,7 @@ def ssh_get_task_output(task_id: str = "", max_lines: int = 50) -> str:
         if not output:
             return f"Error: Task not found or no output available: {task_id}"
 
-        return json.dumps(output, indent=2)
+        return output
 
     except Exception as e:
         error_str = str(e)
@@ -911,7 +1230,7 @@ def ssh_get_task_output(task_id: str = "", max_lines: int = 50) -> str:
 
 
 @mcp.tool()
-def ssh_cancel_async_task(task_id: str = "") -> str:
+def ssh_cancel_async_task(task_id: str = "") -> ToolResult:
     """Cancel a running async task."""
     try:
         # Input validation
@@ -922,9 +1241,17 @@ def ssh_cancel_async_task(task_id: str = "") -> str:
         task_id = task_id.strip()
         success = ASYNC_TASKS.cancel_task(task_id)
         if success:
-            return f"Cancellation signaled for async task: {task_id}"
+            return {
+                "task_id": task_id,
+                "cancelled": True,
+                "message": "Cancellation signaled",
+            }
         else:
-            return f"Task not found or not cancellable: {task_id}"
+            return {
+                "task_id": task_id,
+                "cancelled": False,
+                "message": "Task not found or not cancellable",
+            }
 
     except Exception as e:
         error_str = str(e)
@@ -934,7 +1261,7 @@ def ssh_cancel_async_task(task_id: str = "") -> str:
         return f"Cancel error: {sanitize_error(error_str)}"
 
 
-def main():
+def main() -> None:
     """Main entry point for MCP server."""
     mcp.run(transport="stdio")
 

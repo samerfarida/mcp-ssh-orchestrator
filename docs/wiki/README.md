@@ -28,9 +28,6 @@ docs/wiki/
 ├── 15-Glossary.md            # Terms and definitions
 └── assets/                   # Images, diagrams, examples
     ├── diagrams/
-    │   ├── architecture.mmd
-    │   ├── security-model.mmd
-    │   └── execution-flow.mmd
     └── examples/
         ├── policy-examples/
         └── docker-configs/
@@ -77,7 +74,7 @@ You can also trigger the sync manually:
 ### File Guidelines
 
 - **Use Markdown** syntax for all content
-- **Include diagrams** using Mermaid syntax in `.mmd` files
+- **Include diagrams** using Mermaid syntax directly in markdown with ` ```mermaid ` code blocks
 - **Test links** before committing
 - **Follow naming conventions** for consistency
 - **Add cross-references** between related sections
@@ -146,9 +143,9 @@ grep -r "\[.*\](" docs/wiki/ | grep -v "http"
 4. Check for special characters that need escaping
 
 **Mermaid diagrams:**
-1. Store diagrams in `.mmd` files in `assets/diagrams/`
-2. Reference diagrams in markdown: `![Diagram](assets/diagrams/architecture.mmd)`
-3. Test diagram syntax with Mermaid preview tools
+1. Embed diagrams directly in markdown using ` ```mermaid ` code blocks
+2. Test diagram syntax with Mermaid preview tools
+3. Keep diagrams close to the content they illustrate
 
 ## Contributing
 

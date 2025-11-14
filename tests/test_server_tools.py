@@ -70,13 +70,15 @@ def mock_config():
 def test_ssh_ping():
     """Test ping tool."""
     result = mcp_server.ssh_ping()
-    assert result == "pong"
+    assert isinstance(result, dict)
+    assert result == {"status": "pong"}
 
 
 def test_ssh_list_hosts(mock_config):
     """Test list_hosts tool."""
     result = mcp_server.ssh_list_hosts()
-    hosts = json.loads(result)
+    assert isinstance(result, dict)
+    hosts = result.get("hosts", result)
 
     assert isinstance(hosts, list)
     assert len(hosts) == 2
@@ -87,11 +89,11 @@ def test_ssh_list_hosts(mock_config):
 def test_ssh_describe_host(mock_config):
     """Test describe_host tool."""
     result = mcp_server.ssh_describe_host(alias="test1")
-    host = json.loads(result)
+    assert isinstance(result, dict)
 
-    assert host["alias"] == "test1"
-    assert host["host"] == "10.0.0.1"
-    assert host["port"] == 22
+    assert result["alias"] == "test1"
+    assert result["host"] == "10.0.0.1"
+    assert result["port"] == 22
 
 
 def test_ssh_describe_host_not_found(mock_config):
@@ -104,33 +106,37 @@ def test_ssh_describe_host_not_found(mock_config):
 def test_ssh_plan(mock_config):
     """Test plan tool."""
     result = mcp_server.ssh_plan(alias="test1", command="uptime")
-    plan = json.loads(result)
+    assert isinstance(result, dict)
 
-    assert plan["alias"] == "test1"
-    assert plan["command"] == "uptime"
-    assert "allowed" in plan
-    assert "limits" in plan
+    assert result["alias"] == "test1"
+    assert result["command"] == "uptime"
+    assert "allowed" in result
+    assert "limits" in result
 
 
 def test_ssh_reload_config(mock_config):
     """Test reload_config tool."""
     result = mcp_server.ssh_reload_config()
-
-    assert "reloaded" in result.lower()
+    assert isinstance(result, dict)
+    assert result.get("status") == "reloaded"
 
 
 def test_ssh_cancel_not_found():
     """Test cancel tool with non-existent task."""
     result = mcp_server.ssh_cancel(task_id="nonexistent")
-
-    assert "not found" in result.lower()
+    assert isinstance(result, dict)
+    assert result.get("cancelled") is False
+    assert "not found" in result.get("message", "").lower()
 
 
 def test_ssh_cancel_no_task_id():
     """Test cancel tool without task_id."""
     result = mcp_server.ssh_cancel(task_id="")
-
-    assert "required" in result.lower()
+    # Error case - still returns string
+    assert isinstance(result, str) or (
+        isinstance(result, dict) and "error" in str(result).lower()
+    )
+    assert "required" in str(result).lower()
 
 
 # Note: Testing ssh_run and ssh_run_on_tag requires mocking SSH connections,
@@ -222,18 +228,191 @@ def test_ssh_get_task_output_no_task_id():
 def test_ssh_cancel_async_task_invalid_task():
     """Test ssh_cancel_async_task with invalid task ID."""
     result = mcp_server.ssh_cancel_async_task(task_id="invalid:task:id")
-
-    assert "Error" in result or "not found" in result.lower()
+    assert isinstance(result, dict)
+    assert result.get("cancelled") is False
+    assert (
+        "not found" in result.get("message", "").lower()
+        or "not cancellable" in result.get("message", "").lower()
+    )
 
 
 def test_ssh_cancel_async_task_no_task_id():
     """Test ssh_cancel_async_task without task_id."""
     result = mcp_server.ssh_cancel_async_task(task_id="")
-
-    assert "Error" in result
-    assert "required" in result.lower()
+    # Error case - still returns string
+    assert isinstance(result, str) or (
+        isinstance(result, dict) and "error" in str(result).lower()
+    )
+    assert "required" in str(result).lower()
 
 
 # Note: Testing actual async task execution requires mocking SSH connections,
 # which is complex and better suited for integration tests with a real SSH server.
 # The core async task management logic is tested through the AsyncTaskManager tests.
+
+
+@pytest.fixture
+def mock_config_deny_policy():
+    """Create a mock config with policy that denies all commands."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create test servers.yml
+        servers = {
+            "hosts": [
+                {
+                    "alias": "test1",
+                    "host": "10.0.0.1",
+                    "port": 22,
+                    "credentials": "cred1",
+                    "tags": ["web"],
+                },
+            ]
+        }
+        with open(os.path.join(tmpdir, "servers.yml"), "w") as f:
+            yaml.dump(servers, f)
+
+        credentials = {
+            "entries": [
+                {"name": "cred1", "username": "user1", "key_path": "id_ed25519"},
+            ]
+        }
+        with open(os.path.join(tmpdir, "credentials.yml"), "w") as f:
+            yaml.dump(credentials, f)
+
+        # Policy with no allow rules - all commands denied
+        policy = {
+            "limits": {"max_seconds": 60},
+            "rules": [],
+        }
+        with open(os.path.join(tmpdir, "policy.yml"), "w") as f:
+            yaml.dump(policy, f)
+
+        # Replace global config
+        config = Config(config_dir=tmpdir)
+        mcp_server.config = config
+
+        yield config
+
+
+@pytest.fixture
+def mock_config_network_deny():
+    """Create a mock config with network policy that denies all IPs."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create test servers.yml
+        servers = {
+            "hosts": [
+                {
+                    "alias": "test1",
+                    "host": "10.0.0.1",
+                    "port": 22,
+                    "credentials": "cred1",
+                    "tags": ["web"],
+                },
+            ]
+        }
+        with open(os.path.join(tmpdir, "servers.yml"), "w") as f:
+            yaml.dump(servers, f)
+
+        credentials = {
+            "entries": [
+                {"name": "cred1", "username": "user1", "key_path": "id_ed25519"},
+            ]
+        }
+        with open(os.path.join(tmpdir, "credentials.yml"), "w") as f:
+            yaml.dump(credentials, f)
+
+        # Policy with allow rule but network deny (require specific IPs that don't match)
+        policy = {
+            "limits": {"max_seconds": 60},
+            "rules": [
+                {
+                    "action": "allow",
+                    "aliases": ["*"],
+                    "tags": [],
+                    "commands": ["*"],
+                },
+            ],
+            "network": {
+                "allow_ips": ["192.168.1.1"],  # Different IP - will deny
+                "allow_cidrs": [],
+            },
+        }
+        with open(os.path.join(tmpdir, "policy.yml"), "w") as f:
+            yaml.dump(policy, f)
+
+        # Replace global config
+        config = Config(config_dir=tmpdir)
+        mcp_server.config = config
+
+        yield config
+
+
+def test_ssh_run_policy_denial_returns_json(mock_config_deny_policy):
+    """Test that policy denial returns structured JSON."""
+    result = mcp_server.ssh_run(alias="test1", command="ls -la")
+
+    # Result should be a JSON string
+    assert isinstance(result, str)
+
+    # Parse JSON
+    parsed = json.loads(result)
+
+    # Verify structure
+    assert parsed["status"] == "denied"
+    assert parsed["reason"] == "policy"
+    assert parsed["alias"] == "test1"
+    assert "hash" in parsed
+    assert parsed["command"] == "ls -la"
+
+
+def test_ssh_run_async_policy_denial_returns_json(mock_config_deny_policy):
+    """Test that policy denial in async run returns structured JSON."""
+    result = asyncio.run(mcp_server.ssh_run_async(alias="test1", command="ls -la"))
+
+    # Result should be a JSON string
+    assert isinstance(result, str)
+
+    # Parse JSON
+    parsed = json.loads(result)
+
+    # Verify structure
+    assert parsed["status"] == "denied"
+    assert parsed["reason"] == "policy"
+    assert parsed["alias"] == "test1"
+    assert "hash" in parsed
+    assert parsed["command"] == "ls -la"
+
+
+def test_ssh_run_network_denial_returns_json(mock_config_network_deny):
+    """Test that network denial returns structured JSON."""
+    result = mcp_server.ssh_run(alias="test1", command="ls -la")
+
+    # Result should be a JSON string
+    assert isinstance(result, str)
+
+    # Parse JSON
+    parsed = json.loads(result)
+
+    # Verify structure
+    assert parsed["status"] == "denied"
+    assert parsed["reason"] == "network"
+    assert parsed["alias"] == "test1"
+    assert parsed["hostname"] == "10.0.0.1"
+    assert "detail" in parsed
+
+
+def test_ssh_run_async_network_denial_returns_json(mock_config_network_deny):
+    """Test that network denial in async run returns structured JSON."""
+    result = asyncio.run(mcp_server.ssh_run_async(alias="test1", command="ls -la"))
+
+    # Result should be a JSON string
+    assert isinstance(result, str)
+
+    # Parse JSON
+    parsed = json.loads(result)
+
+    # Verify structure
+    assert parsed["status"] == "denied"
+    assert parsed["reason"] == "network"
+    assert parsed["alias"] == "test1"
+    assert parsed["hostname"] == "10.0.0.1"
+    assert "detail" in parsed
