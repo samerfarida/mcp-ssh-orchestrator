@@ -42,6 +42,14 @@ graph TB
     EXEC_LIMITS --> AUDIT_LOG
 ```
 
+### Policy-as-Code Enforcement Chain
+
+1. **Declarative inputs** — `config/servers.yml`, `config/credentials.yml`, and `config/policy.yml` are parsed at startup and hashed for audit context.
+2. **Policy engine** — the evaluator (`policy.py`) checks every `ssh_*` tool invocation against those YAML rules (deny-by-default, glob pattern allowlists, limit overrides).
+3. **Execution + audit** — once allowed, the orchestrator records the originating rule, alias, and hashes in the JSON audit log, preserving a provable link back to the code-reviewed configuration.
+
+This chain makes “policy-as-code” tangible: whatever is merged into Git is exactly what gatekeeps AI-issued commands.
+
 ## Layer 1: Transport Security
 
 ### stdio Transport Security
@@ -203,6 +211,8 @@ network:
 ```
 
 ## Layer 3: Policy Security
+
+Everything in this layer is sourced from `config/policy.yml`, letting you review/merge command rules, deny substrings, and execution limits the same way you handle infrastructure-as-code.
 
 ### Deny-by-Default Model
 

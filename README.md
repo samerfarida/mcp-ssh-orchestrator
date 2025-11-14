@@ -3,7 +3,7 @@
 <div align="center">
   <img src="assets/logo/logo-v1.png" alt="MCP SSH Orchestrator Logo" width="200" height="200">
   <h1>Zero-Trust SSH Orchestration for AI Assistants</h1>
-  <p><strong>Enforce declarative policy and audited access for Claude Desktop, Cursor, and any MCP-aware client.</strong></p>
+  <p><strong>Enforce declarative policy-as-code and audited access for Claude Desktop, Cursor, and any MCP-aware client.</strong></p>
   <p>Launch in minutes with Docker + MCP tooling, deny-by-default controls, and hardened SSH key management.</p>
 </div>
 
@@ -34,7 +34,7 @@
 
 **Now imagine this:** Your AI has governed, auditable access to your infrastructure. It can check logs, restart services, and manage your fleet—**but only if your security policies allow it.**
 
-That's exactly what MCP SSH Orchestrator provides: **the power of AI-driven server management with deny-by-default access control, IP allowlists, host key verification, and comprehensive audit logging**.
+That's exactly what MCP SSH Orchestrator provides: **the power of AI-driven server management with deny-by-default access control, IP allowlists, host key verification, and comprehensive audit logging backed by declarative YAML policy-as-code (`config/servers.yml`, `config/credentials.yml`, `config/policy.yml`)**.
 
 ## Why This Matters
 
@@ -42,6 +42,7 @@ That's exactly what MCP SSH Orchestrator provides: **the power of AI-driven serv
 - **Deny-by-default**: Nothing runs unless explicitly allowed
 - **Network controls**: IP allowlists prevent lateral movement
 - **Command whitelisting**: Only approved commands can execute
+- **Declarative policy-as-code**: Versioned YAML files define hosts, credentials, and allowed commands
 - **Comprehensive audit trails**: Every action is logged in JSON
 
 ### Prevents Common Attack Vectors
@@ -66,7 +67,7 @@ That's exactly what MCP SSH Orchestrator provides: **the power of AI-driven serv
 
 ### Security Engineers
 - Audit and control AI access to infrastructure
-- Implement zero-trust principles with policy-as-code
+- Implement zero-trust principles with declarative policy-as-code configs
 - Meet compliance requirements with structured logging
 
 ### DevOps Teams
@@ -213,6 +214,8 @@ echo '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"ssh_list_hosts","
 Cursor/Claude should now show the orchestrator as connected. Jump to the [Usage Cookbook](https://github.com/samerfarida/mcp-ssh-orchestrator/wiki/08-Usage-Cookbook) for guided scenarios.
 
 ## How Security Works (The Technical Details)
+
+> **Policy-as-code workflow:** `config/servers.yml`, `config/credentials.yml`, and `config/policy.yml` are parsed on startup, enforced during every `ssh_*` tool invocation, and mirrored in the structured audit logs—so the same declarative files you review in Git gate what your AI can execute.
 
 ### Defense-in-Depth Architecture
 

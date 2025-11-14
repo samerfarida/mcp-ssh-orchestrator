@@ -2,6 +2,8 @@
 
 **Purpose:** Overview of the configuration system and how the three main configuration files work together to define hosts, credentials, and security policies.
 
+> Treat these YAML files as policy-as-code: store them in Git, run them through CI checks, and require reviews just like application code.
+
 ## Configuration Overview
 
 mcp-ssh-orchestrator uses a **three-file configuration system** that separates concerns and enables secure, flexible deployment:
@@ -347,6 +349,13 @@ python -m mcp_ssh.policy test config/policy.yml
 # Check credential references
 python -m mcp_ssh.config check-refs config/
 ```
+
+## Policy-as-Code Best Practices
+
+- **Version control everything**: commit `servers.yml`, `credentials.yml`, and `policy.yml` together so reviewers can see the full intent of each change.
+- **Use CI linting**: run `python -m mcp_ssh.config validate` or `ssh_plan` checks in pipelines to catch syntax or policy regressions before deployment.
+- **Reference snippets in docs/PRs**: when proposing access changes, cite the exact YAML so auditors can trace policy intent to implementation.
+- **Leverage `ssh_reload_config`**: hot-reload after merging approved YAML to keep runtime behavior in sync with the code-reviewed source of truth.
 
 ## Next Steps
 

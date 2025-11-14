@@ -3,16 +3,17 @@
 <div align="center">
   <img src="https://raw.githubusercontent.com/samerfarida/mcp-ssh-orchestrator/main/assets/logo/logo-v1.png" alt="MCP SSH Orchestrator Logo" width="200" height="200">
   <h3>A secure SSH fleet orchestrator built as a Model Context Protocol (MCP) server</h3>
-  <p>Execute commands across your server fleet with policy-based access control, network filtering, and comprehensive audit logging.</p>
+  <p>Execute commands across your server fleet with declarative policy-as-code controls, network filtering, and comprehensive audit logging.</p>
 </div>
 
 ## What is MCP SSH Orchestrator?
 
-**MCP SSH Orchestrator** is a secure, policy-driven SSH command executor designed specifically for AI agents. It implements the [Model Context Protocol (MCP)](https://modelcontextprotocol.io) to provide safe, auditable access to your server infrastructure.
+**MCP SSH Orchestrator** is a secure, policy-driven SSH command executor designed specifically for AI agents. It implements the [Model Context Protocol (MCP)](https://modelcontextprotocol.io) to provide safe, auditable access to your server infrastructure and treats `servers.yml`, `credentials.yml`, and `policy.yml` as first-class declarative policy-as-code artifacts.
 
 ### Key Capabilities
 
 - **Policy-Based Access Control**: Fine-grained command allow/deny rules with glob pattern matching
+- **Declarative Policy-as-Code**: Version-controlled YAML governs hosts, credentials, and execution policy
 - **Network Security**: IP allowlists/blocklists with CIDR support and DNS resolution verification  
 - **Credential Management**: Support for SSH keys and passwords via Docker secrets or environment variables
 - **Fleet Management**: Tag-based host grouping for bulk operations
@@ -110,6 +111,8 @@ docker run -i --rm \
 
 This wiki is organized into 16 comprehensive sections:
 
+> **Policy-as-code map:** Start with [Configuration](06-Configuration) for the three YAML files, then read [Security Model](05-Security-Model) to see how those declarative rules are enforced at runtime.
+
 ### Core Concepts
 - **[MCP Overview](01-MCP-Overview)** - Understanding the Model Context Protocol
 - **[Risks](02-Risks)** - Security challenges in MCP environments
@@ -180,6 +183,7 @@ This project implements comprehensive security controls:
 - Glob pattern command matching
 - Per-host and per-tag overrides
 - Dangerous command substring blocking
+- Declarative YAML policy-as-code checked into version control
 
 ### Audit & Monitoring
 - JSON audit logs to stderr
