@@ -266,7 +266,7 @@ ssh_describe_host --alias "web1"
 }
 ```
 
-> ℹ️ When `allowed` is `false`, the response also includes `why` and `hint` fields so MCP clients know to call `ssh_plan` again or consult the SSH Orchestrator prompts before retrying. No sensitive policy details are exposed.
+> When `allowed` is `false`, the response also includes `why` and `hint` fields so MCP clients know to call `ssh_plan` again or consult the SSH Orchestrator prompts before retrying. No sensitive policy details are exposed.
 
 **Use Cases:**
 
@@ -320,7 +320,7 @@ ssh_plan --alias "prod-web-1" --command "systemctl restart nginx"
 }
 ```
 
-> ❗ Policy or network denials return structured JSON with a `hint` field that reminds the caller to use `ssh_plan` or review the orchestrator prompts for next steps.
+> Policy or network denials return structured JSON with a `hint` field that reminds the caller to use `ssh_plan` or review the orchestrator prompts for next steps.
 
 **Response Fields:**
 | Field | Type | Description |

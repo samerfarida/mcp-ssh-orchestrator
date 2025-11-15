@@ -2,7 +2,7 @@
   "name": "mcp-ssh-orchestrator",
   "displayName": "MCP SSH Orchestrator",
   "description": "A Model Context Protocol (MCP) server for orchestrating SSH operations across multiple servers with security policies and parallel execution capabilities.",
-  "version": "0.3.8",
+  "version": "1.0.0",
   "author": "samerfarida",
   "license": "Apache-2.0",
   "repository": {
@@ -35,8 +35,10 @@
       "ssh_cancel_async_task"
     ],
     "resources": [
-      "server_status",
-      "connection_health"
+      "ssh://hosts",
+      "ssh://host/{alias}",
+      "ssh://host/{alias}/tags",
+      "ssh://host/{alias}/capabilities"
     ]
   },
   "configuration": {
@@ -80,8 +82,8 @@
     ],
     "environment": {
       "MCP_SSH_CONFIG_DIR": "/app/config",
-      "MCP_SSH_MAX_CONCURRENCY": "5",
-      "MCP_SSH_TIMEOUT_SEC": "45"
+      "MCP_SSH_KEYS_DIR": "/app/keys",
+      "MCP_SSH_SECRETS_DIR": "/app/secrets"
     }
   },
   "mcp": {

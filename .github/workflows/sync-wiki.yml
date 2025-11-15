@@ -33,25 +33,25 @@ jobs:
       
       - name: Sync Wiki Content
         run: |
-          echo "🔄 Starting wiki sync process..."
+          echo "Starting wiki sync process..."
           
           # Create wiki directory
           mkdir -p wiki-sync
           cd wiki-sync
           
           # Clone the existing wiki repository with authentication
-          echo "📥 Cloning wiki repository..."
+          echo "Cloning wiki repository..."
           git clone https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git .
           
           # Copy new content from main repository
-          echo "📋 Copying wiki content..."
+          echo "Copying wiki content..."
           rsync -av --delete --exclude='.git' ../docs/wiki/ ./
           
           # Check for changes
           git add .
           
           if ! git diff --staged --quiet; then
-            echo "📝 Changes detected, committing..."
+            echo "Changes detected, committing..."
             
             # Get list of changed files
             CHANGED_FILES=$(git diff --staged --name-only | head -10)
@@ -66,12 +66,12 @@ jobs:
           [skip ci]"
             
             # Push to wiki repository with authentication
-            echo "🚀 Pushing to wiki repository..."
+            echo "Pushing to wiki repository..."
             git push https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git master
             
-            echo "✅ Wiki synced successfully"
+            echo "Wiki synced successfully"
           else
-            echo "ℹ️ No changes to sync"
+            echo "No changes to sync"
           fi
           
-          echo "🎉 Wiki sync process completed"
+          echo "Wiki sync process completed"

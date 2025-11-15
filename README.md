@@ -127,7 +127,7 @@ If you prefer to lay things out manually, follow the steps below.
 
 ```bash
 # Pull the latest release
-docker pull ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.8
+docker pull ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 
 # Create directories for config, keys, and secrets
 mkdir -p ~/mcp-ssh/{config,keys,secrets}
@@ -155,7 +155,7 @@ docker run -d --name mcp-ssh-orchestrator \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
   -v ~/mcp-ssh/secrets:/app/secrets:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.8
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 ```
 
 Restart later with `docker start mcp-ssh-orchestrator`. Prefer disposable containers? Use `docker run -i --rm ...` instead.
@@ -187,7 +187,7 @@ Restart later with `docker start mcp-ssh-orchestrator`. Prefer disposable contai
           "-v", "/Users/YOUR_USERNAME/mcp-ssh/config:/app/config:ro",
           "-v", "/Users/YOUR_USERNAME/mcp-ssh/keys:/app/keys:ro",
           "-v", "/Users/YOUR_USERNAME/mcp-ssh/secrets:/app/secrets:ro",
-          "ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.8"
+          "ghcr.io/samerfarida/mcp-ssh-orchestrator:latest"
         ]
       }
     }
@@ -207,7 +207,7 @@ echo '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"ssh_list_hosts","
     -v ~/mcp-ssh/config:/app/config:ro \
     -v ~/mcp-ssh/keys:/app/keys:ro \
     -v ~/mcp-ssh/secrets:/app/secrets:ro \
-    ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.8
+    ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 ```
 
 Cursor/Claude should now show the orchestrator as connected. Jump to the [Usage Cookbook](https://github.com/samerfarida/mcp-ssh-orchestrator/wiki/08-Usage-Cookbook) for guided scenarios.
@@ -322,6 +322,28 @@ MCP SSH Orchestrator directly addresses documented vulnerabilities in the MCP ec
 | **[Observability & Audit](https://github.com/samerfarida/mcp-ssh-orchestrator/wiki/11-Observability-Audit)** | Logging, monitoring, compliance |
 | **[Deployment](https://github.com/samerfarida/mcp-ssh-orchestrator/wiki/09-Deployment)** | Production setup guide |
 
+## Supply Chain Integrity
+
+- **Signed release artifacts**: Every tarball/zip in GitHub Releases ships with a detached GPG signature produced by the maintainer key (`openpgp4fpr:6775BF3F439A2A8A198DE10D4FC5342A979BD358`). Import the key and verify before unpacking:
+
+  ```bash
+  gpg --receive-keys 4FC5342A979BD358
+  gpg --verify mcp-ssh-orchestrator-v1.0.0.tar.gz.asc mcp-ssh-orchestrator-v1.0.0.tar.gz
+  ```
+
+- **Cosign-signed container images**: The images under `ghcr.io/samerfarida/mcp-ssh-orchestrator` are signed via Sigstore keyless signing in the release workflow. Verify the signature (and optional attestations) before deploying:
+
+  ```bash
+  COSIGN_EXPERIMENTAL=1 cosign verify \
+    --certificate-identity-regexp "https://github.com/samerfarida/mcp-ssh-orchestrator/.github/workflows/release.yml@.*" \
+    --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+    ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
+  ```
+
+  Image digests and signatures are published with every tag in GitHub Packages so you can pin exact references when promoting builds between environments ([package feed](https://github.com/samerfarida/mcp-ssh-orchestrator/pkgs/container/mcp-ssh-orchestrator/versions)).
+
+- **OpenSSF Scorecard**: The repository maintains an automated Scorecard run to track security posture across dependencies, build settings, branch protections, and more ([scorecard summary](https://api.scorecard.dev/projects/github.com/samerfarida/mcp-ssh-orchestrator)).
+
 ## What Can AI Do With This? (MCP Tools)
 
 Your AI assistant gets 13 powerful tools with built-in security:
@@ -394,6 +416,13 @@ Repeat the same workflow inside Docker Desktop or a remote host by setting `IMAG
 > *"This is what infrastructure-as-code should have been. Declarative security for AI access."* - Platform Engineer
 
 > *"The structured audit logs make incident response so much easier."* - Security Engineer
+
+## Scope & Non-Goals
+
+- **Transport**: Ships strictly as an MCP stdio server. There is no HTTP API, webhook emitter, or background push agent.
+- **Support**: Community-driven open source only; no bundled professional services, training programs, or paid SLAs.
+- **UI surfaces**: No first-party dashboard. Operate it through MCP-aware clients (Cursor, Claude Desktop, etc.).
+- **Roadmap language**: Docs describe what exists in `src/mcp_ssh` today—deny-by-default policy, network allowlists, async tooling, and strict host key validation. Anything else is out of scope until implemented.
 
 ## Contributing
 

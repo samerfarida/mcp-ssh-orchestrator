@@ -120,5 +120,5 @@ jobs:
       contents: read
     steps:
       - name: Skip workflow
-        run: echo "✅ Documentation-only PR - lint checks skipped"
+        run: echo "Documentation-only PR - lint checks skipped"
 

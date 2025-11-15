@@ -157,8 +157,8 @@ jobs:
         run: |
           echo "Testing Docker image..."
           docker images | grep mcp-ssh-orchestrator
-          docker run --rm mcp-ssh-orchestrator:test python -c "import mcp_ssh; print('✅ MCP SSH module imported successfully')"
-          echo "✅ Docker image test passed!"
+          docker run --rm mcp-ssh-orchestrator:test python -c "import mcp_ssh; print('MCP SSH module imported successfully')"
+          echo "Docker image test passed!"
 
   skip-docs-only:
     name: Skip (docs only)
@@ -169,5 +169,5 @@ jobs:
       contents: read
     steps:
       - name: Skip workflow
-        run: echo "✅ Documentation-only PR - build and test checks skipped"
+        run: echo "Documentation-only PR - build and test checks skipped"
 

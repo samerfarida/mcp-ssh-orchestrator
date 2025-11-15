@@ -37,12 +37,12 @@ Secret names and paths are validated to prevent directory traversal attacks:
 
 1. **Secret Name Validation**: Only alphanumeric characters, dashes, and underscores are allowed
    ```yaml
-   # ✅ Valid secret names
+   #  Valid secret names
    password_secret: "prod_password"
    password_secret: "key-passphrase-2024"
    password_secret: "admin_password_1"
    
-   # ❌ Invalid (will be rejected)
+   #  Invalid (will be rejected)
    password_secret: "../etc/passwd"     # Path traversal
    password_secret: "/absolute/path"    # Absolute path
    password_secret: "secret.name"       # Special characters
@@ -70,12 +70,12 @@ SSH key paths include similar protections:
 
 1. **Traversal Pattern Detection**: Paths containing `..` patterns are rejected
    ```yaml
-   # ✅ Valid key paths
+   #  Valid key paths
    key_path: "id_ed25519"
    key_path: "prod_key"
    key_path: "/app/keys/id_ed25519"  # Absolute within keys_dir
    
-   # ❌ Invalid (will be rejected)
+   #  Invalid (will be rejected)
    key_path: "../outside_key"        # Path traversal
    key_path: "/etc/passwd"           # Outside keys_dir
    key_path: "key/../../etc/passwd"   # Encoded traversal
@@ -95,13 +95,13 @@ All resolved paths are validated to ensure they are regular files:
 
 1. **Directory Rejection**: Paths pointing to directories are rejected
    ```yaml
-   # ❌ Invalid (will be rejected)
+   #  Invalid (will be rejected)
    password_secret: "subdirectory"  # Points to a directory, not a file
    ```
 
 2. **Symlink Rejection**: Symbolic links are rejected for security
    ```yaml
-   # ❌ Invalid (will be rejected)
+   #  Invalid (will be rejected)
    password_secret: "symlink_secret"  # Points to a symlink, not a regular file
    ```
    **Why reject symlinks?** Symlinks can be manipulated to point outside the allowed directory or to sensitive files, creating security risks.
@@ -385,7 +385,7 @@ secrets:
 ```bash
 docker run -i --rm \
   -e MCP_SSH_SECRET_ADMIN_PASSWORD="dev-password" \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 ```
 
 **File-Based Secrets (Simple Deployments):**
@@ -399,6 +399,33 @@ chmod 0700 ~/mcp-ssh/secrets
 echo "passphrase" > ~/mcp-ssh/secrets/key_passphrase
 chmod 0400 ~/mcp-ssh/secrets/key_passphrase
 ```
+
+### Package & Image Verification
+
+1. **GitHub Release Assets**
+   - Every tarball/zip produced by the release workflow is signed with the maintainer GPG key (`openpgp4fpr:6775BF3F439A2A8A198DE10D4FC5342A979BD358`).
+   - Import the public key once, then verify each artifact:
+
+     ```bash
+     gpg --receive-keys 4FC5342A979BD358
+     gpg --verify mcp-ssh-orchestrator-v1.0.0.tar.gz.asc mcp-ssh-orchestrator-v1.0.0.tar.gz
+     ```
+
+2. **Container Images (GHCR)**
+   - The `ghcr.io/samerfarida/mcp-ssh-orchestrator` images are keylessly signed with Sigstore cosign in `.github/workflows/release.yml`.
+   - Verify signatures (and optional attestations) before promoting an image between environments:
+
+     ```bash
+     COSIGN_EXPERIMENTAL=1 cosign verify \
+       --certificate-identity-regexp "https://github.com/samerfarida/mcp-ssh-orchestrator/.github/workflows/release.yml@.*" \
+       --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+       ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
+     ```
+
+   - Published digests and signature bundles are available for every tag in the GitHub Packages feed so you can pin exact builds.
+
+3. **OpenSSF Scorecard**
+   - The repository maintains a public Scorecard run covering branch protections, dependency update hygiene, build hardening, and other supply-chain controls. Monitor the score at `https://api.scorecard.dev/projects/github.com/samerfarida/mcp-ssh-orchestrator`.
 
 ## Network Security
 
@@ -634,7 +661,7 @@ USER appuser
 docker run -i --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 ```
 
 **Effect**: Prevents accidental or malicious modification of config/keys.
@@ -828,12 +855,12 @@ docker logs -f mcp-ssh-orchestrator 2>&1 | \
 
 ### OWASP LLM Top 10 Coverage
 
-**LLM07: Insecure Plugin Design** ✅
+**LLM07: Insecure Plugin Design** 
 - Policy-based command validation prevents unauthorized execution
 - Input sanitization and dangerous command blocking
 - Access control for AI plugin operations
 
-**LLM08: Excessive Agency** ✅
+**LLM08: Excessive Agency** 
 - Role-based restrictions via host tags
 - Deny-by-default security model
 - Command pattern matching limits autonomous actions

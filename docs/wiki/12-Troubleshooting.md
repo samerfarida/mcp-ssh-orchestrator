@@ -37,7 +37,7 @@ ls -la config/
 # Validate configuration
 docker run --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0 \
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest \
   python -c "
 from mcp_ssh.config import Config
 config = Config('/app/config')
@@ -102,7 +102,7 @@ print('Policy valid:', 'rules' in policy)
 # Test policy rules
 docker run --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0 \
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest \
   python -c "
 from mcp_ssh.policy import Policy
 policy = Policy('/app/config/policy.yml')
@@ -197,10 +197,10 @@ ssh-keyscan -H <hostname> >> /app/keys/known_hosts
 **Solutions:**
 ```bash
 # Check container logs
-docker logs $(docker ps -q --filter "ancestor=ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0")
+docker logs $(docker ps -q --filter "ancestor=ghcr.io/samerfarida/mcp-ssh-orchestrator:latest")
 
 # Test container health
-docker run --rm ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0 python -c "import mcp_ssh; print('OK')"
+docker run --rm ghcr.io/samerfarida/mcp-ssh-orchestrator:latest python -c "import mcp_ssh; print('OK')"
 
 # Check resource usage
 docker stats
@@ -211,7 +211,7 @@ docker run -i --rm \
   --cpus=2 \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 ```
 
 #### Permission Issues
@@ -239,10 +239,10 @@ docker run -i --rm \
   --user=10001:10001 \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 
 # Check container user
-docker run --rm ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0 whoami
+docker run --rm ghcr.io/samerfarida/mcp-ssh-orchestrator:latest whoami
 ```
 
 ### MCP Client Issues
@@ -269,7 +269,7 @@ echo '{"jsonrpc":"2.0","method":"ping","id":1}' | \
   docker run -i --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 
 # Check Claude Desktop configuration
 cat ~/Library/Application\ Support/Claude/claude_desktop_config.json
@@ -301,14 +301,14 @@ echo '{"jsonrpc":"2.0","method":"tools/list","id":1}' | \
   docker run -i --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 
 # Test tool execution
 echo '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"ssh_ping","arguments":{}},"id":1}' | \
   docker run -i --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 ```
 
 ## Debugging Techniques
@@ -323,7 +323,7 @@ docker run -i --rm \
   -e LOG_LEVEL=DEBUG \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 ```
 
 **Production Debugging:**
@@ -334,7 +334,7 @@ docker run -i --rm \
   -e LOG_FORMAT=json \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 ```
 
 ### Network Debugging
@@ -349,14 +349,14 @@ docker run -i --rm \
   -e SSH_DEBUG=1 \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 ```
 
 **Network Connectivity Tests:**
 ```bash
 # Test network connectivity
 docker run --rm --network=host \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0 \
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest \
   python -c "
 import socket
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -373,7 +373,7 @@ s.close()
 # Test specific policy rules
 docker run --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0 \
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest \
   python -c "
 from mcp_ssh.policy import Policy
 policy = Policy('/app/config/policy.yml')
@@ -393,7 +393,7 @@ print('Deny rule result:', result)
 # Validate policy configuration
 docker run --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0 \
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest \
   python -c "
 from mcp_ssh.policy import Policy
 policy = Policy('/app/config/policy.yml')
@@ -460,7 +460,7 @@ docker run -i --rm \
   --memory=1g \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 
 # Limit output size
 # In policy.yml:
@@ -523,7 +523,7 @@ cat ~/mcp-ssh/config/policy.yml
 # Test policy evaluation
 docker run --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0 \
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest \
   python -c "
 from mcp_ssh.policy import Policy
 policy = Policy('/app/config/policy.yml')
@@ -553,16 +553,16 @@ ls -la ~/mcp-ssh/config/
 **Container Restart:**
 ```bash
 # Stop all containers
-docker stop $(docker ps -q --filter "ancestor=ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0")
+docker stop $(docker ps -q --filter "ancestor=ghcr.io/samerfarida/mcp-ssh-orchestrator:latest")
 
 # Remove containers
-docker rm $(docker ps -aq --filter "ancestor=ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0")
+docker rm $(docker ps -aq --filter "ancestor=ghcr.io/samerfarida/mcp-ssh-orchestrator:latest")
 
 # Start fresh
 docker run -i --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 ```
 
 ### Service Recovery
@@ -601,7 +601,7 @@ cp -r ~/mcp-ssh/config "$DEBUG_DIR/"
 cp -r ~/mcp-ssh/keys "$DEBUG_DIR/"
 
 # Container logs
-docker logs $(docker ps -q --filter "ancestor=ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0") > "$DEBUG_DIR/container-logs.txt"
+docker logs $(docker ps -q --filter "ancestor=ghcr.io/samerfarida/mcp-ssh-orchestrator:latest") > "$DEBUG_DIR/container-logs.txt"
 
 # Network information
 netstat -an > "$DEBUG_DIR/network-info.txt"

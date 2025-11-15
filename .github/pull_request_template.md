@@ -1,10 +1,13 @@
 ## Summary
+
 Brief description of what this PR does.
 
 ## Motivation
+
 Why is this change needed? What problem does it solve?
 
 ## Changes
+
 - [ ] Added new feature: [description]
 - [ ] Fixed bug: [description]
 - [ ] Updated documentation: [description]
@@ -13,23 +16,27 @@ Why is this change needed? What problem does it solve?
 - [ ] Other: [description]
 
 ## Type of Change
-- [ ] 🐛 Bug fix (non-breaking change which fixes an issue)
-- [ ] ✨ New feature (non-breaking change which adds functionality)
-- [ ] 💥 Breaking change (fix or feature that would cause existing functionality to not work as expected)
-- [ ] 📚 Documentation update
-- [ ] 🔧 Refactoring (no functional changes)
-- [ ] ⚡ Performance improvement
-- [ ] 🧪 Test improvements
-- [ ] 🔒 Security improvement
+
+- [ ] Bug fix (non-breaking change which fixes an issue)
+- [ ] New feature (non-breaking change which adds functionality)
+- [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
+- [ ] Documentation update
+- [ ] Refactoring (no functional changes)
+- [ ] Performance improvement
+- [ ] Test improvements
+- [ ] Security improvement
 
 ## Testing
+
 - [ ] Unit tests pass
 - [ ] Integration tests pass
 - [ ] Docker build succeeds
 - [ ] Manual testing completed
 - [ ] Tested with MCP client (Claude Desktop/Cline/etc.)
+- [ ] `ssh_plan`/`ssh_run` (or async variants) exercised for new flows
 
 ### Test Details
+
 Describe how you tested this change:
 
 ```bash
@@ -39,6 +46,7 @@ docker build -t mcp-ssh-orchestrator:test .
 ```
 
 ## MCP Compliance
+
 - [ ] Follows MCP tool requirements (primitive types only, single-line docstrings)
 - [ ] No `@mcp.prompt()` decorators used
 - [ ] No `prompt` parameter to `FastMCP()`
@@ -47,39 +55,49 @@ docker build -t mcp-ssh-orchestrator:test .
 - [ ] Logs to stderr appropriately
 
 ## Security Considerations
+
 - [ ] No sensitive information exposed
 - [ ] Proper input validation
 - [ ] No security vulnerabilities introduced
 - [ ] Follows security best practices
+- [ ] Documentation and prompts avoid promising unsupported/future behavior
 
 ## Documentation
+
 - [ ] README.md updated (if user-facing changes)
 - [ ] Code comments/docstrings added
 - [ ] Example configurations updated (if applicable)
 - [ ] CHANGELOG.md updated (if significant change)
+- [ ] docs/wiki updated when behavior changes or wording needed correction
 
 ## Configuration Changes
+
 If this PR changes configuration options or behavior:
 
 ### Before
+
 ```yaml
 # Old configuration example
 old_config: "value"
 ```
 
 ### After
+
 ```yaml
 # New configuration example
 new_config: "value"
 ```
 
 ## Breaking Changes
+
 If this PR introduces breaking changes, please describe:
+
 - What breaks
 - Migration path for users
 - Timeline for deprecation
 
 ## Performance Impact
+
 - [ ] No performance impact
 - [ ] Performance improvement
 - [ ] Performance regression (explain below)
@@ -87,6 +105,7 @@ If this PR introduces breaking changes, please describe:
 If there's a performance impact, please describe:
 
 ## Screenshots/Output
+
 If applicable, add screenshots or example output:
 
 ```json
@@ -96,6 +115,7 @@ If applicable, add screenshots or example output:
 ```
 
 ## Checklist
+
 - [ ] My code follows the project's style guidelines
 - [ ] I have performed a self-review of my own code
 - [ ] I have commented my code, particularly in hard-to-understand areas
@@ -106,11 +126,13 @@ If applicable, add screenshots or example output:
 - [ ] Any dependent changes have been merged and published
 
 ## Related Issues
+
 - Fixes #123
 - Related to #456
 - Closes #789
 
 ## Additional Notes
+
 Add any additional notes, concerns, or context for reviewers.
 
 ---

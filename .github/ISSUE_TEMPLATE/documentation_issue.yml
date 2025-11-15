@@ -1,62 +1,74 @@
----
 name: Documentation Issue
-about: Report a documentation problem or suggest improvements
-title: '[DOCS] '
-labels: ['documentation', 'needs-triage']
-assignees: ''
----
-
-## Documentation Issue
-
-## Type of Issue
-- [ ] **Incorrect information**: The documentation contains wrong information
-- [ ] **Missing information**: Important information is not documented
-- [ ] **Unclear explanation**: The documentation is confusing or hard to understand
-- [ ] **Outdated content**: The documentation is outdated and doesn't match current behavior
-- [ ] **Formatting issue**: The documentation has formatting problems
-- [ ] **Broken links**: Links in the documentation are broken
-- [ ] **Missing examples**: More examples would be helpful
-- [ ] **Other**: _______________
-
-## Affected Documentation
-Please specify which documentation is affected:
-- [ ] README.md
-- [ ] CONTRIBUTING.md
-- [ ] docs/CONTRIBUTING.md
-- [ ] docs/DOCKER_DESKTOP.md
-- [ ] docs/LOCAL_DEVELOPMENT.md
-- [ ] docs/SECURITY.md
-- [ ] Example configuration files
-- [ ] Code comments/docstrings
-- [ ] Other: _______________
-
-## Current Documentation
-If reporting incorrect or unclear information, please quote the relevant section:
-
-```markdown
-[Paste the problematic documentation here]
-```
-
-## Problem Description
-Describe what's wrong with the documentation or what's missing.
-
-## Suggested Improvement
-Describe how the documentation should be improved:
-
-```markdown
-[Paste your suggested improvement here]
-```
-
-## Additional Context
-- **User level**: [Beginner/Intermediate/Advanced] - What level of user would be affected?
-- **Use case**: Describe the specific use case or scenario where this documentation issue causes problems
-- **Priority**: [Low/Medium/High] - How important is this documentation fix?
-
-## Related Issues
-Link any related issues:
-- Related to #123
-- Duplicate of #456
-
----
-
-**Note**: For code-related issues, please use the bug report template instead.
+description: Report a documentation problem or suggest improvements
+title: "[DOCS] "
+labels:
+  - documentation
+  - needs-triage
+body:
+  - type: dropdown
+    id: issue-type
+    attributes:
+      label: Type of issue
+      multiple: true
+      options:
+        - Incorrect information
+        - Missing information
+        - Unclear explanation
+        - Outdated content
+        - Formatting issue
+        - Broken links
+        - Missing examples
+        - Other
+  - type: checkboxes
+    id: affected-docs
+    attributes:
+      label: Affected documentation
+      options:
+        - label: README.md
+        - label: SECURITY.md
+        - label: docs/wiki (specify file below)
+        - label: compose/README.md or setup.sh
+        - label: examples/*.yml
+        - label: `.github` templates
+        - label: Code comments/docstrings
+        - label: Other (describe below)
+  - type: textarea
+    id: location
+    attributes:
+      label: File / section
+      description: Provide the exact path or wiki link (e.g., `docs/wiki/14-FAQ.md#support`).
+    validations:
+      required: true
+  - type: textarea
+    id: current-text
+    attributes:
+      label: Current documentation
+      description: Quote the problematic text (sanitized).
+      render: markdown
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem description
+      description: Explain why the documentation is wrong or insufficient. Call out whether it references unsupported/future functionality or contradicts the code.
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested improvement
+      description: Provide the wording or structure you recommend.
+      render: markdown
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Mention the affected user level, use case, and priority (Low/Medium/High).
+  - type: textarea
+    id: related
+    attributes:
+      label: Related issues or discussions
+      description: Link any relevant issues, PRs, or external references.
+  - type: markdown
+    attributes:
+      value: |
+        **Note:** For code-related bugs, please use the bug report template instead.

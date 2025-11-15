@@ -1,6 +1,6 @@
 {
   "name": "mcp-ssh-orchestrator",
-  "version": "0.3.8",
+  "version": "1.0.0",
   "description": "A secure SSH fleet orchestrator exposing list/plan/run tools with policy enforcement over STDIO.",
   "license": "Apache-2.0",
   "homepage": "https://github.com/samerfarida/mcp-ssh-orchestrator",
@@ -8,7 +8,7 @@
   "publisher": "io.github.samerfarida",
   "containers": [
     {
-      "image": "ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.8",
+      "image": "ghcr.io/samerfarida/mcp-ssh-orchestrator:latest",
       "transport": "stdio",
       "entrypoint": ["python", "-m", "mcp_ssh.mcp_server", "stdio"],
       "env": [

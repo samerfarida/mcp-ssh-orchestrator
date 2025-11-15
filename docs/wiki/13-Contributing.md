@@ -81,7 +81,7 @@ docker run -it --rm \
   -v $(pwd):/app \
   -v $(pwd)/config:/app/config:ro \
   -v $(pwd)/keys:/app/keys:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0 \
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest \
   bash
 ```
 

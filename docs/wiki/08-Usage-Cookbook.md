@@ -407,6 +407,48 @@ ssh_run --alias "web1" --command "systemctl restart nginx"
 ssh_run --alias "web1" --command "systemctl status nginx"
 ```
 
+### Policy Tuning: Privileged Maintenance Window
+
+**Goal:** Allow `DEBIAN_FRONTEND=noninteractive sudo apt-get upgrade -y` on a small set of hosts without loosening global policy.
+
+1. **Edit policy.yml**
+   ```yaml
+   rules:
+     - action: "allow"
+       aliases:
+         - "docker-prod-manager1"
+         - "docker-prod-manager2"
+         - "docker-prod-manager3"
+       commands:
+         - "sudo apt-get update*"
+         - "DEBIAN_FRONTEND=noninteractive sudo apt-get upgrade -y*"
+
+   overrides:
+     aliases:
+       docker-prod-manager1:
+         max_seconds: 300
+         task_result_ttl: 1800
+   ```
+   - Remove `sudo ` from the global `deny_substrings` list or override it for these aliases.
+   - Copy the override block for each host that needs the longer timeout/output window.
+
+2. **Reload & dry-run**
+   ```bash
+   ssh_reload_config
+   ssh_plan --alias docker-prod-manager1 \
+     --command "DEBIAN_FRONTEND=noninteractive sudo apt-get upgrade -y"
+   ```
+
+3. **Execute asynchronously**
+   ```bash
+   ssh_run_async --alias docker-prod-manager1 \
+     --command "DEBIAN_FRONTEND=noninteractive sudo apt-get upgrade -y"
+   ssh_get_task_status --task-id "<id>"
+   ssh_get_task_result --task-id "<id>"
+   ```
+
+4. **Roll back overrides if temporary** once the window closes.
+
 ### Bulk Operations with Error Handling
 
 **Safe bulk operations:**

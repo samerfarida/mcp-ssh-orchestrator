@@ -442,12 +442,12 @@ overrides:
 
 ### OWASP LLM Top 10
 
-**LLM07: Insecure Plugin Design** ✅
+**LLM07: Insecure Plugin Design** 
 - Policy-based command validation prevents unauthorized execution
 - Input sanitization and dangerous command blocking
 - Access control for AI plugin operations
 
-**LLM08: Excessive Agency** ✅
+**LLM08: Excessive Agency** 
 - Role-based restrictions via host tags
 - Deny-by-default security model
 - Command pattern matching limits autonomous actions
@@ -485,6 +485,28 @@ overrides:
 - **Role-Based Access:** Tag-based permission management
 
 *Note: Compliance remains the responsibility of the deploying organization. This project offers logs and controls that can assist with reporting but does not provide certifications.*
+
+## Supply Chain & Integrity Controls
+
+- **GPG release signatures**: All archives attached to GitHub Releases include detached `.asc` files signed by `openpgp4fpr:6775BF3F439A2A8A198DE10D4FC5342A979BD358`. Import the key and verify every artifact before unpacking:
+
+  ```bash
+  gpg --receive-keys 4FC5342A979BD358
+  gpg --verify mcp-ssh-orchestrator-v1.0.0.tar.gz.asc mcp-ssh-orchestrator-v1.0.0.tar.gz
+  ```
+
+- **Cosign-signed container images**: The GitHub Actions release workflow signs `ghcr.io/samerfarida/mcp-ssh-orchestrator` with Sigstore keyless certificates (`release.yml`). Validate the signature and provenance in CI/CD before promotion:
+
+  ```bash
+  COSIGN_EXPERIMENTAL=1 cosign verify \
+    --certificate-identity-regexp "https://github.com/samerfarida/mcp-ssh-orchestrator/.github/workflows/release.yml@.*" \
+    --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+    ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
+  ```
+
+  Digests, signatures, and attestations are published alongside each tag in the GitHub Packages feed, enabling immutable deployment pins.
+
+- **OpenSSF Scorecard**: Automated Scorecard runs track branch protections, dependency update hygiene, CI hardening, and token hygiene. Monitor the live score at `https://api.scorecard.dev/projects/github.com/samerfarida/mcp-ssh-orchestrator` and treat regressions as release blockers.
 
 ## Security Monitoring
 

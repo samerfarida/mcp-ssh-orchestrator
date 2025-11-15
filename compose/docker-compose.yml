@@ -1,21 +1,19 @@
-# ─────────────────────────────────────────────────────────────
-# 🚀 mcp-ssh-orchestrator (Production Ready)
+# ============================================================
+# mcp-ssh-orchestrator (Production Ready)
 # Purpose: For end users pulling the published image from ghcr.io
 # Usage: docker compose up
 # Note: For development, use docker-compose.dev.yml instead
-# ─────────────────────────────────────────────────────────────
+# ============================================================
 
 services:
   mcp-ssh:
     container_name: mcp-ssh-orchestrator
-    image: ghcr.io/samerfarida/mcp-ssh-orchestrator:0.3.8
+    image: ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
     restart: "no"
     stdin_open: true
     tty: true
     environment:
       MCP_SSH_CONFIG_DIR: /app/config
-      MCP_SSH_MAX_CONCURRENCY: ${MCP_SSH_MAX_CONCURRENCY:-5}
-      MCP_SSH_TIMEOUT_SEC: ${MCP_SSH_TIMEOUT_SEC:-45}
       PYTHONUNBUFFERED: "1"
     volumes:
       # Mount your local config directory (create it first!)

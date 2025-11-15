@@ -124,7 +124,7 @@ rules:
 # Docker Compose integration
 services:
   mcp-ssh:
-    image: ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+    image: ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
     volumes:
       - ./config:/app/config:ro
       - ./keys:/app/keys:ro
@@ -327,13 +327,13 @@ services:
 
 ### Forward Compatibility
 
-**Principle:** Design for future MCP protocol evolution.
+**Principle:** Keep the server adaptable to MCP protocol evolution without promising unbuilt features.
 
 **Implementation:**
 
 - MCP specification compliance
 - Extensible policy engine
-- Plugin-ready architecture (future)
+- Plugin-ready architecture (not yet implemented; tracked separately)
 - API versioning support
 
 ## Success Metrics

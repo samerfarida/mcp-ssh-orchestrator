@@ -128,6 +128,16 @@ limits:
   require_known_host: true     # Enforces host key verification
 ```
 
+## Policy Quick Reference
+
+Designing `policy.yml` is easier when you follow a few core rules (see [6.3](06.3-policy.yml) for full details):
+
+1. **Deny substrings run first.** If a command contains a blocked substring, it is rejected before rules are evaluated. Override the list per-alias/tag if a host truly needs the command.
+2. **Rules are evaluated top-to-bottom, last match wins.** Place broad denies after their paired allows when you want them to override, and keep conflicting rules close together.
+3. **Default is deny.** Any command that doesn’t match a rule is automatically blocked.
+4. **Overrides stack.** Alias overrides beat tag overrides, which beat global limits. Use them to adjust `max_seconds`, `task_result_ttl`, or `deny_substrings` for sensitive hosts.
+5. **Test before running.** Run `ssh_plan` to confirm the policy decision, then `ssh_run`/`ssh_run_async`, and finish with `ssh_reload_config` after YAML edits.
+
 ## Configuration Validation
 
 ### Syntax Validation
@@ -356,6 +366,8 @@ python -m mcp_ssh.config check-refs config/
 - **Use CI linting**: run `python -m mcp_ssh.config validate` or `ssh_plan` checks in pipelines to catch syntax or policy regressions before deployment.
 - **Reference snippets in docs/PRs**: when proposing access changes, cite the exact YAML so auditors can trace policy intent to implementation.
 - **Leverage `ssh_reload_config`**: hot-reload after merging approved YAML to keep runtime behavior in sync with the code-reviewed source of truth.
+- **Document the reasoning**: if you relax a deny substring or extend `max_seconds`, explain why in Git history and reference the host/tag it applies to.
+- **Prefer non-interactive recipes**: when allowing privileged commands (e.g., package upgrades), require explicit patterns such as `DEBIAN_FRONTEND=noninteractive sudo apt-get upgrade -y` and pair them with per-host overrides.
 
 ## Next Steps
 

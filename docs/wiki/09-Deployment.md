@@ -11,19 +11,21 @@ mcp-ssh-orchestrator is designed for **containerized deployment** with security-
 ### Docker (Recommended)
 
 **Single Container Deployment:**
+
 ```bash
 # Pull the image
-docker pull ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+docker pull ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 
 # Run with configuration
 docker run -i --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
   -v ~/mcp-ssh/secrets:/app/secrets:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 ```
 
 **Production Configuration:**
+
 ```bash
 # Create secure directories
 mkdir -p ~/mcp-ssh/{config,keys,secrets}
@@ -38,18 +40,33 @@ docker run -i --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
   -v ~/mcp-ssh/secrets:/app/secrets:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 ```
+
+### Image & Provenance Verification
+
+Before promoting a new build, validate the Sigstore signature attached to the GHCR image:
+
+```bash
+COSIGN_EXPERIMENTAL=1 cosign verify \
+  --certificate-identity-regexp "https://github.com/samerfarida/mcp-ssh-orchestrator/.github/workflows/release.yml@.*" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
+```
+
+- Record the digest printed by `cosign verify` (or from the [package feed](https://github.com/samerfarida/mcp-ssh-orchestrator/pkgs/container/mcp-ssh-orchestrator/versions)) and pin it in your manifests.
+- For air-gapped promotion, download the signature bundle produced by cosign and store it alongside the image tarball.
 
 ### Docker Compose
 
 **Production Compose:**
+
 ```yaml
 version: '3.8'
 
 services:
   mcp-ssh:
-    image: ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+    image: ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
     user: "10001:10001"
     deploy:
       resources:
@@ -73,6 +90,7 @@ services:
 ```
 
 **Development Compose:**
+
 ```yaml
 version: '3.8'
 
@@ -97,6 +115,7 @@ services:
 ### 1. Configuration Setup
 
 **Create configuration directory:**
+
 ```bash
 mkdir -p /opt/mcp-ssh/{config,keys,secrets}
 chown -R 10001:10001 /opt/mcp-ssh
@@ -105,6 +124,7 @@ chmod 0400 /opt/mcp-ssh/keys/*
 ```
 
 **Copy example configurations:**
+
 ```bash
 cp examples/example-servers.yml /opt/mcp-ssh/config/servers.yml
 cp examples/example-credentials.yml /opt/mcp-ssh/config/credentials.yml
@@ -114,6 +134,7 @@ cp examples/example-policy.yml /opt/mcp-ssh/config/policy.yml
 ### 2. SSH Key Management
 
 **Generate production keys:**
+
 ```bash
 # Generate Ed25519 key pair
 ssh-keygen -t ed25519 -f /opt/mcp-ssh/keys/mcp_prod -C "mcp-ssh-orchestrator-prod"
@@ -127,6 +148,7 @@ ssh-copy-id -i /opt/mcp-ssh/keys/mcp_prod.pub ubuntu@10.0.0.11
 ```
 
 **Update credentials.yml:**
+
 ```yaml
 entries:
   - name: "prod_admin"
@@ -139,6 +161,7 @@ entries:
 ### 3. Policy Configuration
 
 **Production policy.yml:**
+
 ```yaml
 known_hosts_path: "/app/keys/known_hosts"
 
@@ -182,6 +205,7 @@ overrides:
 ### 4. Secrets Management
 
 **Docker Secrets (Recommended):**
+
 ```bash
 # Create secrets
 echo "production-passphrase" | docker secret create mcp_prod_passphrase -
@@ -190,7 +214,7 @@ echo "admin-password" | docker secret create mcp_admin_password -
 # Use in Docker Compose
 services:
   mcp-ssh:
-    image: ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+    image: ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
     secrets:
       - mcp_prod_passphrase
       - mcp_admin_password
@@ -206,6 +230,7 @@ secrets:
 ```
 
 **Environment Variables:**
+
 ```bash
 # Set environment variables
 export MCP_SSH_SECRET_PROD_KEY_PASSPHRASE="production-passphrase"
@@ -217,7 +242,7 @@ docker run -i --rm \
   -e MCP_SSH_SECRET_ADMIN_PASSWORD \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 ```
 
 ## Resource Management
@@ -227,11 +252,12 @@ docker run -i --rm \
 MCP SSH Orchestrator is designed to run efficiently as a single container instance per MCP client connection.
 
 **Resource Limits:**
+
 ```yaml
 # docker-compose.yml
 services:
   mcp-ssh:
-    image: ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+    image: ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
     deploy:
       resources:
         limits:
@@ -246,54 +272,46 @@ services:
 - Each MCP client connects to its own orchestrator instance
 - No load balancer required for single-client scenarios
 
-**Future Scaling Considerations:**
+**Scaling Considerations:**
 
-- Horizontal scaling would require additional infrastructure (load balancer, shared state)
-- Currently not implemented - one orchestrator per MCP client is the recommended approach
+- Horizontal fan-out requires external orchestration (load balancers, shared audit storage) and is not bundled with this project.
+- Recommended pattern: keep one orchestrator container per MCP client session for deterministic policy enforcement.
 
 ### Health Monitoring
 
 **Health Check Script:**
+
 ```bash
 #!/bin/bash
 # health-check.sh
+set -e
 
-# Check container health
-docker ps --filter "name=mcp-ssh" --filter "health=healthy"
+CONTAINER=${1:-mcp-ssh}
 
-# Check MCP server responsiveness
-echo '{"jsonrpc":"2.0","method":"ping","id":1}' | \
-  docker exec -i mcp-ssh-1 python -m mcp_ssh.mcp_server stdio
+echo "== Container health =="
+docker ps --filter "name=${CONTAINER}" --filter "health=healthy"
 
-# Check policy configuration
-docker exec mcp-ssh-1 python -c "
+echo "== Recent logs =="
+docker logs --tail=20 "${CONTAINER}"
+
+echo "== Config summary =="
+docker exec -i "${CONTAINER}" python - <<'PY'
 from mcp_ssh.config import Config
-config = Config('/app/config')
-print('Configuration valid:', config.validate())
-"
+cfg = Config()
+print("Hosts configured:", len(cfg.list_hosts()))
+policy = cfg.get_policy() or {}
+print("Policy rules:", len(policy.get("rules", [])))
+print("Deny substrings:", len((policy.get("limits") or {}).get("deny_substrings", [])))
+PY
 ```
 
-**Monitoring with Prometheus:**
-```yaml
-version: '3.8'
+**Structured Logging:**
 
-services:
-  mcp-ssh:
-    image: ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
-    volumes:
-      - ./config:/app/config:ro
-      - ./keys:/app/keys:ro
-    environment:
-      - PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus
+- All policy/audit events are emitted as JSON on stderr. Collect them with `docker logs` or ship them to your logging stack (Loki, Elastic, CloudWatch, etc.).
+- For scraping-friendly output, pipe stderr into `jq` or a log forwarder:
 
-  prometheus:
-    image: prom/prometheus
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
-    depends_on:
-      - mcp-ssh
+```bash
+docker logs -f mcp-ssh | jq '.'
 ```
 
 ## Security Hardening
@@ -301,6 +319,7 @@ services:
 ### Container Security
 
 **Non-root execution:**
+
 ```dockerfile
 # Container runs as UID 10001
 RUN useradd -u 10001 -m appuser
@@ -308,6 +327,7 @@ USER appuser
 ```
 
 **Resource limits:**
+
 ```yaml
 deploy:
   resources:
@@ -320,22 +340,24 @@ deploy:
 ```
 
 **Read-only filesystem:**
+
 ```bash
 docker run -i --rm \
   --read-only \
   --tmpfs /tmp \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 ```
 
 ### Network Security
 
 **Network isolation:**
+
 ```yaml
 services:
   mcp-ssh:
-    image: ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+    image: ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
     networks:
       - mcp-network
     volumes:
@@ -351,6 +373,7 @@ networks:
 ```
 
 **Firewall rules:**
+
 ```bash
 # Allow only necessary ports
 ufw allow 22/tcp
@@ -365,6 +388,7 @@ ufw deny 2377/tcp  # Docker swarm
 ### Configuration Updates
 
 **Hot reload:**
+
 ```bash
 # Update configuration files
 vim /opt/mcp-ssh/config/policy.yml
@@ -377,17 +401,19 @@ reload_config()
 ```
 
 **Rolling updates:**
+
 ```bash
 # Update to new version
-docker pull ghcr.io/samerfarida/mcp-ssh-orchestrator:0.2.0
+docker pull ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 
 # Rolling update
-docker service update --image ghcr.io/samerfarida/mcp-ssh-orchestrator:0.2.0 mcp-ssh
+docker service update --image ghcr.io/samerfarida/mcp-ssh-orchestrator:latest mcp-ssh
 ```
 
 ### Backup and Recovery
 
 **Configuration backup:**
+
 ```bash
 #!/bin/bash
 # backup-config.sh
@@ -404,6 +430,7 @@ find "$BACKUP_DIR" -name "config_*.tar.gz" -mtime +7 -delete
 ```
 
 **Disaster recovery:**
+
 ```bash
 #!/bin/bash
 # restore-config.sh
@@ -426,6 +453,7 @@ docker-compose up -d
 ### Common Issues
 
 **Container won't start:**
+
 ```bash
 # Check logs
 docker logs mcp-ssh-1
@@ -439,6 +467,7 @@ print('Config valid:', config.validate())
 ```
 
 **SSH connection failures:**
+
 ```bash
 # Test SSH connectivity
 ssh -i /opt/mcp-ssh/keys/mcp_prod ubuntu@10.0.0.11
@@ -448,6 +477,7 @@ docker exec mcp-ssh-1 ssh-keyscan 10.0.0.11
 ```
 
 **Policy issues:**
+
 ```bash
 # Test policy rules
 docker exec mcp-ssh-1 python -c "

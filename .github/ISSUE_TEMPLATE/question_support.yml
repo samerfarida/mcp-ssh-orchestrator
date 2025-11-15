@@ -1,74 +1,93 @@
----
 name: Question or Support Request
-about: Ask a question or request support
-title: '[QUESTION] '
-labels: ['question', 'needs-triage']
-assignees: ''
----
-
-## Question or Support Request
-
-## Type of Request
-- [ ] **How-to question**: I need help with setup or configuration
-- [ ] **Troubleshooting**: Something isn't working as expected
-- [ ] **Best practices**: What's the recommended approach?
-- [ ] **Integration help**: How to integrate with other tools?
-- [ ] **Performance question**: How to optimize or improve performance?
-- [ ] **Other**: _______________
-
-## Question Summary
-A clear and concise description of your question or the help you need.
-
-## Current Setup
-Please describe your current setup:
-
-- **OS**: [e.g. macOS, Linux, Windows]
-- **Docker Version**: [e.g. Docker Desktop 4.25.0]
-- **Python Version**: [e.g. 3.11.5] (if running locally)
-- **MCP SSH Orchestrator Version**: [e.g. 0.1.0]
-- **MCP Client**: [e.g. Claude Desktop, Cline, etc.]
-
-## What You've Tried
-Describe what you've already tried to solve your problem:
-
-1. Step 1
-2. Step 2
-3. Step 3
-
-## Expected Outcome
-What are you trying to achieve? What should happen?
-
-## Current Behavior
-What's currently happening? Include any error messages or unexpected behavior.
-
-## Configuration
-If relevant, please provide sanitized configuration snippets:
-
-```yaml
-# servers.yml (sanitized)
-hosts:
-  - alias: "example"
-    host: "10.0.0.1"
-    port: 22
-    credentials: "example_creds"
-    tags: ["test"]
-```
-
-## Logs
-If applicable, please provide relevant logs (sanitized):
-
-```
-[Paste logs here]
-```
-
-## Additional Context
-Add any other context, screenshots, or examples that might help answer your question.
-
-## Security Note
-⚠️ **Important**: Do not include any sensitive information such as:
-- Real IP addresses or hostnames
-- SSH private keys or passwords
-- Actual credentials or secrets
-- Internal network details
-
-Please sanitize all configuration examples before posting.
+description: Ask a question or request support
+title: "[QUESTION] "
+labels:
+  - question
+  - needs-triage
+body:
+  - type: dropdown
+    id: request-type
+    attributes:
+      label: Type of request
+      multiple: true
+      options:
+        - How-to question (setup / configuration)
+        - Troubleshooting
+        - Best practices
+        - Integration help
+        - Performance question
+        - Other
+  - type: textarea
+    id: summary
+    attributes:
+      label: Question summary
+      description: A concise description of what you need help with.
+    validations:
+      required: true
+  - type: textarea
+    id: setup
+    attributes:
+      label: Current setup
+      description: Include OS, Docker version, MCP client, orchestrator version, and whether you're running via Docker or local venv (stdio-only is required).
+      placeholder: |
+        OS: macOS 15.0
+        Docker: Docker Desktop 4.29.0
+        MCP client: Cursor
+        Orchestrator: 1.0.0 (Docker)
+        Transport: stdio
+    validations:
+      required: true
+  - type: textarea
+    id: tried
+    attributes:
+      label: What you've tried
+      description: Mention `ssh_plan`, `ssh_reload_config`, or other troubleshooting steps you've already taken.
+      placeholder: |
+        1. Ran `ssh_plan alias="web-1" command="uptime"`
+        2. Ran `ssh_reload_config`
+        3. ...
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected outcome
+      description: What are you trying to achieve?
+  - type: textarea
+    id: actual
+    attributes:
+      label: Current behavior
+      description: What actually happens? Include any error messages or unexpected results.
+  - type: textarea
+    id: config
+    attributes:
+      label: Sanitized configuration (optional)
+      description: Include only the relevant snippets (redact secrets).
+      placeholder: |
+        ```yaml
+        hosts:
+          - alias: "example"
+            host: "10.0.0.1"
+            credentials: "example"
+            tags: ["lab"]
+        ```
+      render: markdown
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or command output (optional)
+      description: Paste sanitized stderr/audit lines or MCP responses.
+      render: shell
+  - type: textarea
+    id: docs-link
+    attributes:
+      label: Documentation reference (optional)
+      description: If this question relates to a doc section, paste the URL or file path.
+  - type: textarea
+    id: extras
+    attributes:
+      label: Additional context
+      description: Screenshots, links, or anything else that helps.
+  - type: markdown
+    attributes:
+      value: |
+        **Security Note**  
+        Do **not** include sensitive information (IPs, credentials, secrets). Sanitize all snippets before posting.

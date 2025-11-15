@@ -47,18 +47,20 @@ AI agents interacting with external systems introduce significant security risks
 ### How do I install mcp-ssh-orchestrator?
 
 **Docker (Recommended):**
+
 ```bash
 # Pull the image
-docker pull ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+docker pull ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 
 # Run with configuration
 docker run -i --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 ```
 
 **From Source:**
+
 ```bash
 git clone https://github.com/samerfarida/mcp-ssh-orchestrator.git
 cd mcp-ssh-orchestrator
@@ -84,6 +86,7 @@ pip install -e .
 ### How do I configure Claude Desktop?
 
 **macOS Configuration** (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
 ```json
 {
   "mcpServers": {
@@ -93,7 +96,7 @@ pip install -e .
         "run", "-i", "--rm",
         "-v", "/Users/YOUR_USERNAME/mcp-ssh/config:/app/config:ro",
         "-v", "/Users/YOUR_USERNAME/mcp-ssh/keys:/app/keys:ro",
-        "ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0"
+        "ghcr.io/samerfarida/mcp-ssh-orchestrator:latest"
       ]
     }
   }
@@ -101,6 +104,7 @@ pip install -e .
 ```
 
 **Windows Configuration** (`%APPDATA%\Claude\claude_desktop_config.json`):
+
 ```json
 {
   "mcpServers": {
@@ -110,7 +114,7 @@ pip install -e .
         "run", "-i", "--rm",
         "-v", "C:\\Users\\YOUR_USERNAME\\mcp-ssh\\config:/app/config:ro",
         "-v", "C:\\Users\\YOUR_USERNAME\\mcp-ssh\\keys:/app/keys:ro",
-        "ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0"
+        "ghcr.io/samerfarida/mcp-ssh-orchestrator:latest"
       ]
     }
   }
@@ -122,22 +126,26 @@ pip install -e .
 ### How do I configure SSH keys?
 
 **1. Generate SSH key pair:**
+
 ```bash
 ssh-keygen -t ed25519 -f ~/mcp-ssh/keys/id_ed25519 -C "mcp-ssh-orchestrator"
 ```
 
 **2. Set permissions:**
+
 ```bash
 chmod 0400 ~/mcp-ssh/keys/id_ed25519
 chmod 0444 ~/mcp-ssh/keys/id_ed25519.pub
 ```
 
 **3. Deploy public key:**
+
 ```bash
 ssh-copy-id -i ~/mcp-ssh/keys/id_ed25519.pub ubuntu@10.0.0.11
 ```
 
 **4. Update credentials.yml:**
+
 ```yaml
 entries:
   - name: "admin"
@@ -150,6 +158,7 @@ entries:
 ### How do I configure policy rules?
 
 **Basic Policy Configuration:**
+
 ```yaml
 # policy.yml
 known_hosts_path: "/app/keys/known_hosts"
@@ -168,7 +177,7 @@ rules:
       - "uptime*"
       - "df -h*"
       - "systemctl status *"
-  
+
   - action: "deny"
     aliases: ["*"]
     tags: ["*"]
@@ -181,13 +190,14 @@ rules:
 ### How do I add new hosts?
 
 **1. Update servers.yml:**
+
 ```yaml
 entries:
   - alias: "web1"
     hostname: "10.0.0.11"
     port: 22
     tags: ["production", "web"]
-  
+
   - alias: "web2"
     hostname: "10.0.0.12"
     port: 22
@@ -195,12 +205,14 @@ entries:
 ```
 
 **2. Add host keys:**
+
 ```bash
 ssh-keyscan 10.0.0.11 >> ~/mcp-ssh/keys/known_hosts
 ssh-keyscan 10.0.0.12 >> ~/mcp-ssh/keys/known_hosts
 ```
 
 **3. Test connectivity:**
+
 ```bash
 ssh -i ~/mcp-ssh/keys/id_ed25519 ubuntu@10.0.0.11
 ```
@@ -235,6 +247,7 @@ Yes, mcp-ssh-orchestrator implements multiple security layers:
 ### How do I handle secrets?
 
 **Docker Secrets (Recommended):**
+
 ```bash
 # Create secrets
 echo "your-passphrase" | docker secret create mcp_key_passphrase -
@@ -243,13 +256,14 @@ echo "your-password" | docker secret create mcp_password -
 # Use in Docker Compose
 services:
   mcp-ssh:
-    image: ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+    image: ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
     secrets:
       - mcp_key_passphrase
       - mcp_password
 ```
 
 **Environment Variables:**
+
 ```bash
 # Set environment variables
 export MCP_SSH_SECRET_KEY_PASSPHRASE="your-passphrase"
@@ -261,18 +275,20 @@ docker run -i --rm \
   -e MCP_SSH_SECRET_PASSWORD \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 ```
 
 ### How do I enable host key verification?
 
 **1. Collect host keys:**
+
 ```bash
 ssh-keyscan 10.0.0.11 >> ~/mcp-ssh/keys/known_hosts
 ssh-keyscan 10.0.0.12 >> ~/mcp-ssh/keys/known_hosts
 ```
 
 **2. Update policy:**
+
 ```yaml
 # policy.yml
 known_hosts_path: "/app/keys/known_hosts"
@@ -281,6 +297,7 @@ host_key_auto_add: false
 ```
 
 **3. Test verification:**
+
 ```bash
 ssh -i ~/mcp-ssh/keys/id_ed25519 ubuntu@10.0.0.11
 ```
@@ -290,11 +307,13 @@ ssh -i ~/mcp-ssh/keys/id_ed25519 ubuntu@10.0.0.11
 ### How do I execute commands?
 
 **Via Claude Desktop:**
-```
+
+```text
 Execute the command "uptime" on the production web server
 ```
 
 **Via MCP Client:**
+
 ```python
 result = await session.call_tool(
     "ssh_run",
@@ -303,51 +322,57 @@ result = await session.call_tool(
 ```
 
 **Via Docker:**
+
 ```bash
 echo '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"ssh_run","arguments":{"alias":"web1","command":"uptime"}},"id":1}' | \
   docker run -i --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 ```
 
 ### How do I list available hosts?
 
 **Via Claude Desktop:**
-```
+
+```text
 List all available SSH hosts
 ```
 
 **Via MCP Client:**
+
 ```python
 result = await session.call_tool("ssh_list_hosts", {})
 ```
 
 **Via Docker:**
+
 ```bash
 echo '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"ssh_list_hosts","arguments":{}},"id":1}' | \
   docker run -i --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 ```
 
 ### How do I test policy rules?
 
 **Dry Run:**
+
 ```bash
 echo '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"ssh_plan","arguments":{"alias":"web1","command":"uptime"}},"id":1}' | \
   docker run -i --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 ```
 
 **Policy Validation:**
+
 ```bash
 docker run --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0 \
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest \
   python -c "
 from mcp_ssh.policy import Policy
 policy = Policy('/app/config/policy.yml')
@@ -367,11 +392,12 @@ print('Policy valid:', policy.validate())
 - Network filtering
 
 **Debug Steps:**
+
 ```bash
 # Check policy evaluation
 docker run --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0 \
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest \
   python -c "
 from mcp_ssh.policy import Policy
 policy = Policy('/app/config/policy.yml')
@@ -384,7 +410,7 @@ echo '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"ssh_plan","argume
   docker run -i --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 ```
 
 ### Why is SSH connection failing?
@@ -397,6 +423,7 @@ echo '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"ssh_plan","argume
 - Host key verification failed
 
 **Debug Steps:**
+
 ```bash
 # Test SSH connectivity
 ssh -i ~/mcp-ssh/keys/id_ed25519 ubuntu@10.0.0.11
@@ -419,17 +446,18 @@ telnet 10.0.0.11 22
 - Missing dependencies
 
 **Debug Steps:**
+
 ```bash
 # Check container logs
-docker logs $(docker ps -q --filter "ancestor=ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0")
+docker logs $(docker ps -q --filter "ancestor=ghcr.io/samerfarida/mcp-ssh-orchestrator:latest")
 
 # Test container health
-docker run --rm ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0 python -c "import mcp_ssh; print('OK')"
+docker run --rm ghcr.io/samerfarida/mcp-ssh-orchestrator:latest python -c "import mcp_ssh; print('OK')"
 
 # Validate configuration
 docker run --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0 \
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest \
   python -c "
 from mcp_ssh.config import Config
 config = Config('/app/config')
@@ -458,34 +486,38 @@ print('Config valid:', config.validate())
 ### How do I optimize performance?
 
 **Configuration Optimization:**
+
 ```yaml
 # policy.yml
 limits:
-  max_seconds: 15  # Reduce timeout
-  max_output_bytes: 65536  # Limit output size
-  max_concurrent_connections: 50  # Limit connections
+  max_seconds: 15           # Shorter timeout for sensitive hosts
+  max_output_bytes: 65536   # Tighter output cap
+  task_result_ttl: 120      # Reduce async retention window
 ```
 
 **Docker Optimization:**
+
 ```bash
-# Increase resources
+# Increase container resources
 docker run -i --rm \
   --memory=1g \
   --cpus=2 \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+  -v ~/mcp-ssh/secrets:/app/secrets:ro \
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 ```
 
 **Network Optimization:**
+
 ```yaml
 # servers.yml
-entries:
+hosts:
   - alias: "web1"
-    hostname: "10.0.0.11"
+    host: "10.0.0.11"
     port: 22
-    connection_timeout: 10
-    keepalive: true
+    credentials: "prod-admin"
+    tags: ["production", "web"]
 ```
 
 ## Support
@@ -496,26 +528,21 @@ entries:
 
 - This wiki for comprehensive guides
 - GitHub README for quick start
-- Code examples and tutorials
-- Video demonstrations
+- `examples/` directory for ready-to-edit YAML
 
 **Community:**
 
 - GitHub Discussions for questions
-- GitHub Issues for bugs
-- Discord server for real-time chat
-- Community forums for discussions
+- GitHub Issues for bugs or feature requests
 
 **Professional Support:**
 
-- Enterprise support available
-- Professional services
-- Training and certification
-- Consulting services
+- Not offered. This is a community-supported Apache-2.0 project.
 
 ### How do I report bugs?
 
 **Bug Report Template:**
+
 ```markdown
 ## Bug Description
 Brief description of the bug
@@ -534,7 +561,7 @@ What actually happens
 ## Environment
 - OS: macOS/Windows/Linux
 - Docker version: 24.0+
-- mcp-ssh-orchestrator version: 0.1.0
+- mcp-ssh-orchestrator version: 1.0.0
 
 ## Additional Context
 Any other relevant information

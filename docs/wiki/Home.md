@@ -78,13 +78,13 @@ graph TB
 
 ```bash
 # Pull the image
-docker pull ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+docker pull ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 
 # Run interactively
 docker run -i --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
-  ghcr.io/samerfarida/mcp-ssh-orchestrator:0.1.0
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 ```
 
 ### Basic Configuration
