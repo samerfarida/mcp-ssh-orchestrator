@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Docker MCP Gateway secret support: secrets can now be injected as direct environment variables (matching `env:` field in `server.yml`) in addition to existing prefixed env vars and file-based secrets
+- Support for all 10 Docker MCP Registry secrets (5 passphrase + 5 password) with flexible expansion capability
+- Comprehensive test coverage for Docker MCP Gateway secret resolution including unit tests, integration tests, and priority order verification
 - Safe MCP resources:
   - `ssh://hosts` (inventory), `ssh://host/{alias}`, `ssh://host/{alias}/tags`, `ssh://host/{alias}/capabilities`
   - Reuse `_validate_alias()` + `Config` helpers and redact credentials automatically
@@ -16,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Helper unit tests for policy/network denial responses, plus README/wiki coverage explaining the new hint behavior
 
 ### Changed
+- Secret resolution priority updated to support Docker MCP Gateway pattern:
+  1. Direct env var (Docker MCP Gateway): `<SECRET_NAME>` (matches `env:` field in `server.yml`)
+  2. Prefixed env var (standalone/backward compatibility): `MCP_SSH_SECRET_<SECRET_NAME>`
+  3. File-based (standalone): `/app/secrets/<secret_name>`
 - README, tools reference, observability, and usage cookbook now document the new resources, context logging, and the Docker/Inspector/manual test workflow
 - Policy/network denial responses now include MCP-friendly `hint` text (and `ssh_plan` surfaces `why`/`hint` when blocked) so clients know to re-run `ssh_plan`, consult the orchestrator prompts, or explicitly ask about policy/network updates before retrying
 

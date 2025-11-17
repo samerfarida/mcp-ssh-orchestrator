@@ -212,6 +212,15 @@ def _resolve_secret(secret_name: str, secrets_dir: str = "") -> str:
     Security: Validates against path traversal attacks and only allows
     safe characters in secret names (alphanumeric, dash, underscore).
     Also validates length to prevent resource exhaustion.
+
+    Resolution order (supports both Docker MCP Gateway and standalone usage):
+    1. Direct environment variable (Docker MCP Gateway): <SECRET_NAME>
+       - Docker MCP Gateway injects secrets as env vars matching the 'env:' field
+       - Example: server.yml has 'env: SSH_KEY_PASSPHRASE_01' -> container gets 'SSH_KEY_PASSPHRASE_01'
+    2. Prefixed environment variable (standalone/backward compatibility): MCP_SSH_SECRET_<SECRET_NAME>
+       - Supports existing standalone deployments using prefixed env vars
+    3. Docker secrets file: /app/secrets/<secret_name>
+       - Supports file-based secret storage for standalone deployments
     """
     if not secret_name:
         return ""
@@ -230,10 +239,19 @@ def _resolve_secret(secret_name: str, secrets_dir: str = "") -> str:
         )
         return ""
 
-    # Try environment variable first (format: MCP_SSH_SECRET_<name>)
-    env_key = f"MCP_SSH_SECRET_{secret_name.upper()}"
-    if env_key in os.environ:
-        return os.environ[env_key]
+    # Try direct environment variable first (Docker MCP Gateway pattern)
+    # Docker MCP Gateway injects secrets as env vars matching the 'env:' field in server.yml
+    # Example: server.yml has 'env: SSH_KEY_PASSPHRASE_01' -> container gets 'SSH_KEY_PASSPHRASE_01'
+    # Secrets are ONLY injected when Docker MCP Gateway runs the container (not when running manually)
+    direct_env_key = secret_name.upper()
+    if direct_env_key in os.environ:
+        return os.environ[direct_env_key]
+
+    # Try prefixed environment variable (standalone/backward compatibility)
+    # Supports existing MCP_SSH_SECRET_<name> pattern for standalone usage
+    prefixed_env_key = f"MCP_SSH_SECRET_{secret_name.upper()}"
+    if prefixed_env_key in os.environ:
+        return os.environ[prefixed_env_key]
 
     # Security validation: only allow safe characters in secret_name
     # Allowed: alphanumeric, dash, underscore

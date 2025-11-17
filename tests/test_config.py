@@ -114,6 +114,129 @@ def test_get_credentials_not_found(temp_config_dir):
     assert creds == {}
 
 
+def test_get_credentials_key_passphrase_secret_docker_mcp(monkeypatch, temp_config_dir):
+    """Test get_credentials resolves key_passphrase_secret via Docker MCP Gateway."""
+    # Update credentials.yml
+    creds_path = os.path.join(temp_config_dir, "credentials.yml")
+    credentials = {
+        "entries": [
+            {
+                "name": "test_cred",
+                "username": "testuser",
+                "key_path": "id_ed25519",
+                "key_passphrase_secret": "SSH_KEY_PASSPHRASE_01",
+            }
+        ]
+    }
+    with open(creds_path, "w") as f:
+        yaml.dump(credentials, f)
+
+    # Set Docker MCP Gateway env var
+    monkeypatch.setenv("SSH_KEY_PASSPHRASE_01", "my-passphrase")
+
+    config = Config(temp_config_dir)
+    creds = config.get_credentials("test_cred")
+    assert creds["passphrase"] == "my-passphrase"
+
+
+def test_get_credentials_password_secret_docker_mcp(monkeypatch, temp_config_dir):
+    """Test get_credentials resolves password_secret via Docker MCP Gateway."""
+    # Update credentials.yml
+    creds_path = os.path.join(temp_config_dir, "credentials.yml")
+    credentials = {
+        "entries": [
+            {
+                "name": "test_cred",
+                "username": "testuser",
+                "password_secret": "SSH_PASSWORD_SECRET_01",
+            }
+        ]
+    }
+    with open(creds_path, "w") as f:
+        yaml.dump(credentials, f)
+
+    # Set Docker MCP Gateway env var
+    monkeypatch.setenv("SSH_PASSWORD_SECRET_01", "my-password")
+
+    config = Config(temp_config_dir)
+    creds = config.get_credentials("test_cred")
+    assert creds["password"] == "my-password"
+
+
+def test_get_credentials_both_secrets_docker_mcp(monkeypatch, temp_config_dir):
+    """Test get_credentials resolves both key_passphrase_secret and password_secret."""
+    # Update credentials.yml
+    creds_path = os.path.join(temp_config_dir, "credentials.yml")
+    credentials = {
+        "entries": [
+            {
+                "name": "test_cred",
+                "username": "testuser",
+                "key_path": "id_ed25519",
+                "key_passphrase_secret": "SSH_KEY_PASSPHRASE_01",
+                "password_secret": "SSH_PASSWORD_SECRET_01",
+            }
+        ]
+    }
+    with open(creds_path, "w") as f:
+        yaml.dump(credentials, f)
+
+    # Set both Docker MCP Gateway env vars
+    monkeypatch.setenv("SSH_KEY_PASSPHRASE_01", "my-passphrase")
+    monkeypatch.setenv("SSH_PASSWORD_SECRET_01", "my-password")
+
+    config = Config(temp_config_dir)
+    creds = config.get_credentials("test_cred")
+    assert creds["passphrase"] == "my-passphrase"
+    assert creds["password"] == "my-password"
+
+
+def test_get_credentials_all_secrets_docker_mcp(monkeypatch, temp_config_dir):
+    """Test get_credentials resolves all 10 secrets (5 passphrase + 5 password)."""
+    # Create credentials.yml with all secrets
+    creds_path = os.path.join(temp_config_dir, "credentials.yml")
+    entries = []
+
+    # 5 entries with passphrase secrets
+    for i in range(1, 6):
+        entries.append(
+            {
+                "name": f"passphrase_cred_{i}",
+                "username": "testuser",
+                "key_path": "id_ed25519",
+                "key_passphrase_secret": f"SSH_KEY_PASSPHRASE_{i:02d}",
+            }
+        )
+        monkeypatch.setenv(f"SSH_KEY_PASSPHRASE_{i:02d}", f"passphrase-{i}")
+
+    # 5 entries with password secrets
+    for i in range(1, 6):
+        entries.append(
+            {
+                "name": f"password_cred_{i}",
+                "username": "testuser",
+                "password_secret": f"SSH_PASSWORD_SECRET_{i:02d}",
+            }
+        )
+        monkeypatch.setenv(f"SSH_PASSWORD_SECRET_{i:02d}", f"password-{i}")
+
+    credentials = {"entries": entries}
+    with open(creds_path, "w") as f:
+        yaml.dump(credentials, f)
+
+    config = Config(temp_config_dir)
+
+    # Verify all passphrase secrets
+    for i in range(1, 6):
+        creds = config.get_credentials(f"passphrase_cred_{i}")
+        assert creds["passphrase"] == f"passphrase-{i}"
+
+    # Verify all password secrets
+    for i in range(1, 6):
+        creds = config.get_credentials(f"password_cred_{i}")
+        assert creds["password"] == f"password-{i}"
+
+
 def test_get_host_tags(temp_config_dir):
     """Test getting tags for a host."""
     config = Config(temp_config_dir)
@@ -171,6 +294,83 @@ def test_resolve_secret_from_env(monkeypatch):
     monkeypatch.setenv("MCP_SSH_SECRET_TEST_SECRET", "env-secret-value")
     result = _resolve_secret("test_secret")
     assert result == "env-secret-value"
+
+
+def test_resolve_secret_from_direct_env_var(monkeypatch):
+    """Test resolving secret from direct environment variable (Docker MCP Gateway pattern)."""
+    monkeypatch.setenv("SSH_KEY_PASSPHRASE_01", "direct-env-secret-value")
+    result = _resolve_secret("SSH_KEY_PASSPHRASE_01")
+    assert result == "direct-env-secret-value"
+
+
+def test_resolve_secret_from_prefixed_env_var(monkeypatch):
+    """Test resolving secret from prefixed environment variable (standalone pattern)."""
+    monkeypatch.setenv(
+        "MCP_SSH_SECRET_SSH_KEY_PASSPHRASE_01", "prefixed-env-secret-value"
+    )
+    result = _resolve_secret("SSH_KEY_PASSPHRASE_01")
+    assert result == "prefixed-env-secret-value"
+
+
+def test_resolve_secret_priority_direct_env_over_prefixed(monkeypatch):
+    """Test that direct env var takes precedence over prefixed env var."""
+    monkeypatch.setenv("SSH_KEY_PASSPHRASE_01", "direct-value")
+    monkeypatch.setenv("MCP_SSH_SECRET_SSH_KEY_PASSPHRASE_01", "prefixed-value")
+    result = _resolve_secret("SSH_KEY_PASSPHRASE_01")
+    assert result == "direct-value"  # Direct env var should win
+
+
+def test_resolve_secret_priority_env_over_file(monkeypatch):
+    """Test that environment variable takes precedence over file."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        secret_file = os.path.join(tmpdir, "SSH_KEY_PASSPHRASE_01")
+        with open(secret_file, "w") as f:
+            f.write("file-value")
+
+        monkeypatch.setenv("SSH_KEY_PASSPHRASE_01", "env-value")
+        result = _resolve_secret("SSH_KEY_PASSPHRASE_01", secrets_dir=tmpdir)
+        assert result == "env-value"  # Env var should win
+
+
+def test_resolve_secret_all_passphrase_secrets_docker_mcp(monkeypatch):
+    """Test resolving all 5 passphrase secrets via Docker MCP Gateway pattern."""
+    for i in range(1, 6):
+        secret_name = f"SSH_KEY_PASSPHRASE_{i:02d}"
+        secret_value = f"passphrase-secret-{i}"
+        monkeypatch.setenv(secret_name, secret_value)
+        result = _resolve_secret(secret_name)
+        assert result == secret_value
+
+
+def test_resolve_secret_all_password_secrets_docker_mcp(monkeypatch):
+    """Test resolving all 5 password secrets via Docker MCP Gateway pattern."""
+    for i in range(1, 6):
+        secret_name = f"SSH_PASSWORD_SECRET_{i:02d}"
+        secret_value = f"password-secret-{i}"
+        monkeypatch.setenv(secret_name, secret_value)
+        result = _resolve_secret(secret_name)
+        assert result == secret_value
+
+
+def test_resolve_secret_mixed_modes(monkeypatch):
+    """Test resolving secrets in mixed mode (some direct, some prefixed)."""
+    # Direct env var (Docker MCP Gateway)
+    monkeypatch.setenv("SSH_KEY_PASSPHRASE_01", "direct-value")
+    result1 = _resolve_secret("SSH_KEY_PASSPHRASE_01")
+    assert result1 == "direct-value"
+
+    # Prefixed env var (standalone)
+    monkeypatch.setenv("MCP_SSH_SECRET_SSH_KEY_PASSPHRASE_02", "prefixed-value")
+    result2 = _resolve_secret("SSH_KEY_PASSPHRASE_02")
+    assert result2 == "prefixed-value"
+
+
+def test_resolve_secret_case_sensitivity(monkeypatch):
+    """Test that secret resolution is case-insensitive for env var lookup."""
+    monkeypatch.setenv("SSH_KEY_PASSPHRASE_01", "uppercase-env")
+    # Secret name in credentials.yml might be lowercase
+    result = _resolve_secret("ssh_key_passphrase_01")
+    assert result == "uppercase-env"  # Should find it via .upper()
 
 
 def test_resolve_secret_from_file():
