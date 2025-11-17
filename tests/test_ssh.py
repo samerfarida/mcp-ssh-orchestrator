@@ -382,7 +382,7 @@ def test_ssh_client_connection_timeout():
     """Test timeout handling."""
     client = SSHClient(host="10.0.0.1", username="testuser", key_path="/path/to/key")
 
-    # Mock paramiko.SSHClient to raise socket.timeout during connect
+    # Mock paramiko.SSHClient to raise TimeoutError during connect
     mock_key = MagicMock()
     mock_host_key = MagicMock()
     with (
@@ -396,7 +396,7 @@ def test_ssh_client_connection_timeout():
         mock_ssh_client.get_host_keys.return_value = {
             "10.0.0.1": {"ssh-rsa": mock_host_key}
         }
-        mock_ssh_client.connect.side_effect = socket.timeout("Connection timed out")
+        mock_ssh_client.connect.side_effect = TimeoutError("Connection timed out")
 
         with pytest.raises(RuntimeError) as exc_info:
             client._connect()
