@@ -1,9 +1,14 @@
 """Tests for SSH client."""
 
 import io
+import socket
 import sys
 import threading
 import time
+from unittest.mock import MagicMock, patch
+
+import paramiko
+import pytest
 
 from mcp_ssh.ssh_client import (
     DNS_MAX_RESOLUTIONS_PER_SECOND,
@@ -304,3 +309,382 @@ def test_dns_resolution_multiple_hostnames():
 
     # hostname2 should NOT be rate limited (different hostname)
     assert _is_rate_limited(hostname2) is False
+
+
+# === SSH Error Handling Tests ===
+
+
+def test_ssh_client_authentication_error():
+    """Test authentication failure handling."""
+    client = SSHClient(host="10.0.0.1", username="testuser", key_path="/path/to/key")
+
+    # Mock paramiko.SSHClient and key loading
+    mock_key = MagicMock()
+    mock_host_key = MagicMock()
+    with (
+        patch("paramiko.SSHClient") as mock_ssh_client_class,
+        patch("paramiko.RSAKey.from_private_key_file", return_value=mock_key),
+    ):
+        mock_ssh_client = MagicMock()
+        mock_ssh_client_class.return_value = mock_ssh_client
+        mock_ssh_client.load_host_keys.return_value = None
+        mock_ssh_client.load_system_host_keys.return_value = None
+        # Host keys must have at least one key for the host to pass known_hosts check
+        mock_ssh_client.get_host_keys.return_value = {
+            "10.0.0.1": {"ssh-rsa": mock_host_key}
+        }
+        mock_ssh_client.connect.side_effect = paramiko.AuthenticationException(
+            "Authentication failed"
+        )
+
+        with pytest.raises(RuntimeError) as exc_info:
+            client._connect()
+
+        assert "SSH authentication failed: Invalid credentials" in str(exc_info.value)
+
+
+def test_ssh_client_host_key_error():
+    """Test host key verification failure handling."""
+    client = SSHClient(host="10.0.0.1", username="testuser", key_path="/path/to/key")
+
+    # Mock paramiko.SSHClient to raise BadHostKeyException during connect
+    mock_key = MagicMock()
+    mock_host_key = MagicMock()
+    with (
+        patch("paramiko.SSHClient") as mock_ssh_client_class,
+        patch("paramiko.RSAKey.from_private_key_file", return_value=mock_key),
+    ):
+        mock_ssh_client = MagicMock()
+        mock_ssh_client_class.return_value = mock_ssh_client
+        mock_ssh_client.load_host_keys.return_value = None
+        mock_ssh_client.load_system_host_keys.return_value = None
+        mock_ssh_client.get_host_keys.return_value = {
+            "10.0.0.1": {"ssh-rsa": mock_host_key}
+        }
+        # BadHostKeyException requires proper key objects
+        mock_bad_key = MagicMock()
+        mock_bad_key.get_base64.return_value = "test_key_data"
+        mock_expected_key = MagicMock()
+        mock_expected_key.get_base64.return_value = "expected_key_data"
+        mock_ssh_client.connect.side_effect = paramiko.BadHostKeyException(
+            "10.0.0.1", mock_bad_key, mock_expected_key
+        )
+
+        with pytest.raises(RuntimeError) as exc_info:
+            client._connect()
+
+        assert "SSH host key verification failed: Host key mismatch" in str(
+            exc_info.value
+        )
+
+
+def test_ssh_client_connection_timeout():
+    """Test timeout handling."""
+    client = SSHClient(host="10.0.0.1", username="testuser", key_path="/path/to/key")
+
+    # Mock paramiko.SSHClient to raise socket.timeout during connect
+    mock_key = MagicMock()
+    mock_host_key = MagicMock()
+    with (
+        patch("paramiko.SSHClient") as mock_ssh_client_class,
+        patch("paramiko.RSAKey.from_private_key_file", return_value=mock_key),
+    ):
+        mock_ssh_client = MagicMock()
+        mock_ssh_client_class.return_value = mock_ssh_client
+        mock_ssh_client.load_host_keys.return_value = None
+        mock_ssh_client.load_system_host_keys.return_value = None
+        mock_ssh_client.get_host_keys.return_value = {
+            "10.0.0.1": {"ssh-rsa": mock_host_key}
+        }
+        mock_ssh_client.connect.side_effect = socket.timeout("Connection timed out")
+
+        with pytest.raises(RuntimeError) as exc_info:
+            client._connect()
+
+        assert "SSH connection timeout: Host did not respond" in str(exc_info.value)
+
+
+def test_ssh_client_connection_refused():
+    """Test connection refused handling."""
+    client = SSHClient(host="10.0.0.1", username="testuser", key_path="/path/to/key")
+
+    # Mock paramiko.SSHClient to raise ConnectionRefusedError during connect
+    mock_key = MagicMock()
+    mock_host_key = MagicMock()
+    with (
+        patch("paramiko.SSHClient") as mock_ssh_client_class,
+        patch("paramiko.RSAKey.from_private_key_file", return_value=mock_key),
+    ):
+        mock_ssh_client = MagicMock()
+        mock_ssh_client_class.return_value = mock_ssh_client
+        mock_ssh_client.load_host_keys.return_value = None
+        mock_ssh_client.load_system_host_keys.return_value = None
+        mock_ssh_client.get_host_keys.return_value = {
+            "10.0.0.1": {"ssh-rsa": mock_host_key}
+        }
+        mock_ssh_client.connect.side_effect = ConnectionRefusedError(
+            "Connection refused"
+        )
+
+        with pytest.raises(RuntimeError) as exc_info:
+            client._connect()
+
+        assert "SSH connection refused: Port may be closed or firewall blocking" in str(
+            exc_info.value
+        )
+
+
+def test_ssh_client_dns_resolution_failure():
+    """Test DNS resolution failure handling."""
+    client = SSHClient(
+        host="invalid-host.example", username="testuser", key_path="/path/to/key"
+    )
+
+    # Mock paramiko.SSHClient to raise socket.gaierror during connect
+    mock_key = MagicMock()
+    mock_host_key = MagicMock()
+    with (
+        patch("paramiko.SSHClient") as mock_ssh_client_class,
+        patch("paramiko.RSAKey.from_private_key_file", return_value=mock_key),
+    ):
+        mock_ssh_client = MagicMock()
+        mock_ssh_client_class.return_value = mock_ssh_client
+        mock_ssh_client.load_host_keys.return_value = None
+        mock_ssh_client.load_system_host_keys.return_value = None
+        mock_ssh_client.get_host_keys.return_value = {
+            "invalid-host.example": {"ssh-rsa": mock_host_key}
+        }
+        gaierror = socket.gaierror("Name or service not known")
+        mock_ssh_client.connect.side_effect = gaierror
+
+        with pytest.raises(RuntimeError) as exc_info:
+            client._connect()
+
+        assert "SSH hostname resolution failed: DNS lookup failed" in str(
+            exc_info.value
+        )
+
+
+def test_ssh_client_key_file_not_found():
+    """Test missing key file handling."""
+    client = SSHClient(
+        host="10.0.0.1", username="testuser", key_path="/nonexistent/key"
+    )
+
+    # Mock paramiko key loading to raise FileNotFoundError
+    mock_host_key = MagicMock()
+    with (
+        patch("paramiko.SSHClient") as mock_ssh_client_class,
+        patch("paramiko.RSAKey.from_private_key_file") as mock_rsa,
+        patch("paramiko.Ed25519Key.from_private_key_file") as mock_ed25519,
+        patch("paramiko.ECDSAKey.from_private_key_file") as mock_ecdsa,
+    ):
+        mock_ssh_client = MagicMock()
+        mock_ssh_client_class.return_value = mock_ssh_client
+        mock_ssh_client.load_host_keys.return_value = None
+        mock_ssh_client.load_system_host_keys.return_value = None
+        mock_ssh_client.get_host_keys.return_value = {
+            "10.0.0.1": {"ssh-rsa": mock_host_key}
+        }
+        mock_rsa.side_effect = FileNotFoundError(
+            "No such file or directory: '/nonexistent/key'"
+        )
+        mock_ed25519.side_effect = FileNotFoundError(
+            "No such file or directory: '/nonexistent/key'"
+        )
+        mock_ecdsa.side_effect = FileNotFoundError(
+            "No such file or directory: '/nonexistent/key'"
+        )
+
+        with pytest.raises(RuntimeError) as exc_info:
+            client._connect()
+
+        assert "SSH key file not found: Check key path configuration" in str(
+            exc_info.value
+        )
+
+
+def test_ssh_client_key_passphrase_required():
+    """Test passphrase requirement handling."""
+    client = SSHClient(
+        host="10.0.0.1", username="testuser", key_path="/path/to/encrypted/key"
+    )
+
+    # Mock paramiko key loading to raise PasswordRequiredException
+    mock_host_key = MagicMock()
+    with (
+        patch("paramiko.SSHClient") as mock_ssh_client_class,
+        patch("paramiko.RSAKey.from_private_key_file") as mock_rsa,
+        patch("paramiko.Ed25519Key.from_private_key_file") as mock_ed25519,
+        patch("paramiko.ECDSAKey.from_private_key_file") as mock_ecdsa,
+    ):
+        mock_ssh_client = MagicMock()
+        mock_ssh_client_class.return_value = mock_ssh_client
+        mock_ssh_client.load_host_keys.return_value = None
+        mock_ssh_client.load_system_host_keys.return_value = None
+        mock_ssh_client.get_host_keys.return_value = {
+            "10.0.0.1": {"ssh-rsa": mock_host_key}
+        }
+        mock_rsa.side_effect = paramiko.PasswordRequiredException(
+            "Private key is encrypted"
+        )
+        mock_ed25519.side_effect = paramiko.PasswordRequiredException(
+            "Private key is encrypted"
+        )
+        mock_ecdsa.side_effect = paramiko.PasswordRequiredException(
+            "Private key is encrypted"
+        )
+
+        with pytest.raises(RuntimeError) as exc_info:
+            client._connect()
+
+        assert "SSH key requires passphrase: Provide key_passphrase_secret" in str(
+            exc_info.value
+        )
+
+
+def test_ssh_client_generic_error():
+    """Test fallback error handling."""
+    client = SSHClient(host="10.0.0.1", username="testuser", key_path="/path/to/key")
+
+    # Mock paramiko.SSHClient to raise generic Exception during connect
+    mock_key = MagicMock()
+    mock_host_key = MagicMock()
+    with (
+        patch("paramiko.SSHClient") as mock_ssh_client_class,
+        patch("paramiko.RSAKey.from_private_key_file", return_value=mock_key),
+    ):
+        mock_ssh_client = MagicMock()
+        mock_ssh_client_class.return_value = mock_ssh_client
+        mock_ssh_client.load_host_keys.return_value = None
+        mock_ssh_client.load_system_host_keys.return_value = None
+        mock_ssh_client.get_host_keys.return_value = {
+            "10.0.0.1": {"ssh-rsa": mock_host_key}
+        }
+        mock_ssh_client.connect.side_effect = Exception("Unexpected error")
+
+        with pytest.raises(RuntimeError) as exc_info:
+            client._connect()
+
+        assert (
+            "SSH connection failed: Check host, port, and network connectivity"
+            in str(exc_info.value)
+        )
+
+
+def test_ssh_client_host_key_not_found():
+    """Test host key not found in known_hosts."""
+    client = SSHClient(host="10.0.0.1", username="testuser", key_path="/path/to/key")
+
+    # Mock paramiko.SSHClient to have empty host keys (simulating missing known_hosts entry)
+    with patch("paramiko.SSHClient") as mock_ssh_client_class:
+        mock_ssh_client = MagicMock()
+        mock_ssh_client_class.return_value = mock_ssh_client
+        mock_ssh_client.load_host_keys.return_value = None
+        mock_ssh_client.load_system_host_keys.return_value = None
+        # Empty host keys triggers the known_hosts check
+        mock_ssh_client.get_host_keys.return_value = {}
+
+        with pytest.raises(RuntimeError) as exc_info:
+            client._connect()
+
+        assert "SSH host key not found: Add host to known_hosts" in str(exc_info.value)
+
+
+def test_ssh_client_key_format_invalid():
+    """Test invalid key format handling."""
+    client = SSHClient(
+        host="10.0.0.1", username="testuser", key_path="/path/to/invalid/key"
+    )
+
+    # Mock paramiko key loading to raise SSHException with invalid key message
+    from paramiko import ssh_exception
+
+    mock_host_key = MagicMock()
+    with (
+        patch("paramiko.SSHClient") as mock_ssh_client_class,
+        patch("paramiko.RSAKey.from_private_key_file") as mock_rsa,
+        patch("paramiko.Ed25519Key.from_private_key_file") as mock_ed25519,
+        patch("paramiko.ECDSAKey.from_private_key_file") as mock_ecdsa,
+    ):
+        mock_ssh_client = MagicMock()
+        mock_ssh_client_class.return_value = mock_ssh_client
+        mock_ssh_client.load_host_keys.return_value = None
+        mock_ssh_client.load_system_host_keys.return_value = None
+        mock_ssh_client.get_host_keys.return_value = {
+            "10.0.0.1": {"ssh-rsa": mock_host_key}
+        }
+        invalid_key_error = ssh_exception.SSHException(
+            "not a valid RSA private key file"
+        )
+        mock_rsa.side_effect = invalid_key_error
+        mock_ed25519.side_effect = invalid_key_error
+        mock_ecdsa.side_effect = invalid_key_error
+
+        with pytest.raises(RuntimeError) as exc_info:
+            client._connect()
+
+        assert (
+            "SSH key format invalid: Check key file format (RSA/Ed25519/ECDSA)"
+            in str(exc_info.value)
+        )
+
+
+def test_ssh_client_permission_denied_key():
+    """Test key permission denied handling."""
+    client = SSHClient(host="10.0.0.1", username="testuser", key_path="/path/to/key")
+
+    # Mock paramiko key loading to raise PermissionError
+    mock_host_key = MagicMock()
+    with (
+        patch("paramiko.SSHClient") as mock_ssh_client_class,
+        patch("paramiko.RSAKey.from_private_key_file") as mock_rsa,
+        patch("paramiko.Ed25519Key.from_private_key_file") as mock_ed25519,
+        patch("paramiko.ECDSAKey.from_private_key_file") as mock_ecdsa,
+    ):
+        mock_ssh_client = MagicMock()
+        mock_ssh_client_class.return_value = mock_ssh_client
+        mock_ssh_client.load_host_keys.return_value = None
+        mock_ssh_client.load_system_host_keys.return_value = None
+        mock_ssh_client.get_host_keys.return_value = {
+            "10.0.0.1": {"ssh-rsa": mock_host_key}
+        }
+        perm_error = PermissionError("Permission denied: '/path/to/key'")
+        mock_rsa.side_effect = perm_error
+        mock_ed25519.side_effect = perm_error
+        mock_ecdsa.side_effect = perm_error
+
+        with pytest.raises(RuntimeError) as exc_info:
+            client._connect()
+
+        assert (
+            "SSH key permission denied: Check key file permissions (should be 600)"
+            in str(exc_info.value)
+        )
+
+
+def test_ssh_client_network_unreachable():
+    """Test network unreachable handling."""
+    client = SSHClient(host="10.0.0.1", username="testuser", key_path="/path/to/key")
+
+    # Mock paramiko.SSHClient to raise OSError with network unreachable message
+    mock_key = MagicMock()
+    mock_host_key = MagicMock()
+    with (
+        patch("paramiko.SSHClient") as mock_ssh_client_class,
+        patch("paramiko.RSAKey.from_private_key_file", return_value=mock_key),
+    ):
+        mock_ssh_client = MagicMock()
+        mock_ssh_client_class.return_value = mock_ssh_client
+        mock_ssh_client.load_host_keys.return_value = None
+        mock_ssh_client.load_system_host_keys.return_value = None
+        mock_ssh_client.get_host_keys.return_value = {
+            "10.0.0.1": {"ssh-rsa": mock_host_key}
+        }
+        os_error = OSError("Network is unreachable")
+        mock_ssh_client.connect.side_effect = os_error
+
+        with pytest.raises(RuntimeError) as exc_info:
+            client._connect()
+
+        assert "SSH network unreachable: Cannot reach host" in str(exc_info.value)

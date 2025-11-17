@@ -1172,59 +1172,88 @@ def ssh_run_on_tag(
                 )
                 continue
 
-            limits = pol.limits_for(alias, tags)
-            max_seconds = int(limits.get("max_seconds", 60))
-            max_output_bytes = int(limits.get("max_output_bytes", 1024 * 1024))
-            require_known_host_config = bool(
-                limits.get("require_known_host", pol.require_known_host())
-            )
-            # Security: Always require known_host for security (CWE-295)
-            if not require_known_host_config:
-                log_json(
-                    {
-                        "level": "warn",
-                        "msg": "deprecation_warning",
-                        "type": "host_key_policy_deprecated",
-                        "detail": "require_known_host=False is deprecated and ignored. Always requiring known_hosts entry for security.",
-                        "alias": alias,
-                        "cwe": "CWE-295",
-                    }
+            # Wrap SSH connection/execution in try-except for per-host error handling
+            task_id = None
+            try:
+                limits = pol.limits_for(alias, tags)
+                max_seconds = int(limits.get("max_seconds", 60))
+                max_output_bytes = int(limits.get("max_output_bytes", 1024 * 1024))
+                require_known_host_config = bool(
+                    limits.get("require_known_host", pol.require_known_host())
                 )
-            require_known_host = True  # Always enforce strict host key verification
+                # Security: Always require known_host for security (CWE-295)
+                if not require_known_host_config:
+                    log_json(
+                        {
+                            "level": "warn",
+                            "msg": "deprecation_warning",
+                            "type": "host_key_policy_deprecated",
+                            "detail": "require_known_host=False is deprecated and ignored. Always requiring known_hosts entry for security.",
+                            "alias": alias,
+                            "cwe": "CWE-295",
+                        }
+                    )
+                require_known_host = True  # Always enforce strict host key verification
 
-            task_id = TASKS.create(alias, cmd_hash)
+                task_id = TASKS.create(alias, cmd_hash)
 
-            def progress_cb(
-                phase: str,
-                bytes_read: int,
-                elapsed_ms: int,
-                pol_ref: Policy = pol,
-                task_ref: str = task_id,
-            ) -> None:
-                pol_ref.log_progress(task_ref, phase, int(bytes_read), int(elapsed_ms))
+                def progress_cb(
+                    phase: str,
+                    bytes_read: int,
+                    elapsed_ms: int,
+                    pol_ref: Policy = pol,
+                    task_ref: str = task_id,
+                ) -> None:
+                    pol_ref.log_progress(
+                        task_ref, phase, int(bytes_read), int(elapsed_ms)
+                    )
 
-            client = _client_for(alias, limits, require_known_host)
-            cancel_event = TASKS.get_event(task_id)
-            (
-                exit_code,
-                duration_ms,
-                cancelled,
-                timeout,
-                bytes_out,
-                bytes_err,
-                combined,
-                peer_ip,
-            ) = client.run_streaming(
-                command=command,
-                cancel_event=cancel_event,
-                max_seconds=max_seconds,
-                max_output_bytes=max_output_bytes,
-                progress_cb=progress_cb,
-            )
-            TASKS.cleanup(task_id)
+                client = _client_for(alias, limits, require_known_host)
+                cancel_event = TASKS.get_event(task_id)
+                (
+                    exit_code,
+                    duration_ms,
+                    cancelled,
+                    timeout,
+                    bytes_out,
+                    bytes_err,
+                    combined,
+                    peer_ip,
+                ) = client.run_streaming(
+                    command=command,
+                    cancel_event=cancel_event,
+                    max_seconds=max_seconds,
+                    max_output_bytes=max_output_bytes,
+                    progress_cb=progress_cb,
+                )
+                TASKS.cleanup(task_id)
 
-            # Post-connect enforcement
-            if peer_ip and not pol.is_ip_allowed(peer_ip):
+                # Post-connect enforcement
+                if peer_ip and not pol.is_ip_allowed(peer_ip):
+                    pol.log_audit(
+                        alias,
+                        cmd_hash,
+                        int(exit_code),
+                        int(duration_ms),
+                        int(bytes_out),
+                        int(bytes_err),
+                        bool(cancelled),
+                        bool(timeout),
+                        peer_ip,
+                    )
+                    results.append(
+                        {
+                            "alias": alias,
+                            "task_id": task_id,
+                            "hash": cmd_hash,
+                            "denied": True,
+                            "reason": f"network: peer {peer_ip} not allowed",
+                            "detail": f"peer {peer_ip} not allowed",
+                            "hint": _NETWORK_DENY_HINT,
+                        }
+                    )
+                    continue
+
                 pol.log_audit(
                     alias,
                     cmd_hash,
@@ -1241,38 +1270,48 @@ def ssh_run_on_tag(
                         "alias": alias,
                         "task_id": task_id,
                         "hash": cmd_hash,
-                        "denied": True,
-                        "reason": f"network: peer {peer_ip} not allowed",
-                        "detail": f"peer {peer_ip} not allowed",
-                        "hint": _NETWORK_DENY_HINT,
+                        "exit_code": int(exit_code),
+                        "duration_ms": int(duration_ms),
+                        "cancelled": bool(cancelled),
+                        "timeout": bool(timeout),
+                        "target_ip": peer_ip,
+                        "output": combined,
                     }
                 )
-                continue
+            except Exception as e:
+                # Handle per-host failures gracefully
+                error_str = str(e)
+                log_json(
+                    {
+                        "level": "error",
+                        "msg": "run_on_tag_host_failed",
+                        "alias": alias,
+                        "error": error_str,
+                    }
+                )
 
-            pol.log_audit(
-                alias,
-                cmd_hash,
-                int(exit_code),
-                int(duration_ms),
-                int(bytes_out),
-                int(bytes_err),
-                bool(cancelled),
-                bool(timeout),
-                peer_ip,
-            )
-            results.append(
-                {
-                    "alias": alias,
-                    "task_id": task_id,
-                    "hash": cmd_hash,
-                    "exit_code": int(exit_code),
-                    "duration_ms": int(duration_ms),
-                    "cancelled": bool(cancelled),
-                    "timeout": bool(timeout),
-                    "target_ip": peer_ip,
-                    "output": combined,
-                }
-            )
+                # Clean up task if it was created
+                if task_id:
+                    try:
+                        TASKS.cleanup(task_id)
+                    except Exception:
+                        pass
+
+                # Add error result for this host
+                results.append(
+                    {
+                        "alias": alias,
+                        "task_id": task_id if task_id else "",
+                        "hash": cmd_hash,
+                        "exit_code": -1,
+                        "duration_ms": 0,
+                        "cancelled": False,
+                        "timeout": False,
+                        "target_ip": "",
+                        "output": sanitize_error(error_str),
+                    }
+                )
+                continue  # Continue with next host
 
         summary = {
             "tag": tag,

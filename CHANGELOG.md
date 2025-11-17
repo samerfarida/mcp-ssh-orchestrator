@@ -8,6 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Enhanced SSH error messages with specific failure reasons (authentication, timeout, connection refused, DNS resolution, etc.)
+- Per-host exception handling in `ssh_run_on_tag` - individual host failures no longer stop entire operation
+- Comprehensive test coverage for SSH error scenarios (12 new unit tests, 5 new integration tests)
+- MCP Inspector automated testing script for error handling validation
+- MCP specification compliance tests for error handling patterns
+
+### Changed
+- SSH error messages now provide specific, actionable information instead of generic "SSH connection failed"
+- `ssh_run_on_tag` now handles per-host failures gracefully, continuing execution on remaining hosts
+- Error messages are sanitized for security (no IPs, hostnames, or file paths in user-facing errors)
+- Async task error handling now sanitizes error messages before storing/notifying
+
+### Fixed
+- Fixed issue where one host failure in `ssh_run_on_tag` would stop execution on all hosts
+- Improved error categorization for better troubleshooting (authentication vs network vs configuration errors)
+
+## [0.6.0] - 2025-11-17
+
+### Added
 
 ### Changed
 

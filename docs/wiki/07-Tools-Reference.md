@@ -328,12 +328,29 @@ ssh_plan --alias "prod-web-1" --command "systemctl restart nginx"
 | `task_id` | string | Unique task identifier (`alias:hash:timestamp`) |
 | `alias` | string | Target host alias |
 | `hash` | string | Short SHA256 hash of the command |
-| `exit_code` | integer | Command exit status (0 = success) |
+| `exit_code` | integer | Command exit status (0 = success, -1 = connection/execution error) |
 | `duration_ms` | integer | Execution time in milliseconds |
 | `cancelled` | boolean | Whether command was cancelled |
 | `timeout` | boolean | Whether command hit the time limit |
 | `target_ip` | string | Actual IP address connected to |
-| `output` | string | Combined stdout/stderr output (truncated to limit) |
+| `output` | string | Combined stdout/stderr output (truncated to limit), or error message if `exit_code` is -1 |
+
+**Error Handling:**
+
+If SSH connection fails, the response includes:
+- `exit_code: -1` indicating connection/execution failure
+- `output`: Specific, sanitized error message (e.g., "SSH connection refused: Port may be closed or firewall blocking")
+- `target_ip: ""` (empty, as connection was not established)
+- `duration_ms: 0` or small value (connection failed quickly)
+
+**Error Message Examples:**
+- `"SSH authentication failed: Invalid credentials"`
+- `"SSH connection timeout: Host did not respond"`
+- `"SSH connection refused: Port may be closed or firewall blocking"`
+- `"SSH hostname resolution failed: DNS lookup failed"`
+- `"SSH key file not found: Check key path configuration"`
+
+All error messages are sanitized for security (no IPs, hostnames, or file paths exposed). See [Troubleshooting Guide](../12-Troubleshooting.md#ssh-connection-errors) for detailed solutions.
 
 **Use Cases:**
 
@@ -407,6 +424,61 @@ ssh_run --alias "web1" --command "systemctl status nginx"
 - Entries include `task_id` when a command was executed. Denied hosts omit `task_id` and include `denied`/`reason`.
 - Policy or network denials include `hint` text that points MCP clients back to `ssh_plan` or the orchestrator prompts for next steps.
 - No summary object is returned; aggregate stats can be derived from the `results` array.
+
+**Per-Host Error Handling:**
+
+Individual host failures are handled gracefully - one host failure does not stop execution on other hosts. Each host's result is included in the `results` array:
+
+- **Successful hosts:** `exit_code: 0`, `output` contains command output
+- **Failed hosts:** `exit_code: -1`, `output` contains specific error message
+- **Denied hosts:** `denied: true`, `reason` explains why (policy/network)
+
+**Example Response with Mixed Success/Failure:**
+```json
+{
+  "tag": "production",
+  "results": [
+    {
+      "alias": "prod-web-1",
+      "task_id": "prod-web-1:4c2d8a8f7b1e:1700000000000",
+      "hash": "4c2d8a8f7b1e",
+      "exit_code": 0,
+      "duration_ms": 1100,
+      "cancelled": false,
+      "timeout": false,
+      "target_ip": "10.0.0.11",
+      "output": "uptime output..."
+    },
+    {
+      "alias": "prod-web-2",
+      "task_id": "prod-web-2:4c2d8a8f7b1e:1700000000001",
+      "hash": "4c2d8a8f7b1e",
+      "exit_code": -1,
+      "duration_ms": 5,
+      "cancelled": false,
+      "timeout": false,
+      "target_ip": "",
+      "output": "SSH connection timeout: Host did not respond"
+    },
+    {
+      "alias": "prod-db-1",
+      "hash": "4c2d8a8f7b1e",
+      "denied": true,
+      "reason": "policy"
+    }
+  ]
+}
+```
+
+**Error Messages:**
+
+Failed hosts return specific, actionable error messages in the `output` field:
+- `"SSH connection refused: Port may be closed or firewall blocking"`
+- `"SSH connection timeout: Host did not respond"`
+- `"SSH authentication failed: Invalid credentials"`
+- `"SSH hostname resolution failed: DNS lookup failed"`
+
+All error messages are sanitized for security. See [Troubleshooting Guide](../12-Troubleshooting.md#ssh-connection-errors) for detailed solutions.
 
 **Use Cases:**
 

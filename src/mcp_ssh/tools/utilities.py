@@ -362,19 +362,24 @@ class AsyncTaskManager:
             )
 
         except Exception as e:
-            # Mark as failed
+            # Mark as failed with sanitized error message
+            error_str = str(e)
+            sanitized_error = sanitize_error(error_str)
             with self._lock:
                 if task_id in self._tasks:
                     self._tasks[task_id]["status"] = "failed"
-                    self._tasks[task_id]["error"] = str(e)
+                    self._tasks[task_id]["error"] = sanitized_error
                     self._tasks[task_id]["completed"] = time.time()
+                    # Store sanitized error in output for consistency
+                    if task_id in self._output_buffers:
+                        self._output_buffers[task_id].append(sanitized_error)
 
-            # Send failure notification
+            # Send failure notification with sanitized error
             self._send_notification(
                 "failed",
                 task_id,
                 {
-                    "error": str(e),
+                    "error": sanitized_error,
                     "max_seconds": int(
                         self._tasks.get(task_id, {})
                         .get("limits", {})

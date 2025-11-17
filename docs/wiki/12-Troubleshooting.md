@@ -113,7 +113,151 @@ print('Policy result:', result)
 
 ### Network Issues
 
-#### SSH Connection Failures
+#### SSH Connection Errors
+
+**Overview:**
+
+The orchestrator provides specific, actionable error messages for SSH connection failures. Error messages are sanitized for security (no IPs, hostnames, or file paths exposed) while providing enough information to troubleshoot.
+
+**Common Error Messages and Solutions:**
+
+**1. "SSH authentication failed: Invalid credentials"**
+
+- **Meaning:** Username, password, or SSH key is incorrect
+- **Solutions:**
+  - Verify username in `credentials.yml`
+  - Check password or key passphrase secret is correct
+  - Verify SSH key file is correct and not corrupted
+  - Test authentication manually: `ssh -i /path/to/key user@host`
+
+**2. "SSH host key verification failed: Host key mismatch"**
+
+- **Meaning:** Host key in `known_hosts` doesn't match server
+- **Solutions:**
+  - Remove old host key: `ssh-keygen -R <hostname>`
+  - Add new host key: `ssh-keyscan -H <hostname> >> /app/keys/known_hosts`
+  - Verify host key: `ssh-keygen -l -f /app/keys/known_hosts`
+
+**3. "SSH host key not found: Add host to known_hosts"**
+
+- **Meaning:** Host is not in `known_hosts` file
+- **Solutions:**
+  - Add host key: `ssh-keyscan -H <hostname> >> /app/keys/known_hosts`
+  - Verify file is mounted correctly in Docker
+  - Check file permissions (should be readable)
+
+**4. "SSH connection timeout: Host did not respond"**
+
+- **Meaning:** Host is not reachable or SSH service is not running
+- **Solutions:**
+  - Test network connectivity: `ping <hostname>`
+  - Check SSH service: `systemctl status ssh` (on target host)
+  - Verify firewall rules allow SSH (port 22)
+  - Check if host is behind VPN or requires special network access
+
+**5. "SSH connection refused: Port may be closed or firewall blocking"**
+
+- **Meaning:** SSH port is closed or blocked by firewall
+- **Solutions:**
+  - Verify SSH service is running: `systemctl status ssh`
+  - Check port is open: `telnet <hostname> 22` or `nc -zv <hostname> 22`
+  - Review firewall rules (iptables, firewalld, cloud security groups)
+  - Verify port number in `servers.yml` is correct (default: 22)
+
+**6. "SSH hostname resolution failed: DNS lookup failed"**
+
+- **Meaning:** Hostname cannot be resolved to an IP address
+- **Solutions:**
+  - Test DNS resolution: `nslookup <hostname>` or `dig <hostname>`
+  - Use IP address instead of hostname in `servers.yml`
+  - Check DNS server configuration
+  - Verify hostname is correct (typos, wrong domain)
+
+**7. "SSH key file not found: Check key path configuration"**
+
+- **Meaning:** SSH key file doesn't exist at specified path
+- **Solutions:**
+  - Verify key path in `credentials.yml` is correct
+  - Check key file exists: `ls -la /app/keys/<key_path>`
+  - Verify Docker volume mount includes keys directory
+  - Use relative path (within `/app/keys`) or absolute path
+
+**8. "SSH key requires passphrase: Provide key_passphrase_secret"**
+
+- **Meaning:** Encrypted SSH key needs passphrase
+- **Solutions:**
+  - Add `key_passphrase_secret` to credentials entry in `credentials.yml`
+  - Create secret file or set environment variable
+  - Verify passphrase is correct
+
+**9. "SSH key permission denied: Check key file permissions (should be 600)"**
+
+- **Meaning:** SSH key file has incorrect permissions
+- **Solutions:**
+  - Fix permissions: `chmod 600 /app/keys/<key_file>`
+  - Verify file ownership
+  - Check Docker volume mount preserves permissions
+
+**10. "SSH network unreachable: Cannot reach host"**
+
+- **Meaning:** Network route to host doesn't exist
+- **Solutions:**
+  - Check network connectivity: `ping <hostname>`
+  - Verify routing table
+  - Check if host is on different network/VPN
+  - Review network policy in `policy.yml` (network allowlist)
+
+**11. "SSH connection failed: Check host, port, and network connectivity"**
+
+- **Meaning:** Generic connection failure (fallback error)
+- **Solutions:**
+  - Check all of the above
+  - Review server logs for detailed error (logged to stderr)
+  - Verify host is accessible from orchestrator location
+  - Test SSH connection manually to isolate issue
+
+**Error Response Format:**
+
+When using `ssh_run` or `ssh_run_on_tag`, errors are returned in the response:
+
+```json
+{
+  "alias": "host1",
+  "exit_code": -1,
+  "output": "SSH connection refused: Port may be closed or firewall blocking",
+  "duration_ms": 5
+}
+```
+
+For `ssh_run_on_tag`, individual host failures don't stop the operation - each host's result is included in the `results` array:
+
+```json
+{
+  "tag": "production",
+  "results": [
+    {
+      "alias": "host1",
+      "exit_code": 0,
+      "output": "command output"
+    },
+    {
+      "alias": "host2",
+      "exit_code": -1,
+      "output": "SSH connection timeout: Host did not respond"
+    }
+  ]
+}
+```
+
+**Security Note:**
+
+Error messages are sanitized to prevent information disclosure:
+- No IP addresses in user-facing errors
+- No hostnames in user-facing errors
+- No file paths in user-facing errors
+- Detailed errors are logged to stderr for debugging (with full context)
+
+#### SSH Connection Failures (Legacy Section)
 
 **Symptoms:**
 

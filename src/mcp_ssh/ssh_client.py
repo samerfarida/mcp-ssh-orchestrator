@@ -6,6 +6,7 @@ import time
 import traceback
 
 import paramiko
+from paramiko import ssh_exception
 
 # DNS rate limiting and caching constants
 DNS_MAX_RESOLUTIONS_PER_SECOND = 10
@@ -244,9 +245,31 @@ class SSHClient:
                                 self.key_path, password=self.passphrase
                             )
                         except Exception as e:
-                            raise RuntimeError(
-                                f"Failed to load private key from {self.key_path}"
-                            ) from e
+                            # Re-raise key loading errors with more context
+                            error_str = str(e)
+                            if isinstance(e, FileNotFoundError):
+                                raise RuntimeError(
+                                    "SSH key file not found: Check key path configuration"
+                                ) from e
+                            elif isinstance(e, paramiko.PasswordRequiredException):
+                                raise RuntimeError(
+                                    "SSH key requires passphrase: Provide key_passphrase_secret"
+                                ) from e
+                            elif isinstance(e, PermissionError):
+                                raise RuntimeError(
+                                    "SSH key permission denied: Check key file permissions (should be 600)"
+                                ) from e
+                            elif isinstance(e, ssh_exception.SSHException) and (
+                                "not a valid" in error_str.lower()
+                                or "invalid key" in error_str.lower()
+                            ):
+                                raise RuntimeError(
+                                    "SSH key format invalid: Check key file format (RSA/Ed25519/ECDSA)"
+                                ) from e
+                            else:
+                                raise RuntimeError(
+                                    f"Failed to load private key from {self.key_path}"
+                                ) from e
 
                 client.connect(
                     hostname=self.host,
@@ -283,21 +306,115 @@ class SSHClient:
                 client.close()
             except Exception:
                 pass
-            # Provide generic error messages (sensitive details logged separately)
+            # Provide specific error messages based on exception type and content
             # Note: Detailed error with hostname/IP is logged to stderr via exception chaining
             # User-facing error is sanitized by mcp_server.py exception handlers
-            if "Authentication failed" in str(e):
-                raise RuntimeError("SSH authentication failed") from e
-            elif "No such file or directory" in str(e) and self.key_path:
-                raise RuntimeError("SSH key file not found") from e
-            elif "Permission denied" in str(e):
-                raise RuntimeError("SSH permission denied") from e
-            elif "Connection refused" in str(e):
-                raise RuntimeError("SSH connection refused") from e
-            elif "Name or service not known" in str(e):
-                raise RuntimeError("SSH hostname not found") from e
+            error_msg = str(e)
+
+            # Check exception type first for more reliable detection
+            # Re-raise key loading errors (they already have specific messages from inner handler)
+            if isinstance(e, RuntimeError) and (
+                "SSH key file not found" in error_msg
+                or "SSH key requires passphrase" in error_msg
+                or "SSH key permission denied" in error_msg
+                or "SSH key format invalid" in error_msg
+            ):
+                raise e
+            elif isinstance(e, paramiko.AuthenticationException):
+                raise RuntimeError(
+                    "SSH authentication failed: Invalid credentials"
+                ) from e
+            elif isinstance(e, paramiko.BadHostKeyException):
+                raise RuntimeError(
+                    "SSH host key verification failed: Host key mismatch"
+                ) from e
+            elif isinstance(e, paramiko.PasswordRequiredException):
+                raise RuntimeError(
+                    "SSH key requires passphrase: Provide key_passphrase_secret"
+                ) from e
+            elif isinstance(e, (socket.timeout, TimeoutError)):
+                raise RuntimeError(
+                    "SSH connection timeout: Host did not respond"
+                ) from e
+            elif isinstance(e, ConnectionRefusedError):
+                raise RuntimeError(
+                    "SSH connection refused: Port may be closed or firewall blocking"
+                ) from e
+            elif (
+                isinstance(e, (socket.gaierror, OSError))
+                and "Name or service not known" in error_msg
+            ):
+                raise RuntimeError(
+                    "SSH hostname resolution failed: DNS lookup failed"
+                ) from e
+            elif isinstance(e, OSError) and "Network is unreachable" in error_msg:
+                raise RuntimeError("SSH network unreachable: Cannot reach host") from e
+            elif isinstance(e, FileNotFoundError) or (
+                "No such file or directory" in error_msg and self.key_path
+            ):
+                raise RuntimeError(
+                    "SSH key file not found: Check key path configuration"
+                ) from e
+            elif isinstance(e, ssh_exception.SSHException) and (
+                "not a valid" in error_msg.lower() or "invalid key" in error_msg.lower()
+            ):
+                raise RuntimeError(
+                    "SSH key format invalid: Check key file format (RSA/Ed25519/ECDSA)"
+                ) from e
+            # Fallback to string matching for cases where exception type isn't specific enough
+            elif (
+                "Authentication failed" in error_msg
+                or "authentication" in error_msg.lower()
+            ):
+                raise RuntimeError(
+                    "SSH authentication failed: Invalid credentials"
+                ) from e
+            elif "known_hosts" in error_msg.lower() or "host key" in error_msg.lower():
+                if "not found" in error_msg.lower():
+                    raise RuntimeError(
+                        "SSH host key not found: Add host to known_hosts"
+                    ) from e
+                else:
+                    raise RuntimeError("SSH host key verification failed") from e
+            elif "timeout" in error_msg.lower():
+                raise RuntimeError(
+                    "SSH connection timeout: Host did not respond"
+                ) from e
+            elif "Connection refused" in error_msg:
+                raise RuntimeError(
+                    "SSH connection refused: Port may be closed or firewall blocking"
+                ) from e
+            elif "Permission denied" in error_msg and self.key_path:
+                raise RuntimeError(
+                    "SSH key permission denied: Check key file permissions (should be 600)"
+                ) from e
+            elif "Permission denied" in error_msg:
+                raise RuntimeError(
+                    "SSH permission denied: Check username and credentials"
+                ) from e
+            elif "Name or service not known" in error_msg:
+                raise RuntimeError(
+                    "SSH hostname resolution failed: DNS lookup failed"
+                ) from e
+            elif isinstance(e, ssh_exception.SSHException):
+                # Generic paramiko SSH exception
+                if "Unable to connect" in error_msg:
+                    raise RuntimeError(
+                        "SSH unable to connect: Check host and port"
+                    ) from e
+                else:
+                    # Extract meaningful part if available
+                    first_part = (
+                        error_msg.split(":")[0]
+                        if ":" in error_msg
+                        else "Connection failed"
+                    )
+                    raise RuntimeError(f"SSH error: {first_part}") from e
             else:
-                raise RuntimeError("SSH connection failed") from e
+                # Final fallback
+                raise RuntimeError(
+                    "SSH connection failed: Check host, port, and network connectivity"
+                ) from e
 
     def run_streaming(
         self,
