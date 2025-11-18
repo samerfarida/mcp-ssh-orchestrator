@@ -1,5 +1,5 @@
 Contact: mailto:samer.farida@yahoo.com
-Encryption: TBD
+Encryption: openpgp4fpr:6775BF3F439A2A8A198DE10D4FC5342A979BD358
 Expires: 2026-10-27T23:59:59.000Z
 Preferred-Languages: en
 Canonical: https://github.com/samerfarida/mcp-ssh-orchestrator/.well-known/security.txt

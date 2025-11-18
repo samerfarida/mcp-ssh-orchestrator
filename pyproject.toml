@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mcp-ssh-orchestrator"
-version = "0.4.0"
+version = "0.8.0"
 description = "A secure SSH fleet orchestrator for MCP (STDIO transport)."
 readme = "README.md"
 requires-python = ">=3.11"

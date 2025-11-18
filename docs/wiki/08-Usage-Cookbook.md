@@ -13,6 +13,7 @@ This cookbook provides **real-world examples** and **common patterns** for using
 **Use Case:** Safe, permissive access for development and testing.
 
 **servers.yml:**
+
 ```yaml
 hosts:
   - alias: "dev-web-1"
@@ -31,6 +32,7 @@ hosts:
 ```
 
 **credentials.yml:**
+
 ```yaml
 entries:
   - name: "dev_admin"
@@ -41,6 +43,7 @@ entries:
 ```
 
 **policy.yml:**
+
 ```yaml
 limits:
   max_seconds: 120
@@ -62,6 +65,7 @@ rules:
 ```
 
 **Usage Examples:**
+
 ```bash
 # Test connectivity
 ssh_ping
@@ -81,6 +85,7 @@ ssh_run_on_tag --tag "development" --command "uptime"
 **Use Case:** Moderate security with some operational flexibility.
 
 **servers.yml:**
+
 ```yaml
 hosts:
   - alias: "staging-web-1"
@@ -99,6 +104,7 @@ hosts:
 ```
 
 **policy.yml:**
+
 ```yaml
 limits:
   max_seconds: 90
@@ -147,6 +153,7 @@ rules:
 ```
 
 **Usage Examples:**
+
 ```bash
 # Staging operations
 ssh_run --alias "staging-web-1" --command "systemctl restart nginx"
@@ -163,6 +170,7 @@ ssh_run_on_tag --tag "staging" --command "docker pull nginx:latest"
 **Use Case:** Strict security with minimal allowed operations.
 
 **servers.yml:**
+
 ```yaml
 hosts:
   - alias: "prod-web-1"
@@ -188,6 +196,7 @@ hosts:
 ```
 
 **policy.yml:**
+
 ```yaml
 limits:
   max_seconds: 30
@@ -248,6 +257,7 @@ overrides:
 ```
 
 **Usage Examples:**
+
 ```bash
 # Production monitoring only
 ssh_run --alias "prod-web-1" --command "uptime"
@@ -267,6 +277,7 @@ ssh_plan --alias "prod-web-1" --command "systemctl restart nginx"  # Should be d
 ### System Monitoring
 
 **Health Checks:**
+
 ```bash
 # Basic health check
 ssh_ping
@@ -283,6 +294,7 @@ ssh_run --alias "web1" --command "systemctl is-enabled nginx"
 ```
 
 **Bulk Monitoring:**
+
 ```bash
 # Check all production hosts
 ssh_run_on_tag --tag "production" --command "uptime"
@@ -296,6 +308,7 @@ ssh_run_on_tag --tag "database" --command "systemctl status postgresql"
 ### Service Management
 
 **Service Operations:**
+
 ```bash
 # Check service status
 ssh_run --alias "web1" --command "systemctl status nginx"
@@ -311,6 +324,7 @@ ssh_run --alias "web1" --command "systemctl disable nginx"
 ```
 
 **Bulk Service Operations:**
+
 ```bash
 # Restart all web servers
 ssh_run_on_tag --tag "web" --command "systemctl restart nginx"
@@ -322,6 +336,7 @@ ssh_run_on_tag --tag "database" --command "systemctl status postgresql"
 ### Log Analysis
 
 **Log Inspection:**
+
 ```bash
 # Recent logs
 ssh_run --alias "web1" --command "journalctl --no-pager -n 20 nginx"
@@ -333,6 +348,7 @@ ssh_run --alias "web1" --command "grep ERROR /var/log/nginx/error.log | tail -5"
 ```
 
 **Bulk Log Analysis:**
+
 ```bash
 # Check logs across all web servers
 ssh_run_on_tag --tag "web" --command "journalctl --no-pager -n 10 nginx"
@@ -342,6 +358,7 @@ ssh_run_on_tag --tag "web" --command "tail -n 5 /var/log/nginx/access.log"
 ### Process Management
 
 **Process Information:**
+
 ```bash
 # Running processes
 ssh_run --alias "web1" --command "ps aux | grep nginx"
@@ -353,6 +370,7 @@ ssh_run --alias "web1" --command "htop -n 1"
 ```
 
 **Resource Usage:**
+
 ```bash
 # Memory usage
 ssh_run --alias "web1" --command "free -h"
@@ -366,6 +384,7 @@ ssh_run --alias "web1" --command "cat /proc/loadavg"
 ### Network Diagnostics
 
 **Network Information:**
+
 ```bash
 # Network interfaces
 ssh_run --alias "web1" --command "ip addr show"
@@ -381,6 +400,7 @@ ssh_run --alias "web1" --command "route -n"
 ```
 
 **Connectivity Testing:**
+
 ```bash
 # Ping tests
 ssh_run --alias "web1" --command "ping -c 3 8.8.8.8"
@@ -396,6 +416,7 @@ ssh_run --alias "web1" --command "nc -zv localhost 80"
 ### Policy Testing Workflow
 
 **Always test before executing:**
+
 ```bash
 # 1. Test policy first
 ssh_plan --alias "web1" --command "systemctl restart nginx"
@@ -407,9 +428,56 @@ ssh_run --alias "web1" --command "systemctl restart nginx"
 ssh_run --alias "web1" --command "systemctl status nginx"
 ```
 
+### Policy Tuning: Privileged Maintenance Window
+
+**Goal:** Allow `DEBIAN_FRONTEND=noninteractive sudo apt-get upgrade -y` on a small set of hosts without loosening global policy.
+
+1. **Edit policy.yml**
+
+   ```yaml
+   rules:
+     - action: "allow"
+       aliases:
+         - "docker-prod-manager1"
+         - "docker-prod-manager2"
+         - "docker-prod-manager3"
+       commands:
+         - "sudo apt-get update*"
+         - "DEBIAN_FRONTEND=noninteractive sudo apt-get upgrade -y*"
+
+   overrides:
+     aliases:
+       docker-prod-manager1:
+         max_seconds: 300
+         task_result_ttl: 1800
+   ```
+
+   - Remove `sudo` from the global `deny_substrings` list or override it for these aliases.
+   - Copy the override block for each host that needs the longer timeout/output window.
+
+2. **Reload & dry-run**
+
+   ```bash
+   ssh_reload_config
+   ssh_plan --alias docker-prod-manager1 \
+     --command "DEBIAN_FRONTEND=noninteractive sudo apt-get upgrade -y"
+   ```
+
+3. **Execute asynchronously**
+
+   ```bash
+   ssh_run_async --alias docker-prod-manager1 \
+     --command "DEBIAN_FRONTEND=noninteractive sudo apt-get upgrade -y"
+   ssh_get_task_status --task-id "<id>"
+   ssh_get_task_result --task-id "<id>"
+   ```
+
+4. **Roll back overrides if temporary** once the window closes.
+
 ### Bulk Operations with Error Handling
 
 **Safe bulk operations:**
+
 ```bash
 # Check all hosts first
 ssh_list_hosts
@@ -424,6 +492,7 @@ ssh_run_on_tag --tag "web" --command "systemctl status nginx"
 ### Configuration Management
 
 **Reload configuration:**
+
 ```bash
 # After updating policy.yml
 ssh_reload_config
@@ -435,6 +504,7 @@ ssh_describe_host --alias "web1"
 ### Command Cancellation
 
 **Long-running commands:**
+
 ```bash
 # Start long-running command
 ssh_run --alias "web1" --command "tail -f /var/log/nginx/access.log"
@@ -448,6 +518,7 @@ ssh_cancel --task_id "web1:a1b2c3d4:1234567890"
 ### Web Server Management
 
 **Nginx Operations:**
+
 ```bash
 # Check configuration
 ssh_run --alias "web1" --command "nginx -t"
@@ -463,6 +534,7 @@ ssh_run --alias "web1" --command "tail -n 20 /var/log/nginx/error.log"
 ```
 
 **Apache Operations:**
+
 ```bash
 # Check configuration
 ssh_run --alias "web1" --command "apache2ctl configtest"
@@ -480,6 +552,7 @@ ssh_run --alias "web1" --command "tail -n 20 /var/log/apache2/error.log"
 ### Database Management
 
 **PostgreSQL Operations:**
+
 ```bash
 # Service status
 ssh_run --alias "db1" --command "systemctl status postgresql"
@@ -494,6 +567,7 @@ ssh_run --alias "db1" --command "sudo -u postgres psql -c 'SELECT * FROM pg_stat
 ```
 
 **MySQL Operations:**
+
 ```bash
 # Service status
 ssh_run --alias "db1" --command "systemctl status mysql"
@@ -510,6 +584,7 @@ ssh_run --alias "db1" --command "mysql -e 'SHOW PROCESSLIST'"
 ### Container Management
 
 **Docker Operations:**
+
 ```bash
 # Container status
 ssh_run --alias "web1" --command "docker ps"
@@ -524,6 +599,7 @@ ssh_run --alias "web1" --command "docker stats --no-stream"
 ```
 
 **Kubernetes Operations:**
+
 ```bash
 # Pod status
 ssh_run --alias "k8s-node-1" --command "kubectl get pods"
@@ -543,6 +619,7 @@ ssh_run --alias "k8s-node-1" --command "kubectl describe node k8s-node-1"
 ### Connection Issues
 
 **Test connectivity:**
+
 ```bash
 # Basic connectivity
 ssh_ping
@@ -558,6 +635,7 @@ ssh_plan --alias "web1" --command "uptime"
 ### Policy Issues
 
 **Debug policy decisions:**
+
 ```bash
 # Test specific commands
 ssh_plan --alias "web1" --command "uptime"
@@ -570,6 +648,7 @@ ssh_describe_host --alias "web1"
 ### Performance Issues
 
 **Monitor resource usage:**
+
 ```bash
 # System resources
 ssh_run --alias "web1" --command "uptime"
@@ -580,6 +659,46 @@ ssh_run --alias "web1" --command "free -h"
 ssh_run --alias "web1" --command "ps aux | head -10"
 ssh_run --alias "web1" --command "top -n 1"
 ```
+
+## Inspector + Manual Validation Checklist
+
+Use this workflow whenever you need to validate a release, exercise new resources, or reproduce bugs:
+
+1. **Build the image**
+
+   ```bash
+   scripts/docker-build.sh
+   ```
+
+2. **Run MCP Inspector against the container**
+
+   ```bash
+   scripts/docker-smoketest.sh
+   ```
+
+   The helper script mirrors the bundled examples into a temporary directory, mounts them into Docker, and launches `npx @modelcontextprotocol/inspector docker run ...` so you can drive the stdio server interactively.
+3. **Resource tour**
+   - Browse `ssh://hosts`, `ssh://host/{alias}`, `ssh://host/{alias}/tags`, and `ssh://host/{alias}/capabilities`
+   - Confirm `has_credentials_ref` shows credential presence without revealing names or secrets
+4. **Tool smoke tests**
+   - `ssh_plan` → `ssh_run` for an allowed path
+   - `ssh_plan` → `ssh_run` for a denied path (policy + network)
+   - `ssh_run_on_tag` for a populated tag and a tag with zero matches
+   - Async lifecycle: `ssh_run_async`, `ssh_get_task_status`, `ssh_get_task_output`, `ssh_get_task_result`, `ssh_cancel`/`ssh_cancel_async_task`
+   - `ssh_reload_config` after editing the mounted config dir
+   - Confirm that policy/network denials include the `hint` field (and that `ssh_plan` returns `why` + `hint` when blocked) so LLM clients learn to re-run `ssh_plan`, consult the orchestrator prompts, **or escalate with a policy-update discussion** instead of looping on a forbidden command
+5. **Context logging + observability**
+   - Watch Inspector console for new `ctx.debug` / `ctx.info` events (task creation/completion, cancellation, reload)
+   - Tail `docker logs -f <container>` to capture `policy_decision`, `audit`, `progress`, and `trace` entries for success, failure, denied, and cancelled flows
+6. **Manual checklist recap**
+   - Resource browsing complete
+   - Allowed + denied commands verified
+   - Tag fan-out path validated
+   - Async lifecycle exercised end-to-end
+   - Cancellation + reload flows tested
+   - Logs reviewed for all paths, including security denials
+
+Capture the commands you ran (or Inspector screenshots) in PR descriptions to show the release has been validated end-to-end.
 
 ## Next Steps
 

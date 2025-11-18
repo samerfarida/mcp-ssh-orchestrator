@@ -23,34 +23,34 @@ graph TB
         LLM[LLM/AI Agent]
         MCP_CLIENT[MCP Client]
     end
-    
+
     subgraph "Transport Layer"
         STDIO[stdio Transport]
         SSE[Server-Sent Events]
         HTTP[HTTP/WebSocket]
     end
-    
+
     subgraph "MCP Servers"
         SSH_SERVER[mcp-ssh-orchestrator]
         DB_SERVER[Database Server]
         API_SERVER[API Server]
         FILE_SERVER[File Server]
     end
-    
+
     subgraph "External Systems"
         SSH_HOSTS[SSH Hosts]
         DATABASE[Database]
         REST_API[REST APIs]
         FILESYSTEM[File System]
     end
-    
+
     LLM --> MCP_CLIENT
     MCP_CLIENT --> STDIO
     STDIO --> SSH_SERVER
     STDIO --> DB_SERVER
     STDIO --> API_SERVER
     STDIO --> FILE_SERVER
-    
+
     SSH_SERVER --> SSH_HOSTS
     DB_SERVER --> DATABASE
     API_SERVER --> REST_API
@@ -64,11 +64,12 @@ graph TB
 Before MCP, AI agents typically accessed external systems through:
 
 - **Custom APIs** with inconsistent interfaces
-- **Direct shell access** with unlimited privileges  
+- **Direct shell access** with unlimited privileges
 - **Hardcoded integrations** that were difficult to audit
 - **No standardization** across different tools
 
 This led to:
+
 - **Security vulnerabilities** (43% of analyzed servers have command injection flaws)
 - **Inconsistent behavior** across different tools
 - **Difficult auditing** and compliance
@@ -89,6 +90,7 @@ MCP addresses these issues by providing:
 MCP supports multiple transport mechanisms:
 
 ### stdio Transport (Most Common)
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -111,6 +113,7 @@ MCP supports multiple transport mechanisms:
 - Process-to-process communication
 
 ### Server-Sent Events (SSE)
+
 ```javascript
 // Client connects to SSE endpoint
 const eventSource = new EventSource('/mcp/sse');
@@ -129,6 +132,7 @@ eventSource.onmessage = function(event) {
 - Cross-origin communication
 
 ### HTTP/WebSocket
+
 ```bash
 # HTTP POST request
 curl -X POST https://api.example.com/mcp \
@@ -158,21 +162,25 @@ curl -X POST https://api.example.com/mcp \
 MCP introduces a **layered security model** that addresses the unique challenges of AI agent interactions:
 
 ### 1. Transport Security
+
 - **Encrypted communication** (TLS for HTTP/WebSocket)
 - **Process isolation** (stdio transport)
 - **Authentication** at the transport layer
 
 ### 2. Protocol Security
+
 - **Structured requests** prevent injection attacks
 - **Type validation** ensures data integrity
 - **Error handling** prevents information leakage
 
 ### 3. Server Security
+
 - **Containerized execution** with resource limits
 - **Policy enforcement** at the server level
 - **Audit logging** for all operations
 
 ### 4. Client Security
+
 - **Tool allowlists** restrict available servers
 - **Signature verification** ensures server authenticity
 - **Call interceptors** for pre/post processing
@@ -182,17 +190,20 @@ MCP introduces a **layered security model** that addresses the unique challenges
 The MCP ecosystem includes:
 
 ### Official Components
+
 - **[MCP Specification](https://modelcontextprotocol.io/specification/2025-06-18/basic/)** - Official protocol definition
 - **[MCP SDK](https://github.com/modelcontextprotocol/sdk)** - Reference implementations
 - **[MCP Registry](https://github.com/docker/mcp-registry)** - Curated server catalog
 
 ### Popular Servers
+
 - **mcp-ssh-orchestrator** - SSH command execution (this project)
 - **mcp-server-filesystem** - File system access
 - **mcp-server-database** - Database operations
 - **mcp-server-git** - Git repository management
 
 ### Client Integrations
+
 - **Claude Desktop** - Native MCP support
 - **OpenAI Codex** - Via Docker MCP Toolkit
 - **Custom Applications** - Using MCP SDK
@@ -202,18 +213,21 @@ The MCP ecosystem includes:
 mcp-ssh-orchestrator is designed as a **secure MCP server** that implements Docker's MCP security best practices:
 
 ### Security-First Design
+
 - **Containerized execution** with resource limits
 - **Policy-based access control** with deny-by-default
 - **Network segmentation** with IP allowlists
 - **Comprehensive audit logging** for compliance
 
 ### MCP Compliance
+
 - **Full MCP specification** implementation
 - **stdio transport** for Docker compatibility
 - **Structured JSON-RPC** communication
 - **Type-safe interfaces** for all tools
 
 ### Production Ready
+
 - **Non-root execution** for security
 - **Health checks** for monitoring
 - **Graceful error handling** for reliability
@@ -222,15 +236,19 @@ mcp-ssh-orchestrator is designed as a **secure MCP server** that implements Dock
 ## Getting Started with MCP
 
 ### 1. Understand the Protocol
+
 Read the [MCP Specification](https://modelcontextprotocol.io/specification/2025-06-18/basic/) to understand the protocol details.
 
 ### 2. Explore Security Best Practices
+
 Review [Docker's MCP Security Guide](https://www.docker.com/blog/mcp-security-explained/) for security considerations.
 
 ### 3. Try mcp-ssh-orchestrator
+
 Follow our [Quick Start Guide](09-Deployment) to set up mcp-ssh-orchestrator with Claude Desktop.
 
 ### 4. Build Your Own Server
+
 Use the [MCP SDK](https://github.com/modelcontextprotocol/sdk) to create custom MCP servers.
 
 ## Next Steps

@@ -1,69 +1,105 @@
----
 name: Bug Report
-about: Create a report to help us improve
-title: '[BUG] '
-labels: ['bug', 'needs-triage']
-assignees: ''
----
+description: Create a report to help us improve
+title: "[BUG] "
+labels:
+  - bug
+  - needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Thanks for filing a bug
+        Please include the exact MCP tool invocations (`ssh_plan`, `ssh_run`, etc.) so we can reproduce the issue.
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: What happened?
+      description: Provide a concise summary of the problem.
+      placeholder: The orchestrator returned X when I expected Y...
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: List each MCP tool call and include command arguments + outputs.
+      placeholder: |
+        1. `ssh_plan alias="web-1" command="uptime"`
+        2. `ssh_run alias="web-1" command="uptime"`
+        3. Error output / denial message
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: Describe what you thought would happen.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Describe what actually happened (include error text if possible).
+    validations:
+      required: true
+  - type: checkboxes
+    id: prechecks
+    attributes:
+      label: Pre-checks
+      description: Run through these before filing so we can debug faster.
+      options:
+        - label: I confirmed `ssh_plan` reports the command should be allowed.
+        - label: I reran `ssh_reload_config` after editing any YAML.
+        - label: I verified the host alias/tag exists in `servers.yml`.
+        - label: I confirmed my `known_hosts` entry matches the target host.
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include OS, Docker version, MCP client, and orchestrator version.
+      placeholder: |
+        OS: macOS 15.0
+        Docker: Docker Desktop 4.29.0
+        MCP SSH Orchestrator: 1.0.0
+        MCP client: Cursor
+        Python version (if local): 3.11.8
+    validations:
+      required: true
+  - type: textarea
+    id: configuration
+    attributes:
+      label: Sanitized configuration
+      description: Redact anything sensitive. Include only the sections that matter.
+      placeholder: |
+        ```yaml
+        # servers.yml
+        hosts:
+          - alias: "example"
+            host: "10.0.0.1"
+            port: 22
+            credentials: "example_creds"
+            tags: ["test"]
 
-## Bug Description
-A clear and concise description of what the bug is.
-
-## To Reproduce
-Steps to reproduce the behavior:
-1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
-4. See error
-
-## Expected Behavior
-A clear and concise description of what you expected to happen.
-
-## Actual Behavior
-A clear and concise description of what actually happened.
-
-## Environment
-Please complete the following information:
-
-- **OS**: [e.g. macOS, Linux, Windows]
-- **Docker Version**: [e.g. Docker Desktop 4.25.0]
-- **Python Version**: [e.g. 3.11.5] (if running locally)
-- **MCP SSH Orchestrator Version**: [e.g. 0.1.0]
-- **MCP Client**: [e.g. Claude Desktop, Cline, etc.]
-
-## Configuration
-Please provide sanitized configuration snippets (remove sensitive information):
-
-```yaml
-# servers.yml (sanitized)
-hosts:
-  - alias: "example"
-    host: "10.0.0.1"
-    port: 22
-    credentials: "example_creds"
-    tags: ["test"]
-
-# policy.yml (sanitized)
-limits:
-  max_seconds: 60
-  max_output_bytes: 1048576
-```
-
-## Logs
-Please provide relevant error messages, stack traces, or logs:
-
-```
-Paste logs here
-```
-
-## Additional Context
-Add any other context about the problem here.
-
-## Security Note
-⚠️ **Important**: Do not include any sensitive information such as:
-- Real IP addresses or hostnames
-- SSH private keys or passwords
-- Actual credentials or secrets
-- Internal network details
-
-Please sanitize all configuration examples before posting.
+        # policy.yml
+        limits:
+          max_seconds: 60
+          max_output_bytes: 1048576
+        ```
+      render: markdown
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / stderr excerpts
+      description: Paste relevant error messages or audit log snippets (sanitized).
+      render: shell
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Anything else we should know?
+  - type: markdown
+    attributes:
+      value: |
+        **Security Note**
+        Do **not** include sensitive information (IPs, credentials, secrets). Sanitize all snippets before posting.

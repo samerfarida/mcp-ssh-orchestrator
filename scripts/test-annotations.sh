@@ -49,10 +49,10 @@ if docker buildx build \
     --load \
     -t ${TEST_MIN}:latest \
     . > /tmp/test-min.log 2>&1; then
-    echo -e "${GREEN}✅ Test 1 PASSED: Minimal description format works${NC}"
+    echo -e "${GREEN}Test 1 PASSED: Minimal description format works${NC}"
     echo ""
 else
-    echo -e "${RED}❌ Test 1 FAILED: Minimal description format failed${NC}"
+    echo -e "${RED}Test 1 FAILED: Minimal description format failed${NC}"
     echo "Error log:"
     cat /tmp/test-min.log
     exit 1
@@ -71,10 +71,10 @@ if docker buildx build \
     --load \
     -t ${TEST_FULL}:latest \
     . > /tmp/test-full.log 2>&1; then
-    echo -e "${GREEN}✅ Test 2 PASSED: Full simplified description format works${NC}"
+    echo -e "${GREEN}Test 2 PASSED: Full simplified description format works${NC}"
     echo ""
 else
-    echo -e "${RED}❌ Test 2 FAILED: Full simplified description format failed${NC}"
+    echo -e "${RED}Test 2 FAILED: Full simplified description format failed${NC}"
     echo "Error log:"
     cat /tmp/test-full.log
     exit 1
@@ -87,13 +87,13 @@ echo "Inspecting built image to verify annotations are present..."
 echo ""
 
 if docker image inspect ${TEST_FULL}:latest | grep -q "org.opencontainers.image.description"; then
-    echo -e "${GREEN}✅ Test 3 PASSED: Annotations found in image${NC}"
+    echo -e "${GREEN}Test 3 PASSED: Annotations found in image${NC}"
     echo ""
     echo "Image labels:"
     docker image inspect ${TEST_FULL}:latest | grep -A 10 "Labels" || true
     echo ""
 else
-    echo -e "${YELLOW}⚠️  Test 3 WARNING: Annotations not found in image labels (may be in manifest index for multi-arch)${NC}"
+    echo -e "${YELLOW}Test 3 WARNING: Annotations not found in image labels (may be in manifest index for multi-arch)${NC}"
     echo ""
 fi
 
@@ -108,11 +108,11 @@ if docker buildx build \
     --platform linux/amd64,linux/arm64 \
     --output type=oci,dest=${TMP_DIR}/test-multi.tar,annotation-index.org.opencontainers.image.description="A secure SSH fleet orchestrator for MCP STDIO transport. Enforces declarative policy and audited access for Claude Desktop Cursor and MCP-aware clients",annotation-index.org.opencontainers.image.source="https://github.com/samerfarida/mcp-ssh-orchestrator",annotation-index.org.opencontainers.image.licenses=Apache-2.0 \
     . > /tmp/test-multi.log 2>&1; then
-    echo -e "${GREEN}✅ Test 4 PASSED: Multi-platform syntax is valid${NC}"
+    echo -e "${GREEN}Test 4 PASSED: Multi-platform syntax is valid${NC}"
     echo ""
     rm -rf ${TMP_DIR}
 else
-    echo -e "${RED}❌ Test 4 FAILED: Multi-platform syntax validation failed${NC}"
+    echo -e "${RED}Test 4 FAILED: Multi-platform syntax validation failed${NC}"
     echo "Error log:"
     cat /tmp/test-multi.log
     rm -rf ${TMP_DIR}
@@ -123,11 +123,10 @@ fi
 echo "========================================="
 echo "Test Summary"
 echo "========================================="
-echo -e "${GREEN}✅ All tests passed!${NC}"
+echo -e "${GREEN}All tests passed!${NC}"
 echo ""
 echo "The outputs parameter format is valid and ready for implementation."
 echo "Format that will be used in release workflow:"
 echo ""
 echo "outputs: type=image,name=\${{ env.REGISTRY }}/\${{ env.IMAGE_NAME }},annotation-index.org.opencontainers.image.description=A secure SSH fleet orchestrator for MCP STDIO transport. Enforces declarative policy and audited access for Claude Desktop Cursor and MCP-aware clients,annotation-index.org.opencontainers.image.source=https://github.com/\${{ github.repository }},annotation-index.org.opencontainers.image.licenses=Apache-2.0"
 echo ""
-

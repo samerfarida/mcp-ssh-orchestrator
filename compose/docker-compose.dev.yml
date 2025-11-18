@@ -1,7 +1,7 @@
-# ─────────────────────────────────────────────────────────────
-# 🧩 mcp-ssh-orchestrator (STDIO MCP Server)
+# ============================================================
+# mcp-ssh-orchestrator (STDIO MCP Server)
 # Purpose: Local test or integration with Claude / Docker MCP
-# ─────────────────────────────────────────────────────────────
+# ============================================================
 
 services:
   mcp-ssh:
@@ -15,8 +15,6 @@ services:
     user: "1000:1000"               # Run as non-root user
     environment:
       MCP_SSH_CONFIG_DIR: /app/config
-      MCP_SSH_MAX_CONCURRENCY: ${MCP_SSH_MAX_CONCURRENCY:-5}
-      MCP_SSH_TIMEOUT_SEC: ${MCP_SSH_TIMEOUT_SEC:-45}
       PYTHONUNBUFFERED: "1"
     volumes:
       - ../config:/app/config:ro     # Main YAML configs

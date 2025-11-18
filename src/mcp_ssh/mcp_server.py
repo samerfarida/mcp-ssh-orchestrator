@@ -338,6 +338,117 @@ def _precheck_network(pol: Policy, hostname: str) -> tuple[bool, str]:
     return False, "No resolved IPs allowed by policy.network"
 
 
+def _sanitize_host_metadata(host: dict) -> dict:
+    """Return safe subset of host metadata suitable for resources."""
+    sanitized = {
+        "alias": str(host.get("alias", "")).strip(),
+        "host": str(host.get("host", "")).strip(),
+        "port": int(host.get("port", 22) or 22),
+        "tags": host.get("tags", []) or [],
+        "description": host.get("description", ""),
+    }
+    # Indicate whether a credentials reference exists without exposing the value
+    sanitized["has_credentials_ref"] = bool(str(host.get("credentials", "")).strip())
+    return sanitized
+
+
+def _summarize_limits(limits: dict) -> dict:
+    """Summarize execution limits without exposing sensitive deny patterns."""
+    summary = {
+        "max_seconds": int(limits.get("max_seconds", 60)),
+        "max_output_bytes": int(limits.get("max_output_bytes", 1024 * 1024)),
+        "require_known_host": True,
+        "host_key_auto_add": False,
+        "task_result_ttl": int(limits.get("task_result_ttl", 300)),
+        "task_progress_interval": int(limits.get("task_progress_interval", 5)),
+        "deny_patterns_enabled": bool(limits.get("deny_substrings")),
+    }
+    return summary
+
+
+def _probe_policy_capabilities(
+    alias: str, tags: list, pol: Policy, probes: list[dict]
+) -> list[dict]:
+    """Evaluate sample commands to provide high-level capability hints."""
+    results = []
+    for probe in probes:
+        required_tags = probe.get("required_tags") or []
+        if required_tags and not any(tag in tags for tag in required_tags):
+            continue
+        command = probe.get("command", "").strip()
+        if not command:
+            continue
+        results.append(
+            {
+                "probe": probe.get("id", command),
+                "command": command,
+                "allowed": bool(pol.is_allowed(alias, tags, command)),
+            }
+        )
+    return results
+
+
+# Sample probe definitions for capability summaries
+_CAPABILITY_PROBES = [
+    {"id": "basic_diagnostics", "command": "uptime"},
+    {"id": "filesystem_overview", "command": "df -h"},
+    {"id": "docker_status", "command": "docker ps", "required_tags": ["docker"]},
+]
+
+_POLICY_DENY_HINT = "Hint: Use ssh_plan to inspect allowed commands, review the SSH Orchestrator prompts, or ask if the policy should be updated."
+_NETWORK_DENY_HINT = "Hint: Use ssh_plan to review host restrictions, check the SSH Orchestrator prompts, or discuss updating policy/network rules."
+
+
+def _policy_denied_response(alias: str, command: str, cmd_hash: str) -> dict:
+    return {
+        "status": "denied",
+        "reason": "policy",
+        "alias": alias,
+        "hash": cmd_hash,
+        "command": command,
+        "hint": _POLICY_DENY_HINT,
+    }
+
+
+def _network_denied_response(alias: str, hostname: str, detail: str) -> dict:
+    return {
+        "status": "denied",
+        "reason": "network",
+        "alias": alias,
+        "hostname": hostname,
+        "detail": detail,
+        "hint": _NETWORK_DENY_HINT,
+    }
+
+
+def _ctx_log(
+    ctx: Context | None,
+    level: str,
+    event: str,
+    payload: dict[str, Any] | None = None,
+) -> None:
+    """Emit lightweight context logs without blocking tool execution."""
+    if ctx is None:
+        return
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return
+
+    message_dict = {"event": event}
+    if payload:
+        message_dict.update(payload)
+    message = json.dumps(message_dict, default=str, separators=(",", ":"))
+
+    async def _emit() -> None:
+        log_method = getattr(ctx, level, None)
+        if not callable(log_method):
+            return
+        await log_method(message)
+
+    loop.create_task(_emit())
+
+
 # === PROMPTS ===
 @mcp.prompt()
 def ssh_orchestrator_usage() -> str:
@@ -601,6 +712,146 @@ You must always keep the orchestrator's security posture conservative.
 """
 
 
+# === RESOURCES ===
+@mcp.resource(
+    "ssh://hosts",
+    title="Registered SSH Hosts",
+    description="Sanitized inventory of all configured host aliases.",
+    mime_type="application/json",
+)
+def resource_hosts() -> dict:
+    """Expose sanitized list of hosts as an MCP resource."""
+    try:
+        aliases = config.list_hosts()
+        hosts: list[dict] = []
+        for alias in aliases:
+            try:
+                host = config.get_host(alias)
+            except Exception as inner_exc:  # pragma: no cover - defensive logging
+                log_json(
+                    {
+                        "level": "warn",
+                        "msg": "resource_host_lookup_failed",
+                        "alias": alias,
+                        "error": str(inner_exc),
+                    }
+                )
+                continue
+            hosts.append(_sanitize_host_metadata(host))
+        return {"count": len(hosts), "hosts": hosts}
+    except Exception as e:
+        error_str = str(e)
+        log_json({"level": "error", "msg": "resource_hosts_error", "error": error_str})
+        return {"error": sanitize_error(error_str)}
+
+
+@mcp.resource(
+    "ssh://host/{alias}",
+    title="Host Details",
+    description="Sanitized configuration for a specific host alias.",
+    mime_type="application/json",
+)
+def resource_host(alias: str = "") -> dict:
+    """Expose sanitized host metadata for a specific alias."""
+    valid, error_msg = _validate_alias(alias)
+    if not valid:
+        return {"error": error_msg}
+
+    try:
+        host = config.get_host(alias.strip())
+        return _sanitize_host_metadata(host)
+    except Exception as e:
+        error_str = str(e)
+        log_json(
+            {
+                "level": "error",
+                "msg": "resource_host_error",
+                "alias": alias,
+                "error": error_str,
+            }
+        )
+        return {"error": sanitize_error(error_str)}
+
+
+@mcp.resource(
+    "ssh://host/{alias}/tags",
+    title="Host Tags",
+    description="Tag listing for a host alias.",
+    mime_type="application/json",
+)
+def resource_host_tags(alias: str = "") -> dict:
+    """Expose tags for a specific host alias."""
+    valid, error_msg = _validate_alias(alias)
+    if not valid:
+        return {"error": error_msg}
+    try:
+        tags = config.get_host_tags(alias.strip())
+        return {"alias": alias.strip(), "tags": tags}
+    except Exception as e:
+        error_str = str(e)
+        log_json(
+            {
+                "level": "error",
+                "msg": "resource_host_tags_error",
+                "alias": alias,
+                "error": error_str,
+            }
+        )
+        return {"error": sanitize_error(error_str)}
+
+
+@mcp.resource(
+    "ssh://host/{alias}/capabilities",
+    title="Host Capability Summary",
+    description="High-level summary of policy-driven execution limits and sample allowances.",
+    mime_type="application/json",
+)
+def resource_host_capabilities(alias: str = "") -> dict:
+    """Expose derived execution/network limits without leaking raw policy rules."""
+    valid, error_msg = _validate_alias(alias)
+    if not valid:
+        return {"error": error_msg}
+
+    alias = alias.strip()
+    try:
+        tags = config.get_host_tags(alias)
+        pol = Policy(config.get_policy())
+        limits = pol.limits_for(alias, tags)
+        policy_probes = _probe_policy_capabilities(alias, tags, pol, _CAPABILITY_PROBES)
+        network_cfg = pol.config.get("network", {}) or {}
+        summary = {
+            "alias": alias,
+            "tags": tags,
+            "limits": _summarize_limits(limits),
+            "policy_probes": policy_probes,
+            "network": {
+                "require_known_host": True,
+                "allowlist_enabled": bool(
+                    network_cfg.get("allow_ips") or network_cfg.get("allow_cidrs")
+                ),
+                "blocklist_enabled": bool(
+                    network_cfg.get("block_ips") or network_cfg.get("block_cidrs")
+                ),
+            },
+            "features": {
+                "supports_async": True,
+                "supports_cancellation": True,
+            },
+        }
+        return summary
+    except Exception as e:
+        error_str = str(e)
+        log_json(
+            {
+                "level": "error",
+                "msg": "resource_host_capabilities_error",
+                "alias": alias,
+                "error": error_str,
+            }
+        )
+        return {"error": sanitize_error(error_str)}
+
+
 # === TOOLS ===
 @mcp.tool()
 def ssh_ping() -> ToolResult:
@@ -669,6 +920,17 @@ def ssh_plan(alias: str = "", command: str = "") -> ToolResult:
                 "require_known_host": bool(limits.get("require_known_host", True)),
             },
         }
+        if not allowed:
+            # Enhanced error message: identify which command in chain is denied
+            denied_cmd = pol.get_denied_command_in_chain(alias, tags, command)
+            if denied_cmd and denied_cmd != command:
+                # Command chain with denied command
+                preview["why"] = f"Policy blocked command in chain: '{denied_cmd}'"
+                preview["denied_command"] = denied_cmd
+            else:
+                # Single command or entire chain denied
+                preview["why"] = "Policy blocked this command."
+            preview["hint"] = _POLICY_DENY_HINT
         return preview
     except Exception as e:
         error_str = str(e)
@@ -677,9 +939,13 @@ def ssh_plan(alias: str = "", command: str = "") -> ToolResult:
 
 
 @mcp.tool()
-def ssh_run(alias: str = "", command: str = "") -> ToolResult:
+def ssh_run(
+    alias: str = "", command: str = "", ctx: Context | None = None
+) -> ToolResult:
     """Execute SSH command with policy, network checks, progress, timeout, and cancellation."""
     start = time.time()
+    cmd_hash = ""
+    alias = alias or ""
     try:
         # Input validation
         valid, error_msg = _validate_alias(alias)
@@ -697,6 +963,7 @@ def ssh_run(alias: str = "", command: str = "") -> ToolResult:
         host = config.get_host(alias)
         hostname = host.get("host", "")
         cmd_hash = hash_command(command)
+        _ctx_log(ctx, "debug", "ssh_run_start", {"alias": alias, "hash": cmd_hash})
         tags = config.get_host_tags(alias)
         pol = Policy(config.get_policy())
 
@@ -705,13 +972,7 @@ def ssh_run(alias: str = "", command: str = "") -> ToolResult:
         pol.log_decision(alias, cmd_hash, allowed)
         if not allowed:
             return json.dumps(
-                {
-                    "status": "denied",
-                    "reason": "policy",
-                    "alias": alias,
-                    "hash": cmd_hash,
-                    "command": command,
-                },
+                _policy_denied_response(alias, command, cmd_hash),
                 indent=2,
             )
 
@@ -719,13 +980,7 @@ def ssh_run(alias: str = "", command: str = "") -> ToolResult:
         ok, reason = _precheck_network(pol, hostname)
         if not ok:
             return json.dumps(
-                {
-                    "status": "denied",
-                    "reason": "network",
-                    "alias": alias,
-                    "hostname": hostname,
-                    "detail": reason,
-                },
+                _network_denied_response(alias, hostname, reason),
                 indent=2,
             )
 
@@ -750,6 +1005,12 @@ def ssh_run(alias: str = "", command: str = "") -> ToolResult:
         require_known_host = True  # Always enforce strict host key verification
 
         task_id = TASKS.create(alias, cmd_hash)
+        _ctx_log(
+            ctx,
+            "debug",
+            "ssh_run_task_created",
+            {"alias": alias, "hash": cmd_hash, "task_id": task_id},
+        )
 
         def progress_cb(phase: str, bytes_read: int, elapsed_ms: int) -> None:
             pol.log_progress(task_id, phase, int(bytes_read), int(elapsed_ms))
@@ -788,13 +1049,9 @@ def ssh_run(alias: str = "", command: str = "") -> ToolResult:
                 peer_ip,
             )
             return json.dumps(
-                {
-                    "status": "denied",
-                    "reason": "network",
-                    "alias": alias,
-                    "hostname": hostname,
-                    "detail": f"peer IP {peer_ip} not allowed",
-                },
+                _network_denied_response(
+                    alias, hostname, f"peer IP {peer_ip} not allowed"
+                ),
                 indent=2,
             )
 
@@ -820,10 +1077,34 @@ def ssh_run(alias: str = "", command: str = "") -> ToolResult:
             "target_ip": peer_ip,
             "output": combined,
         }
+        _ctx_log(
+            ctx,
+            "info",
+            "ssh_run_complete",
+            {
+                "alias": alias,
+                "hash": cmd_hash,
+                "task_id": task_id,
+                "exit_code": int(exit_code),
+                "timeout": bool(timeout),
+                "cancelled": bool(cancelled),
+            },
+        )
         return result
     except Exception as e:
         error_str = str(e)
         log_json({"level": "error", "msg": "run_exception", "error": error_str})
+        if cmd_hash:
+            _ctx_log(
+                ctx,
+                "debug",
+                "ssh_run_error",
+                {
+                    "alias": alias.strip(),
+                    "hash": cmd_hash,
+                    "error": sanitize_error(error_str),
+                },
+            )
         return f"Run error: {sanitize_error(error_str)}"
     finally:
         elapsed = int((time.time() - start) * 1000)
@@ -831,7 +1112,11 @@ def ssh_run(alias: str = "", command: str = "") -> ToolResult:
 
 
 @mcp.tool()
-def ssh_run_on_tag(tag: str = "", command: str = "") -> ToolResult:
+def ssh_run_on_tag(
+    tag: str = "",
+    command: str = "",
+    ctx: Context | None = None,
+) -> ToolResult:
     """Execute SSH command on all hosts with a tag (with network checks)."""
     try:
         # Input validation
@@ -846,8 +1131,15 @@ def ssh_run_on_tag(tag: str = "", command: str = "") -> ToolResult:
         # Normalize after validation
         tag = tag.strip()
         command = command.strip()
+        cmd_hash = hash_command(command)
 
         aliases = config.find_hosts_by_tag(tag)
+        _ctx_log(
+            ctx,
+            "debug",
+            "ssh_run_on_tag_start",
+            {"tag": tag, "hash": cmd_hash, "target_count": len(aliases)},
+        )
         if not aliases:
             return {"tag": tag, "results": [], "note": "No hosts matched."}
 
@@ -855,7 +1147,6 @@ def ssh_run_on_tag(tag: str = "", command: str = "") -> ToolResult:
         for alias in aliases:
             host = config.get_host(alias)
             hostname = host.get("host", "")
-            cmd_hash = hash_command(command)
             tags = config.get_host_tags(alias)
             pol = Policy(config.get_policy())
 
@@ -869,6 +1160,7 @@ def ssh_run_on_tag(tag: str = "", command: str = "") -> ToolResult:
                         "hash": cmd_hash,
                         "denied": True,
                         "reason": "policy",
+                        "hint": _POLICY_DENY_HINT,
                     }
                 )
                 continue
@@ -882,63 +1174,94 @@ def ssh_run_on_tag(tag: str = "", command: str = "") -> ToolResult:
                         "hash": cmd_hash,
                         "denied": True,
                         "reason": f"network: {reason}",
+                        "detail": reason,
+                        "hint": _NETWORK_DENY_HINT,
                     }
                 )
                 continue
 
-            limits = pol.limits_for(alias, tags)
-            max_seconds = int(limits.get("max_seconds", 60))
-            max_output_bytes = int(limits.get("max_output_bytes", 1024 * 1024))
-            require_known_host_config = bool(
-                limits.get("require_known_host", pol.require_known_host())
-            )
-            # Security: Always require known_host for security (CWE-295)
-            if not require_known_host_config:
-                log_json(
-                    {
-                        "level": "warn",
-                        "msg": "deprecation_warning",
-                        "type": "host_key_policy_deprecated",
-                        "detail": "require_known_host=False is deprecated and ignored. Always requiring known_hosts entry for security.",
-                        "alias": alias,
-                        "cwe": "CWE-295",
-                    }
+            # Wrap SSH connection/execution in try-except for per-host error handling
+            task_id = None
+            try:
+                limits = pol.limits_for(alias, tags)
+                max_seconds = int(limits.get("max_seconds", 60))
+                max_output_bytes = int(limits.get("max_output_bytes", 1024 * 1024))
+                require_known_host_config = bool(
+                    limits.get("require_known_host", pol.require_known_host())
                 )
-            require_known_host = True  # Always enforce strict host key verification
+                # Security: Always require known_host for security (CWE-295)
+                if not require_known_host_config:
+                    log_json(
+                        {
+                            "level": "warn",
+                            "msg": "deprecation_warning",
+                            "type": "host_key_policy_deprecated",
+                            "detail": "require_known_host=False is deprecated and ignored. Always requiring known_hosts entry for security.",
+                            "alias": alias,
+                            "cwe": "CWE-295",
+                        }
+                    )
+                require_known_host = True  # Always enforce strict host key verification
 
-            task_id = TASKS.create(alias, cmd_hash)
+                task_id = TASKS.create(alias, cmd_hash)
 
-            def progress_cb(
-                phase: str,
-                bytes_read: int,
-                elapsed_ms: int,
-                pol_ref: Policy = pol,
-                task_ref: str = task_id,
-            ) -> None:
-                pol_ref.log_progress(task_ref, phase, int(bytes_read), int(elapsed_ms))
+                def progress_cb(
+                    phase: str,
+                    bytes_read: int,
+                    elapsed_ms: int,
+                    pol_ref: Policy = pol,
+                    task_ref: str = task_id,
+                ) -> None:
+                    pol_ref.log_progress(
+                        task_ref, phase, int(bytes_read), int(elapsed_ms)
+                    )
 
-            client = _client_for(alias, limits, require_known_host)
-            cancel_event = TASKS.get_event(task_id)
-            (
-                exit_code,
-                duration_ms,
-                cancelled,
-                timeout,
-                bytes_out,
-                bytes_err,
-                combined,
-                peer_ip,
-            ) = client.run_streaming(
-                command=command,
-                cancel_event=cancel_event,
-                max_seconds=max_seconds,
-                max_output_bytes=max_output_bytes,
-                progress_cb=progress_cb,
-            )
-            TASKS.cleanup(task_id)
+                client = _client_for(alias, limits, require_known_host)
+                cancel_event = TASKS.get_event(task_id)
+                (
+                    exit_code,
+                    duration_ms,
+                    cancelled,
+                    timeout,
+                    bytes_out,
+                    bytes_err,
+                    combined,
+                    peer_ip,
+                ) = client.run_streaming(
+                    command=command,
+                    cancel_event=cancel_event,
+                    max_seconds=max_seconds,
+                    max_output_bytes=max_output_bytes,
+                    progress_cb=progress_cb,
+                )
+                TASKS.cleanup(task_id)
 
-            # Post-connect enforcement
-            if peer_ip and not pol.is_ip_allowed(peer_ip):
+                # Post-connect enforcement
+                if peer_ip and not pol.is_ip_allowed(peer_ip):
+                    pol.log_audit(
+                        alias,
+                        cmd_hash,
+                        int(exit_code),
+                        int(duration_ms),
+                        int(bytes_out),
+                        int(bytes_err),
+                        bool(cancelled),
+                        bool(timeout),
+                        peer_ip,
+                    )
+                    results.append(
+                        {
+                            "alias": alias,
+                            "task_id": task_id,
+                            "hash": cmd_hash,
+                            "denied": True,
+                            "reason": f"network: peer {peer_ip} not allowed",
+                            "detail": f"peer {peer_ip} not allowed",
+                            "hint": _NETWORK_DENY_HINT,
+                        }
+                    )
+                    continue
+
                 pol.log_audit(
                     alias,
                     cmd_hash,
@@ -955,46 +1278,79 @@ def ssh_run_on_tag(tag: str = "", command: str = "") -> ToolResult:
                         "alias": alias,
                         "task_id": task_id,
                         "hash": cmd_hash,
-                        "denied": True,
-                        "reason": f"network: peer {peer_ip} not allowed",
+                        "exit_code": int(exit_code),
+                        "duration_ms": int(duration_ms),
+                        "cancelled": bool(cancelled),
+                        "timeout": bool(timeout),
+                        "target_ip": peer_ip,
+                        "output": combined,
                     }
                 )
-                continue
+            except Exception as e:
+                # Handle per-host failures gracefully
+                error_str = str(e)
+                log_json(
+                    {
+                        "level": "error",
+                        "msg": "run_on_tag_host_failed",
+                        "alias": alias,
+                        "error": error_str,
+                    }
+                )
 
-            pol.log_audit(
-                alias,
-                cmd_hash,
-                int(exit_code),
-                int(duration_ms),
-                int(bytes_out),
-                int(bytes_err),
-                bool(cancelled),
-                bool(timeout),
-                peer_ip,
-            )
-            results.append(
-                {
-                    "alias": alias,
-                    "task_id": task_id,
-                    "hash": cmd_hash,
-                    "exit_code": int(exit_code),
-                    "duration_ms": int(duration_ms),
-                    "cancelled": bool(cancelled),
-                    "timeout": bool(timeout),
-                    "target_ip": peer_ip,
-                    "output": combined,
-                }
-            )
+                # Clean up task if it was created
+                if task_id:
+                    try:
+                        TASKS.cleanup(task_id)
+                    except Exception:
+                        pass
 
-        return {"tag": tag, "results": results}
+                # Add error result for this host
+                results.append(
+                    {
+                        "alias": alias,
+                        "task_id": task_id if task_id else "",
+                        "hash": cmd_hash,
+                        "exit_code": -1,
+                        "duration_ms": 0,
+                        "cancelled": False,
+                        "timeout": False,
+                        "target_ip": "",
+                        "output": sanitize_error(error_str),
+                    }
+                )
+                continue  # Continue with next host
+
+        summary = {
+            "tag": tag,
+            "results": results,
+        }
+        _ctx_log(
+            ctx,
+            "info",
+            "ssh_run_on_tag_complete",
+            {
+                "tag": tag,
+                "hash": cmd_hash,
+                "target_count": len(aliases),
+                "succeeded": sum(1 for r in results if not r.get("denied")),
+            },
+        )
+        return summary
     except Exception as e:
         error_str = str(e)
         log_json({"level": "error", "msg": "run_on_tag_exception", "error": error_str})
+        _ctx_log(
+            ctx,
+            "debug",
+            "ssh_run_on_tag_error",
+            {"tag": tag.strip(), "error": sanitize_error(error_str)},
+        )
         return f"Run on tag error: {sanitize_error(error_str)}"
 
 
 @mcp.tool()
-def ssh_cancel(task_id: str = "") -> ToolResult:
+def ssh_cancel(task_id: str = "", ctx: Context | None = None) -> ToolResult:
     """Request cancellation for a running task."""
     try:
         # Input validation
@@ -1004,28 +1360,46 @@ def ssh_cancel(task_id: str = "") -> ToolResult:
 
         task_id = task_id.strip()
         ok = TASKS.cancel(task_id)
-        if ok:
-            return {
-                "task_id": task_id,
-                "cancelled": True,
-                "message": "Cancellation signaled",
-            }
-        return {"task_id": task_id, "cancelled": False, "message": "Task not found"}
+        response = {
+            "task_id": task_id,
+            "cancelled": bool(ok),
+            "message": "Cancellation signaled" if ok else "Task not found",
+        }
+        _ctx_log(
+            ctx,
+            "info",
+            "ssh_cancel",
+            {"task_id": task_id, "cancelled": bool(ok)},
+        )
+        return response
     except Exception as e:
         error_str = str(e)
         log_json({"level": "error", "msg": "cancel_exception", "error": error_str})
+        _ctx_log(
+            ctx,
+            "debug",
+            "ssh_cancel_error",
+            {"task_id": task_id.strip(), "error": sanitize_error(error_str)},
+        )
         return f"Cancel error: {sanitize_error(error_str)}"
 
 
 @mcp.tool()
-def ssh_reload_config() -> ToolResult:
+def ssh_reload_config(ctx: Context | None = None) -> ToolResult:
     """Reload configuration files."""
     try:
         config.reload()
+        _ctx_log(ctx, "info", "ssh_reload_config", {"status": "reloaded"})
         return {"status": "reloaded"}
     except Exception as e:
         error_str = str(e)
         log_json({"level": "error", "msg": "reload_exception", "error": error_str})
+        _ctx_log(
+            ctx,
+            "debug",
+            "ssh_reload_config_error",
+            {"error": sanitize_error(error_str)},
+        )
         return {"status": "error", "error": sanitize_error(error_str)}
 
 
@@ -1063,13 +1437,7 @@ async def ssh_run_async(
         pol.log_decision(alias, cmd_hash, allowed)
         if not allowed:
             return json.dumps(
-                {
-                    "status": "denied",
-                    "reason": "policy",
-                    "alias": alias,
-                    "hash": cmd_hash,
-                    "command": command,
-                },
+                _policy_denied_response(alias, command, cmd_hash),
                 indent=2,
             )
 
@@ -1077,13 +1445,7 @@ async def ssh_run_async(
         ok, reason = _precheck_network(pol, hostname)
         if not ok:
             return json.dumps(
-                {
-                    "status": "denied",
-                    "reason": "network",
-                    "alias": alias,
-                    "hostname": hostname,
-                    "detail": reason,
-                },
+                _network_denied_response(alias, hostname, reason),
                 indent=2,
             )
 
@@ -1152,7 +1514,7 @@ async def ssh_run_async(
 
 
 @mcp.tool()
-def ssh_get_task_status(task_id: str = "") -> ToolResult:
+def ssh_get_task_status(task_id: str = "", ctx: Context | None = None) -> ToolResult:
     """Get current status of an async task (SEP-1686 compliant).
 
     Returns task state, progress, elapsed time, and output summary.
@@ -1168,16 +1530,23 @@ def ssh_get_task_status(task_id: str = "") -> ToolResult:
         if not status:
             return f"Error: Task not found: {task_id}"
 
+        _ctx_log(ctx, "debug", "ssh_get_task_status", {"task_id": task_id})
         return status
 
     except Exception as e:
         error_str = str(e)
         log_json({"level": "error", "msg": "status_exception", "error": error_str})
+        _ctx_log(
+            ctx,
+            "debug",
+            "ssh_get_task_status_error",
+            {"task_id": task_id.strip(), "error": sanitize_error(error_str)},
+        )
         return f"Status error: {sanitize_error(error_str)}"
 
 
 @mcp.tool()
-def ssh_get_task_result(task_id: str = "") -> ToolResult:
+def ssh_get_task_result(task_id: str = "", ctx: Context | None = None) -> ToolResult:
     """Get final result of completed task (SEP-1686 compliant).
 
     Returns complete output, exit code, and execution metadata.
@@ -1193,16 +1562,25 @@ def ssh_get_task_result(task_id: str = "") -> ToolResult:
         if not result:
             return f"Error: Task not found or expired: {task_id}"
 
+        _ctx_log(ctx, "debug", "ssh_get_task_result", {"task_id": task_id})
         return result
 
     except Exception as e:
         error_str = str(e)
         log_json({"level": "error", "msg": "result_exception", "error": error_str})
+        _ctx_log(
+            ctx,
+            "debug",
+            "ssh_get_task_result_error",
+            {"task_id": task_id.strip(), "error": sanitize_error(error_str)},
+        )
         return f"Result error: {sanitize_error(error_str)}"
 
 
 @mcp.tool()
-def ssh_get_task_output(task_id: str = "", max_lines: int = 50) -> ToolResult:
+def ssh_get_task_output(
+    task_id: str = "", max_lines: int = 50, ctx: Context | None = None
+) -> ToolResult:
     """Get recent output lines from running or completed task.
 
     Enhanced beyond SEP-1686: enables streaming output visibility.
@@ -1221,16 +1599,28 @@ def ssh_get_task_output(task_id: str = "", max_lines: int = 50) -> ToolResult:
         if not output:
             return f"Error: Task not found or no output available: {task_id}"
 
+        _ctx_log(
+            ctx,
+            "debug",
+            "ssh_get_task_output",
+            {"task_id": task_id, "max_lines": max_lines},
+        )
         return output
 
     except Exception as e:
         error_str = str(e)
         log_json({"level": "error", "msg": "output_exception", "error": error_str})
+        _ctx_log(
+            ctx,
+            "debug",
+            "ssh_get_task_output_error",
+            {"task_id": task_id.strip(), "error": sanitize_error(error_str)},
+        )
         return f"Output error: {sanitize_error(error_str)}"
 
 
 @mcp.tool()
-def ssh_cancel_async_task(task_id: str = "") -> ToolResult:
+def ssh_cancel_async_task(task_id: str = "", ctx: Context | None = None) -> ToolResult:
     """Cancel a running async task."""
     try:
         # Input validation
@@ -1240,23 +1630,33 @@ def ssh_cancel_async_task(task_id: str = "") -> ToolResult:
 
         task_id = task_id.strip()
         success = ASYNC_TASKS.cancel_task(task_id)
-        if success:
-            return {
-                "task_id": task_id,
-                "cancelled": True,
-                "message": "Cancellation signaled",
-            }
-        else:
-            return {
-                "task_id": task_id,
-                "cancelled": False,
-                "message": "Task not found or not cancellable",
-            }
+        response = {
+            "task_id": task_id,
+            "cancelled": bool(success),
+            "message": (
+                "Cancellation signaled"
+                if success
+                else "Task not found or not cancellable"
+            ),
+        }
+        _ctx_log(
+            ctx,
+            "info",
+            "ssh_cancel_async_task",
+            {"task_id": task_id, "cancelled": bool(success)},
+        )
+        return response
 
     except Exception as e:
         error_str = str(e)
         log_json(
             {"level": "error", "msg": "cancel_async_exception", "error": error_str}
+        )
+        _ctx_log(
+            ctx,
+            "debug",
+            "ssh_cancel_async_task_error",
+            {"task_id": task_id.strip(), "error": sanitize_error(error_str)},
         )
         return f"Cancel error: {sanitize_error(error_str)}"
 

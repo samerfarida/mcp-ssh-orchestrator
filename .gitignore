@@ -77,3 +77,6 @@ known_hosts
 # Planning documents (not meant to be committed)
 plan.plan.md
 *.plan.md
+
+# Pre-commit cache
+.cache/

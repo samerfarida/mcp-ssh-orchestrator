@@ -6,9 +6,9 @@ Security fixes are applied to actively maintained releases of mcp-ssh-orchestrat
 
 | Version | Status |
 |---------|--------|
-| `main` branch | ✅ actively supported |
-| Latest tagged release | ✅ supported |
-| Older releases | ⚠️ best effort (consider upgrading) |
+| `main` branch | Actively supported |
+| `v1.0.x` | Supported (critical + high fixes) |
+| Older releases | Best effort (consider upgrading) |
 
 If you are running an older release and cannot upgrade, please highlight that in your report so we can discuss options.
 
@@ -25,7 +25,7 @@ Please follow the steps below to report a potential vulnerability:
    - Affected versions (commit SHA or release tag)
    - Impact assessment and suggested mitigations, if known
    - Preferred contact information and availability
-4. (Optional) If you require encryption, let us know and we will provide a PGP key for follow-up.
+4. If you require encryption, use our OpenPGP key (`openpgp4fpr:6775BF3F439A2A8A198DE10D4FC5342A979BD358`) or mention it and we can send the key via email.
 
 ## What Happens Next
 
