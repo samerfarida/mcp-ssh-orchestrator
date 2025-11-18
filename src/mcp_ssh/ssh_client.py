@@ -45,12 +45,17 @@ def _is_rate_limited(hostname: str) -> bool:
 
 
 def _get_cached_ips(hostname: str) -> list[str] | None:
-    """Get cached DNS result if valid, None if cache miss or expired."""
+    """Get cached DNS result if valid, None if cache miss or expired.
+
+    Security: Uses 1-second grace period to prevent TOCTOU race condition
+    where cache could expire between check and return.
+    """
     now = time.time()
     with _dns_cache_lock:
         if hostname in _dns_cache:
             ips, expiry_time = _dns_cache[hostname]
-            if now < expiry_time:
+            # Grace period prevents TOCTOU race condition
+            if now < expiry_time + 1.0:
                 return ips
             # Cache expired, remove it
             del _dns_cache[hostname]
@@ -219,7 +224,9 @@ class SSHClient:
                         raise RuntimeError(
                             f"known_hosts entry required for {self.host} but not found"
                         )
-                except Exception as e:
+                except (KeyError, AttributeError) as e:
+                    # Only catch KeyError/AttributeError from get_host_keys() or hk[self.host] access
+                    # Do NOT catch RuntimeError from the known_hosts check above
                     raise RuntimeError(
                         f"known_hosts verification failed for {self.host}: {e}"
                     ) from e

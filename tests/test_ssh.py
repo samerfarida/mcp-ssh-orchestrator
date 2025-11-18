@@ -264,6 +264,37 @@ def test_dns_cache_expiration():
     assert _get_cached_ips(hostname) is None
 
 
+def test_dns_cache_grace_period():
+    """Test that DNS cache uses grace period to prevent TOCTOU race condition."""
+    hostname = "test-grace.example.com"
+    test_ips = ["10.0.0.1"]
+
+    # Cache the result
+    _cache_ips(hostname, test_ips)
+
+    # Should be cached immediately
+    assert _get_cached_ips(hostname) == test_ips
+
+    # Simulate cache entry that is just expired (within grace period)
+    from mcp_ssh.ssh_client import _dns_cache
+
+    with _dns_cache_lock:
+        if hostname in _dns_cache:
+            # Set expiry to 0.5 seconds in the past (within 1 second grace period)
+            _dns_cache[hostname] = (test_ips, time.time() - 0.5)
+
+    # Should still return cached result due to grace period
+    assert _get_cached_ips(hostname) == test_ips
+
+    # Now set expiry to more than 1 second in the past (beyond grace period)
+    with _dns_cache_lock:
+        if hostname in _dns_cache:
+            _dns_cache[hostname] = (test_ips, time.time() - 1.1)
+
+    # Should return None (expired beyond grace period)
+    assert _get_cached_ips(hostname) is None
+
+
 def test_dns_resolution_empty_hostname():
     """Test that empty hostname returns empty list."""
     ips = SSHClient.resolve_ips("")
@@ -688,3 +719,75 @@ def test_ssh_client_network_unreachable():
             client._connect()
 
         assert "SSH network unreachable: Cannot reach host" in str(exc_info.value)
+
+
+def test_ssh_client_known_hosts_keyerror():
+    """Test that KeyError from host key access is properly caught and converted."""
+    client = SSHClient(host="10.0.0.1", username="testuser", key_path="/path/to/key")
+
+    with patch("paramiko.SSHClient") as mock_ssh_client_class:
+        mock_ssh_client = MagicMock()
+        mock_ssh_client_class.return_value = mock_ssh_client
+        mock_ssh_client.load_host_keys.return_value = None
+        mock_ssh_client.load_system_host_keys.return_value = None
+        # Simulate KeyError when accessing hk[self.host]
+        # This happens when hk[self.host] raises KeyError
+        mock_host_keys = MagicMock()
+        mock_host_keys.__contains__ = MagicMock(return_value=True)
+        # When accessing hk[self.host], it raises KeyError
+        mock_host_keys.__getitem__.side_effect = KeyError("Host key not found")
+        mock_ssh_client.get_host_keys.return_value = mock_host_keys
+
+        with pytest.raises(RuntimeError) as exc_info:
+            client._connect()
+
+        # The KeyError is caught by our handler and converted to RuntimeError
+        # Then the outer handler converts it to a user-friendly message
+        assert "SSH host key" in str(exc_info.value) or "known_hosts" in str(
+            exc_info.value
+        )
+
+
+def test_ssh_client_known_hosts_attributeerror():
+    """Test that AttributeError from get_host_keys() is properly caught and converted."""
+    client = SSHClient(host="10.0.0.1", username="testuser", key_path="/path/to/key")
+
+    with patch("paramiko.SSHClient") as mock_ssh_client_class:
+        mock_ssh_client = MagicMock()
+        mock_ssh_client_class.return_value = mock_ssh_client
+        mock_ssh_client.load_host_keys.return_value = None
+        mock_ssh_client.load_system_host_keys.return_value = None
+        # Simulate AttributeError from get_host_keys()
+        mock_ssh_client.get_host_keys.side_effect = AttributeError(
+            "'NoneType' object has no attribute 'get_host_keys'"
+        )
+
+        with pytest.raises(RuntimeError) as exc_info:
+            client._connect()
+
+        # The AttributeError is caught by our handler and converted to RuntimeError
+        # Then the outer handler converts it to a user-friendly message
+        assert "SSH host key verification failed" in str(exc_info.value)
+
+
+def test_ssh_client_known_hosts_runtimeerror_not_caught():
+    """Test that RuntimeError from known_hosts check is NOT caught by specific handler."""
+    client = SSHClient(host="10.0.0.1", username="testuser", key_path="/path/to/key")
+
+    with patch("paramiko.SSHClient") as mock_ssh_client_class:
+        mock_ssh_client = MagicMock()
+        mock_ssh_client_class.return_value = mock_ssh_client
+        mock_ssh_client.load_host_keys.return_value = None
+        mock_ssh_client.load_system_host_keys.return_value = None
+        # Empty host keys - should raise RuntimeError from known_hosts check
+        mock_ssh_client.get_host_keys.return_value = {}
+
+        with pytest.raises(RuntimeError) as exc_info:
+            client._connect()
+
+        # The RuntimeError is NOT caught by our specific handler (which only catches KeyError/AttributeError)
+        # It propagates to the outer handler which converts it to a user-friendly message
+        # The key point is that it's NOT wrapped in "known_hosts verification failed"
+        assert "SSH host key not found" in str(exc_info.value)
+        # Should NOT have "known_hosts verification failed" wrapper message
+        assert "known_hosts verification failed" not in str(exc_info.value)

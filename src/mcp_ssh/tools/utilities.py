@@ -10,8 +10,11 @@ from typing import Any
 
 
 def hash_command(command: str) -> str:
-    """Return short SHA256 hash for a command."""
-    return hashlib.sha256((command or "").encode()).hexdigest()[:12]
+    """Return short SHA256 hash for a command.
+
+    Returns 16 characters (64 bits) for better collision resistance in audit trails.
+    """
+    return hashlib.sha256((command or "").encode()).hexdigest()[:16]
 
 
 def sanitize_error(error_msg: str, keep_detailed_in_logs: bool = False) -> str:
@@ -175,6 +178,7 @@ class AsyncTaskManager:
         )  # task_id -> TaskResult (TTL: 5min) - Black formatted
         self._output_buffers: dict[str, deque] = {}  # task_id -> deque of output lines
         self._cleanup_thread = None
+        self._shutdown_event = threading.Event()
         self._start_cleanup_thread()
 
     def _start_cleanup_thread(self):
@@ -186,13 +190,36 @@ class AsyncTaskManager:
             self._cleanup_thread.start()
 
     def _cleanup_worker(self):
-        """Background worker to clean up expired results."""
-        while True:
+        """Background worker to clean up expired results.
+
+        Respects shutdown event for graceful termination and logs exceptions
+        instead of silently ignoring them.
+        """
+        while not self._shutdown_event.is_set():
             try:
-                time.sleep(60)  # Check every minute
+                # Use wait with timeout to check shutdown event more frequently
+                if self._shutdown_event.wait(timeout=60):
+                    # Shutdown event was set, exit loop
+                    break
                 self.cleanup_expired_tasks()
-            except Exception:
-                pass  # Ignore cleanup errors
+            except Exception as e:
+                # Log cleanup errors instead of silently ignoring them
+                log_json(
+                    {
+                        "level": "error",
+                        "msg": "cleanup_worker_error",
+                        "error": str(e),
+                    }
+                )
+                # Continue after error, but check shutdown event
+                if self._shutdown_event.is_set():
+                    break
+
+    def shutdown(self):
+        """Gracefully shutdown the cleanup thread."""
+        self._shutdown_event.set()
+        if self._cleanup_thread and self._cleanup_thread.is_alive():
+            self._cleanup_thread.join(timeout=5.0)
 
     def start_async_task(
         self,

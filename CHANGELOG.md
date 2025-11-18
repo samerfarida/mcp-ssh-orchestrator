@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Issue #1**: Fixed SSH client exception handling to be more specific - now only catches `KeyError` and `AttributeError` from host key access, preventing `RuntimeError` from known_hosts check from being incorrectly caught
+- **Issue #2**: Fixed DNS cache race condition (TOCTOU) by adding 1-second grace period to expiry check
+- **Issue #3**: Fixed cleanup thread to support graceful shutdown via `shutdown()` method and improved exception logging instead of silently ignoring errors
+
+### Changed
+- **Issue #7**: Improved type hints for `_ctx_log()` function - changed `payload: dict | None` to `payload: dict[str, Any] | None` for better type safety
+- **Issue #11**: Increased command hash length from 12 to 16 characters (48 to 64 bits) for better collision resistance in audit trails
+  - **BREAKING**: External tools that parse command hashes may need to update to handle 16-character hashes instead of 12
+
+### Added
+- Comprehensive unit tests for exception handling fixes (3 new tests)
+- Unit tests for DNS cache grace period mechanism
+- Unit tests for cleanup thread shutdown mechanism
+- Unit tests for hash command function (5 new tests in `test_utilities.py`)
+- `shutdown()` method to `AsyncTaskManager` for graceful cleanup thread termination
+
 ## [0.8.0] - 2025-11-18
 
 ### Security

@@ -425,7 +425,7 @@ def _ctx_log(
     ctx: Context | None,
     level: str,
     event: str,
-    payload: dict | None = None,
+    payload: dict[str, Any] | None = None,
 ) -> None:
     """Emit lightweight context logs without blocking tool execution."""
     if ctx is None:
