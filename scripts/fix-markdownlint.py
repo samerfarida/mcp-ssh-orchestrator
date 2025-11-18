@@ -56,7 +56,6 @@ def fix_md040_code_language(content: str) -> str:
     lines = content.split("\n")
     result = []
     in_code_block = False
-    code_block_lang = None
 
     for i, line in enumerate(lines):
         # Check for code block start/end
