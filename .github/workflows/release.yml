@@ -308,13 +308,13 @@ jobs:
           set -euo pipefail
           PROVENANCE_FILE="dist/slsa-provenance-python-${{ steps.version.outputs.VERSION }}.intoto.jsonl"
           BUNDLE_FILE="dist/slsa-provenance-python-${{ steps.version.outputs.VERSION }}.sigstore"
-          # For keyless signing, cosign outputs bundle (signature + certificate) to stdout
+          # For keyless signing, cosign v3+ requires --bundle flag to output bundle (signature + certificate)
           # Bundle contains both signature and certificate in JSON format
           if [ ! -f "$PROVENANCE_FILE" ]; then
             echo "Provenance file not found: $PROVENANCE_FILE" >&2
             exit 1
           fi
-          cosign sign-blob --yes "$PROVENANCE_FILE" > "$BUNDLE_FILE"
+          cosign sign-blob --yes --bundle "$BUNDLE_FILE" "$PROVENANCE_FILE"
           # Verify bundle file was created
           if [ ! -s "$BUNDLE_FILE" ]; then
             echo "Failed to generate bundle file" >&2
