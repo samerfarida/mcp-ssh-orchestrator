@@ -29,7 +29,7 @@ body:
         - label: docs/wiki (specify file below)
         - label: compose/README.md or setup.sh
         - label: examples/*.yml
-        - label: `.github` templates
+        - label: '.github templates'
         - label: Code comments/docstrings
         - label: Other (describe below)
   - type: textarea

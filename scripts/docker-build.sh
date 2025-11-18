@@ -15,4 +15,3 @@ fi
 echo "[docker-build] Building image '${IMAGE_NAME}' from ${DOCKERFILE_PATH}"
 docker build --file "${DOCKERFILE_PATH}" --tag "${IMAGE_NAME}" "${REPO_ROOT}"
 echo "[docker-build] Image '${IMAGE_NAME}' ready."
-

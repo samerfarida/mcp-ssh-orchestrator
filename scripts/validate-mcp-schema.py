@@ -29,7 +29,7 @@ def fetch_schema() -> dict[str, Any]:
     # Try cache first
     if SCHEMA_CACHE.exists():
         try:
-            with open(SCHEMA_CACHE, "r") as f:
+            with open(SCHEMA_CACHE) as f:
                 return json.load(f)
         except Exception:
             pass
@@ -52,7 +52,9 @@ def fetch_schema() -> dict[str, Any]:
         return {}
 
 
-def validate_tool(tool: dict[str, Any], schema: dict[str, Any], tool_name: str) -> list[str]:
+def validate_tool(
+    tool: dict[str, Any], schema: dict[str, Any], tool_name: str
+) -> list[str]:
     """Validate a single tool against MCP schema.
 
     Returns:
@@ -107,18 +109,29 @@ def extract_tools_from_server() -> dict[str, dict[str, Any]]:
 
 def main() -> int:
     """Main validation function."""
-    print("Validating MCP tool definitions against schema 2025-06-18...", file=sys.stderr)
+    print(
+        "Validating MCP tool definitions against schema 2025-06-18...", file=sys.stderr
+    )
 
     schema = fetch_schema()
     if not schema:
-        print("Warning: Could not fetch schema, performing basic validation only", file=sys.stderr)
+        print(
+            "Warning: Could not fetch schema, performing basic validation only",
+            file=sys.stderr,
+        )
 
     # Extract tools (placeholder - would need full module import)
     tools = extract_tools_from_server()
 
     if not tools:
-        print("Note: Tool extraction not fully implemented - skipping detailed validation", file=sys.stderr)
-        print("This script is a placeholder for future MCP schema validation", file=sys.stderr)
+        print(
+            "Note: Tool extraction not fully implemented - skipping detailed validation",
+            file=sys.stderr,
+        )
+        print(
+            "This script is a placeholder for future MCP schema validation",
+            file=sys.stderr,
+        )
         return 0
 
     # Validate each tool
@@ -140,4 +153,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

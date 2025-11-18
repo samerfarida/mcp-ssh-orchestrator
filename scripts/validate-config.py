@@ -43,7 +43,9 @@ def validate_servers(servers_data: dict[str, Any], config_dir: Path) -> list[str
         if "alias" in host:
             alias = host["alias"]
             if not isinstance(alias, str) or not alias.strip():
-                errors.append(f"servers.yml: hosts[{i}]: 'alias' must be a non-empty string")
+                errors.append(
+                    f"servers.yml: hosts[{i}]: 'alias' must be a non-empty string"
+                )
 
         # Validate port if present
         if "port" in host:
@@ -51,7 +53,9 @@ def validate_servers(servers_data: dict[str, Any], config_dir: Path) -> list[str
             try:
                 port_int = int(port)
                 if not (1 <= port_int <= 65535):
-                    errors.append(f"servers.yml: hosts[{i}]: 'port' must be between 1 and 65535")
+                    errors.append(
+                        f"servers.yml: hosts[{i}]: 'port' must be between 1 and 65535"
+                    )
             except (ValueError, TypeError):
                 errors.append(f"servers.yml: hosts[{i}]: 'port' must be an integer")
 
@@ -77,7 +81,9 @@ def validate_credentials(creds_data: dict[str, Any], config_dir: Path) -> list[s
             continue
 
         if "name" not in entry:
-            errors.append(f"credentials.yml: entries[{i}]: Missing required 'name' field")
+            errors.append(
+                f"credentials.yml: entries[{i}]: Missing required 'name' field"
+            )
 
         # Check that at least one auth method is present
         has_key = "key_path" in entry and entry["key_path"]
@@ -114,9 +120,13 @@ def validate_policy(policy_data: dict[str, Any], config_dir: Path) -> list[str]:
                 try:
                     max_bytes = int(limits["max_output_bytes"])
                     if max_bytes < 1:
-                        errors.append("policy.yml: limits.max_output_bytes must be >= 1")
+                        errors.append(
+                            "policy.yml: limits.max_output_bytes must be >= 1"
+                        )
                 except (ValueError, TypeError):
-                    errors.append("policy.yml: limits.max_output_bytes must be an integer")
+                    errors.append(
+                        "policy.yml: limits.max_output_bytes must be an integer"
+                    )
 
     # Validate rules section
     if "rules" in policy_data:
@@ -131,7 +141,9 @@ def validate_policy(policy_data: dict[str, Any], config_dir: Path) -> list[str]:
 
                 action = rule.get("action", "deny")
                 if action not in ["allow", "deny"]:
-                    errors.append(f"policy.yml: rules[{i}]: 'action' must be 'allow' or 'deny'")
+                    errors.append(
+                        f"policy.yml: rules[{i}]: 'action' must be 'allow' or 'deny'"
+                    )
 
     # Validate network section
     if "network" in policy_data:
@@ -155,7 +167,9 @@ def validate_cross_references(
     cred_entries = creds_data["entries"]
 
     # Build credential names set
-    cred_names = {entry.get("name") for entry in cred_entries if isinstance(entry, dict)}
+    cred_names = {
+        entry.get("name") for entry in cred_entries if isinstance(entry, dict)
+    }
 
     # Check each host's credentials reference
     for i, host in enumerate(hosts):
@@ -188,7 +202,7 @@ def main() -> int:
     servers_file = config_dir / "servers.yml"
     if servers_file.exists():
         try:
-            with open(servers_file, "r") as f:
+            with open(servers_file) as f:
                 servers_data = yaml.safe_load(f) or {}
             errors = validate_servers(servers_data, config_dir)
             all_errors.extend([f"servers.yml: {e}" for e in errors])
@@ -201,7 +215,7 @@ def main() -> int:
     creds_file = config_dir / "credentials.yml"
     if creds_file.exists():
         try:
-            with open(creds_file, "r") as f:
+            with open(creds_file) as f:
                 creds_data = yaml.safe_load(f) or {}
             errors = validate_credentials(creds_data, config_dir)
             all_errors.extend([f"credentials.yml: {e}" for e in errors])
@@ -214,7 +228,7 @@ def main() -> int:
     policy_file = config_dir / "policy.yml"
     if policy_file.exists():
         try:
-            with open(policy_file, "r") as f:
+            with open(policy_file) as f:
                 policy_data = yaml.safe_load(f) or {}
             errors = validate_policy(policy_data, config_dir)
             all_errors.extend([f"policy.yml: {e}" for e in errors])
@@ -226,9 +240,9 @@ def main() -> int:
     # Validate cross-references
     if servers_file.exists() and creds_file.exists():
         try:
-            with open(servers_file, "r") as f:
+            with open(servers_file) as f:
                 servers_data = yaml.safe_load(f) or {}
-            with open(creds_file, "r") as f:
+            with open(creds_file) as f:
                 creds_data = yaml.safe_load(f) or {}
             errors = validate_cross_references(servers_data, creds_data)
             all_errors.extend(errors)
@@ -248,4 +262,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

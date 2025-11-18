@@ -38,6 +38,7 @@ That's exactly what MCP SSH Orchestrator provides: **the power of AI-driven serv
 ## Why This Matters
 
 ### Zero-Trust Security Model
+
 - **Deny-by-default**: Nothing runs unless explicitly allowed
 - **Network controls**: IP allowlists prevent lateral movement
 - **Command whitelisting**: Only approved commands can execute
@@ -45,12 +46,14 @@ That's exactly what MCP SSH Orchestrator provides: **the power of AI-driven serv
 - **Comprehensive audit trails**: Every action is logged in JSON
 
 ### Prevents Common Attack Vectors
+
 - **Dangerous commands blocked**: `rm -rf`, `dd`, file deletions
 - **Network isolation**: Servers can't access external internet
 - **No privilege escalation**: Runs as non-root in containers
 - **Resource limits**: CPU and memory caps prevent DOS
 
 ### Production-Ready Audit & Security
+
 - **OWASP LLM Top 10 protected**: Mitigates LLM07 (Insecure Plugin Design), LLM08 (Excessive Agency), LLM01 (Prompt Injection)
 - **MITRE ATT&CK aligned**: Prevents T1071 (Application Layer Protocol), T1659 (Content Injection)
 - **Structured JSON audit logs**: Complete audit trail with timestamps, hashes, and IPs
@@ -60,21 +63,25 @@ That's exactly what MCP SSH Orchestrator provides: **the power of AI-driven serv
 ## Who Is This For?
 
 ### Homelab Enthusiasts
+
 - Automate routine server maintenance with AI
 - Safely manage Proxmox, TrueNAS, Docker hosts
 - Get help troubleshooting without losing SSH security
 
 ### Security Engineers
+
 - Audit and control AI access to infrastructure
 - Implement zero-trust principles with declarative policy-as-code configs
 - Meet compliance requirements with structured logging
 
 ### DevOps Teams
+
 - Let AI handle routine tasks: log checks, service restarts, updates
 - Manage fleets of servers through conversational interface
 - Reduce manual toil while maintaining security standards
 
 ### Platform Engineers
+
 - Enable AI-powered infrastructure management
 - Provide secure self-service access to developers
 - Bridge the gap between AI and infrastructure securely
@@ -82,27 +89,33 @@ That's exactly what MCP SSH Orchestrator provides: **the power of AI-driven serv
 ## Real-World Use Cases
 
 ### Scenario 1: Homelab Automation
+
 **You say:** *"Claude, my home server is running slow. Can you check the disk usage on my Proxmox host?"*
 
-**What happens:**
+### What happens
+
 - Policy checks: Only `df -h` allowed on that host
 - Network check: Proxmox IP is in allowlist
 - Command executes safely
 - Audit log records the operation
 
 ### Scenario 2: Incident Response
+
 **You say:** *"Check nginx logs for errors across all web servers"*
 
-**What happens:**
+### What happens
+
 - Tag-based execution runs `tail -f /var/log/nginx/error.log` on all web servers
 - Network-isolated execution (no external access)
 - Real-time progress logs show you what's happening
 - Complete audit trail for post-incident review
 
 ### Scenario 3: Compliance & Auditing
+
 **Your security team needs to know:** *"Who accessed what and when?"*
 
-**What happens:**
+### What happens
+
 - JSON audit logs capture every action with timestamps
 - Command hashing preserves privacy while enabling forensics
 - IP addresses logged for network compliance
@@ -112,20 +125,22 @@ That's exactly what MCP SSH Orchestrator provides: **the power of AI-driven serv
 
 ### 1. Prepare local configuration (one-time)
 
-```bash
 # Optional: bootstrap everything with the compose helper script
+
 # (runs from the repo root or from your target config directory)
+
 ./compose/setup.sh enduser
 
 # Or download it separately
-curl -fsSLO https://raw.githubusercontent.com/samerfarida/mcp-ssh-orchestrator/main/compose/setup.sh
+
+curl -fsSLO <https://raw.githubusercontent.com/samerfarida/mcp-ssh-orchestrator/main/compose/setup.sh>
 chmod +x setup.sh
 ./setup.sh enduser
-```
+
+```bash
 
 If you prefer to lay things out manually, follow the steps below.
 
-```bash
 # Pull the latest release
 docker pull ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 
@@ -150,13 +165,13 @@ EOF
 
 ### 2. Launch the orchestrator container
 
-```bash
 docker run -d --name mcp-ssh-orchestrator \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
   -v ~/mcp-ssh/secrets:/app/secrets:ro \
   ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
-```
+
+```bash
 
 Restart later with `docker start mcp-ssh-orchestrator`. Prefer disposable containers? Use `docker run -i --rm ...` instead.
 
@@ -164,7 +179,6 @@ Restart later with `docker start mcp-ssh-orchestrator`. Prefer disposable contai
 
 - **Cursor:** Add to `~/.cursor/mcp.json`
 
-  ```json
   {
     "mcpServers": {
       "mcp-ssh-orchestrator": {
@@ -175,9 +189,9 @@ Restart later with `docker start mcp-ssh-orchestrator`. Prefer disposable contai
     }
   }
   ```
+
 - **Claude Desktop (macOS):** Update `~/Library/Application Support/Claude/claude_desktop_config.json`
 
-  ```json
   {
     "mcpServers": {
       "ssh-orchestrator": {
@@ -192,7 +206,8 @@ Restart later with `docker start mcp-ssh-orchestrator`. Prefer disposable contai
       }
     }
   }
-  ```
+
+```json
 
   (Windows path: `%APPDATA%\\Claude\\claude_desktop_config.json`.)
 
@@ -200,14 +215,15 @@ More examples (Docker Desktop, multi-environment, SDK usage) live in the [Integr
 
 ### 4. Test the connection
 
-```bash
 # List configured hosts through the MCP server
+
 echo '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"ssh_list_hosts","arguments":{}},"id":1}' | \
   docker run -i --rm \
     -v ~/mcp-ssh/config:/app/config:ro \
     -v ~/mcp-ssh/keys:/app/keys:ro \
     -v ~/mcp-ssh/secrets:/app/secrets:ro \
     ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
+
 ```
 
 Cursor/Claude should now show the orchestrator as connected. Jump to the [Usage Cookbook](https://github.com/samerfarida/mcp-ssh-orchestrator/wiki/08-Usage-Cookbook) for guided scenarios.
@@ -215,89 +231,99 @@ Cursor/Claude should now show the orchestrator as connected. Jump to the [Usage 
 ## How Security Works (The Technical Details)
 
 > **Policy-as-code workflow:** `config/servers.yml`, `config/credentials.yml`, and `config/policy.yml` are parsed on startup, enforced during every `ssh_*` tool invocation, and mirrored in the structured audit logs—so the same declarative files you review in Git gate what your AI can execute.
-
+>
 ### Defense-in-Depth Architecture
 
-```text
 Layer 1: Transport Security    → stdio, container isolation
-Layer 2: Network Security      → IP allowlists, host key verification  
+Layer 2: Network Security      → IP allowlists, host key verification
 Layer 3: Policy Security        → Deny-by-default, pattern matching
 Layer 4: Application Security  → Non-root execution, resource limits
-```
+
+```text
 
 ### What Gets Blocked
 
-```yaml
 # Dangerous commands automatically denied
+
 deny_substrings:
-  # Destructive operations
-  - "rm -rf /"
-  - ":(){ :|:& };:"
-  - "mkfs "
-  - "dd if=/dev/zero"
-  - "shutdown -h"
-  - "reboot"
-  - "userdel "
-  - "passwd "
-  # Lateral movement / egress tools
-  - "ssh "
-  - "scp "
-  - "rsync -e ssh"
-  - "curl "
-  - "wget "
-  - "nc "
-  - "nmap "
-  - "telnet "
-  - "kubectl "
-  - "aws "
-  - "gcloud "
-  - "az "
+
+# Destructive operations
+
+- "rm -rf /"
+- ":(){ :|:& };:"
+- "mkfs "
+- "dd if=/dev/zero"
+- "shutdown -h"
+- "reboot"
+- "userdel "
+- "passwd "
+
+# Lateral movement / egress tools
+
+- "ssh "
+- "scp "
+- "rsync -e ssh"
+- "curl "
+- "wget "
+- "nc "
+- "nmap "
+- "telnet "
+- "kubectl "
+- "aws "
+- "gcloud "
+- "az "
 
 # Network isolation enforced
+
 network:
   allow: ["10.0.0.0/8"]  # Only private IPs
   deny: ["0.0.0.0/0"]     # No public internet access
+
 ```
 
 ### What Gets Allowed (Examples)
 
-```yaml
 # Safe, read-only commands
+
 rules:
-  - action: "allow"
-    aliases:
-      - "*"
-    tags:
-      - "observability"
-    commands:
-      - "uptime*"
-      - "df -h*"
-      - "free -m*"
 
-  # Log inspection (safe)
-  - action: "allow"
+- action: "allow"
     aliases:
-      - "*"
+  - "*"
     tags:
-      - "observability"
+  - "observability"
     commands:
-      - "tail -n 200 /var/log/*"
-      - "grep -n * /var/log/*"
-      - "journalctl --no-pager -n 100 *"
+  - "uptime*"
+  - "df -h*"
+  - "free -m*"
 
-  # Service management (controlled)
-  - action: "allow"
+# Log inspection (safe)
+
+- action: "allow"
     aliases:
-      - "web-*"
-      - "db-*"
+  - "*"
     tags:
-      - "production"
-      - "critical-service"
+  - "observability"
     commands:
-      - "systemctl restart nginx"
-      - "systemctl status nginx"
-      - "systemctl status postgresql"
-```
+  - "tail -n 200 /var/log/*"
+  - "grep -n */var/log/*"
+  - "journalctl --no-pager -n 100 *"
+
+# Service management (controlled)
+
+- action: "allow"
+    aliases:
+  - "web-*"
+  - "db-*"
+    tags:
+  - "production"
+  - "critical-service"
+    commands:
+  - "systemctl restart nginx"
+  - "systemctl status nginx"
+  - "systemctl status postgresql"
+
+```bash
 
 ### Protection Against Real Threats
 
@@ -311,7 +337,7 @@ MCP SSH Orchestrator directly addresses documented vulnerabilities in the MCP ec
 
 ## Documentation
 
-**[Complete Documentation Wiki](https://github.com/samerfarida/mcp-ssh-orchestrator/wiki)**
+### [Complete Documentation Wiki](https://github.com/samerfarida/mcp-ssh-orchestrator/wiki)
 
 | Section | What You'll Learn |
 |---------|-------------------|
@@ -326,19 +352,19 @@ MCP SSH Orchestrator directly addresses documented vulnerabilities in the MCP ec
 
 - **Signed release artifacts**: Every tarball/zip in GitHub Releases ships with a detached GPG signature produced by the maintainer key (`openpgp4fpr:6775BF3F439A2A8A198DE10D4FC5342A979BD358`). Import the key and verify before unpacking:
 
-  ```bash
   gpg --receive-keys 4FC5342A979BD358
   gpg --verify mcp-ssh-orchestrator-v1.0.0.tar.gz.asc mcp-ssh-orchestrator-v1.0.0.tar.gz
+
   ```
 
 - **Cosign-signed container images**: The images under `ghcr.io/samerfarida/mcp-ssh-orchestrator` are signed via Sigstore keyless signing in the release workflow. Verify the signature (and optional attestations) before deploying:
 
-  ```bash
   COSIGN_EXPERIMENTAL=1 cosign verify \
-    --certificate-identity-regexp "https://github.com/samerfarida/mcp-ssh-orchestrator/.github/workflows/release.yml@.*" \
-    --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+    --certificate-identity-regexp "<https://github.com/samerfarida/mcp-ssh-orchestrator/.github/workflows/release.yml@>.*" \
+    --certificate-oidc-issuer <https://token.actions.githubusercontent.com> \
     ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
-  ```
+
+```bash
 
   Image digests and signatures are published with every tag in GitHub Packages so you can pin exact references when promoting builds between environments ([package feed](https://github.com/samerfarida/mcp-ssh-orchestrator/pkgs/container/mcp-ssh-orchestrator/versions)).
 
@@ -349,26 +375,31 @@ MCP SSH Orchestrator directly addresses documented vulnerabilities in the MCP ec
 Your AI assistant gets 13 powerful tools with built-in security:
 
 ### Discovery & Planning
+
 - `ssh_list_hosts` - See all available servers
 - `ssh_describe_host` - Get host details and tags
 - `ssh_plan` - **Test commands before running** (dry-run mode)
 
 ### Execution
+
 - `ssh_run` - Execute single command on one server
 - `ssh_run_on_tag` - Run command on multiple servers (e.g., all "web" servers)
 - `ssh_run_async` - Start long-running tasks in background
 
 ### Monitoring & Control
+
 - `ssh_get_task_status` - Check progress of async tasks
 - `ssh_get_task_output` - Stream output in real-time
 - `ssh_get_task_result` - Get final result when done
 - `ssh_cancel` - Stop a running task safely
 
 ### Management
+
 - `ssh_reload_config` - Update hosts/credentials without restart
 - `ssh_ping` - Verify connectivity to a host
 
 ### MCP Resources + Context
+
 - `ssh://hosts` – discover sanitized host inventory (alias, tags, description, credential presence)
 - `ssh://host/{alias}` – inspect a single host without exposing credentials
 - `ssh://host/{alias}/tags` – fetch tag-only view for planning tag executions
@@ -376,21 +407,24 @@ Your AI assistant gets 13 powerful tools with built-in security:
 - Context-aware logging now streams lightweight `ctx.debug` / `ctx.info` events (task start, completion, cancellations) in supported clients for `ssh_run`, `ssh_run_on_tag`, config reloads, and async task polling—all without exposing raw commands or secrets.
 - Policy/network denials (and `ssh_plan` previews) now ship with LLM-friendly hints so assistants automatically retry with `ssh_plan`, consult the orchestrator prompts, **or ask whether a policy/network update is appropriate** instead of looping on blocked commands.
 
-**[Complete Tools Reference with Examples](https://github.com/samerfarida/mcp-ssh-orchestrator/wiki/07-Tools-Reference)**
+### [Complete Tools Reference with Examples](https://github.com/samerfarida/mcp-ssh-orchestrator/wiki/07-Tools-Reference)
 
 ## Docker Build & Inspector Workflow
 
 Run the hardened image locally and validate MCP discovery end-to-end:
 
-```bash
 # 1. Build the image (defaults to mcp-ssh-orchestrator:dev)
+
 scripts/docker-build.sh
 
 # 2. Launch the MCP Inspector against the containerized server
+
 scripts/docker-smoketest.sh
+
 ```
 
 The smoke test script copies the bundled examples into a throwaway workspace, mounts them into the container, and opens `npx @modelcontextprotocol/inspector` so you can:
+
 - Browse the new `ssh://*` resources in the *Resources* tab
 - Exercise `ssh_plan`, allowed/denied `ssh_run`, tag fan-out, async status/result/output, and cancellation flows
 - Observe live context logs (`ctx.debug` / `ctx.info`) alongside the structured stderr audit output
@@ -412,11 +446,9 @@ Repeat the same workflow inside Docker Desktop or a remote host by setting `IMAG
 ### What Users Are Saying
 
 > *"Finally, I can let Claude manage my Proxmox cluster without fear!"* - Homelab Admin
-
 > *"This is what infrastructure-as-code should have been. Declarative security for AI access."* - Platform Engineer
-
 > *"The structured audit logs make incident response so much easier."* - Security Engineer
-
+>
 ## Scope & Non-Goals
 
 - **Transport**: Ships strictly as an MCP stdio server. There is no HTTP API, webhook emitter, or background push agent.
@@ -427,6 +459,7 @@ Repeat the same workflow inside Docker Desktop or a remote host by setting `IMAG
 ## Contributing
 
 We welcome contributions! See our [Contributing Guide](https://github.com/samerfarida/mcp-ssh-orchestrator/wiki/13-Contributing) for:
+
 - Development setup
 - Code of conduct
 - How to submit PRs

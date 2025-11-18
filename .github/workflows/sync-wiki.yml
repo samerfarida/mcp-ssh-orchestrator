@@ -19,59 +19,59 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write # Required to push to wiki
-    
+
     steps:
       - name: Checkout main repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
+
       - name: Setup Git
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-      
+
       - name: Sync Wiki Content
         run: |
           echo "Starting wiki sync process..."
-          
+
           # Create wiki directory
           mkdir -p wiki-sync
           cd wiki-sync
-          
+
           # Clone the existing wiki repository with authentication
           echo "Cloning wiki repository..."
           git clone https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git .
-          
+
           # Copy new content from main repository
           echo "Copying wiki content..."
           rsync -av --delete --exclude='.git' ../docs/wiki/ ./
-          
+
           # Check for changes
           git add .
-          
+
           if ! git diff --staged --quiet; then
             echo "Changes detected, committing..."
-            
+
             # Get list of changed files
             CHANGED_FILES=$(git diff --staged --name-only | head -10)
-            
+
             git commit -m "Sync wiki from main repository
 
           Updated from commit: ${{ github.sha }}
-          
+
           Changed files:
           $CHANGED_FILES
-          
+
           [skip ci]"
-            
+
             # Push to wiki repository with authentication
             echo "Pushing to wiki repository..."
             git push https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git master
-            
+
             echo "Wiki synced successfully"
           else
             echo "No changes to sync"
           fi
-          
+
           echo "Wiki sync process completed"

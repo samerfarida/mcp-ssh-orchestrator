@@ -101,5 +101,5 @@ body:
   - type: markdown
     attributes:
       value: |
-        **Security Note**  
+        **Security Note**
         Do **not** include sensitive information (IPs, credentials, secrets). Sanitize all snippets before posting.

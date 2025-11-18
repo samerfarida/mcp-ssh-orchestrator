@@ -3,50 +3,50 @@
 **Purpose:** Overview of the configuration system and how the three main configuration files work together to define hosts, credentials, and security policies.
 
 > Treat these YAML files as policy-as-code: store them in Git, run them through CI checks, and require reviews just like application code.
-
+>
 ## Configuration Overview
 
 mcp-ssh-orchestrator uses a **three-file configuration system** that separates concerns and enables secure, flexible deployment:
 
 - **[servers.yml](06.1-servers.yml)** - Host inventory and network configuration
-- **[credentials.yml](06.2-credentials.yml)** - SSH authentication and secrets management  
+- **[credentials.yml](06.2-credentials.yml)** - SSH authentication and secrets management
 - **[policy.yml](06.3-policy.yml)** - Security policies and access controls
 
 ## Configuration Architecture
 
-```mermaid
 graph TB
     subgraph "Configuration Files"
         SERVERS[servers.yml<br/>Host Inventory]
         CREDS[credentials.yml<br/>SSH Authentication]
         POLICY[policy.yml<br/>Security Policies]
     end
-    
+
     subgraph "Configuration Loader"
         CONFIG_LOADER[config.py]
     end
-    
+
     subgraph "Policy Engine"
         POLICY_ENGINE[policy.py]
     end
-    
+
     subgraph "SSH Client"
         SSH_CLIENT[ssh_client.py]
     end
-    
+
     SERVERS --> CONFIG_LOADER
     CREDS --> CONFIG_LOADER
     POLICY --> CONFIG_LOADER
-    
+
     CONFIG_LOADER --> POLICY_ENGINE
     CONFIG_LOADER --> SSH_CLIENT
-    
+
     POLICY_ENGINE --> POLICY
-```
+
+```text
 
 ## Directory Structure
 
-```
+```bash
 mcp-ssh-orchestrator/
 ├── config/
 │   ├── servers.yml       # Host inventory
@@ -54,25 +54,31 @@ mcp-ssh-orchestrator/
 │   └── policy.yml        # Security policies
 ├── keys/                 # SSH private keys (chmod 0400)
 └── secrets/              # Docker secrets (passwords, passphrases)
-```
+```bash
 
 ## Configuration Loading Process
 
 ### 1. File Discovery
+
 The configuration loader searches for files in this order:
+
 1. **Command-line arguments** (if specified)
 2. **Environment variables** (`MCP_SSH_CONFIG_DIR`)
 3. **Default paths** (`/app/config/` in container, `./config/` locally)
 
 ### 2. File Validation
+
 Each configuration file is validated for:
+
 - **YAML syntax** correctness
 - **Required fields** presence
 - **Data type** validation
 - **Cross-file references** validity
 
 ### 3. Configuration Merging
+
 The system merges configurations with this precedence:
+
 1. **servers.yml** - Host definitions and network settings
 2. **credentials.yml** - Authentication methods and secrets
 3. **policy.yml** - Security policies and access controls
@@ -80,52 +86,66 @@ The system merges configurations with this precedence:
 ## Configuration Relationships
 
 ### servers.yml ↔ credentials.yml
+
 **Relationship:** Hosts reference credential entries by name.
 
-```yaml
 # servers.yml
+
 hosts:
-  - alias: "web1"
+
+- alias: "web1"
     host: "10.0.0.11"
     credentials: "prod_admin"  # References credentials.yml
 
-# credentials.yml  
+# credentials.yml
+
 entries:
-  - name: "prod_admin"        # Referenced by servers.yml
+
+- name: "prod_admin"        # Referenced by servers.yml
     username: "ubuntu"
     key_path: "id_ed25519"
+
 ```
 
 ### servers.yml ↔ policy.yml
+
 **Relationship:** Policy rules can target hosts by alias or tags.
 
-```yaml
 # servers.yml
+
 hosts:
-  - alias: "prod-web-1"
+
+- alias: "prod-web-1"
     tags: ["production", "web"]  # Used by policy rules
 
 # policy.yml
+
 rules:
-  - action: "allow"
+
+- action: "allow"
     aliases: ["prod-*"]        # Matches prod-web-1
     tags: ["production"]       # Matches production tag
     commands: ["uptime*"]
-```
+
+```bash
 
 ### credentials.yml ↔ policy.yml
+
 **Relationship:** Policy can enforce credential requirements.
 
-```yaml
 # credentials.yml
+
 entries:
-  - name: "prod_admin"
+
+- name: "prod_admin"
     username: "ubuntu"
     key_path: "id_ed25519"
 
 # policy.yml
+
 limits:
   require_known_host: true     # Enforces host key verification
+
 ```
 
 ## Policy Quick Reference
@@ -141,30 +161,36 @@ Designing `policy.yml` is easier when you follow a few core rules (see [6.3](06.
 ## Configuration Validation
 
 ### Syntax Validation
-```bash
+
 # Validate YAML syntax
+
 python -c "import yaml; yaml.safe_load(open('config/servers.yml'))"
-```
+
+```python
 
 ### Cross-Reference Validation
-```bash
+
 # Check credential references
+
 python -c "
 from mcp_ssh.config import Config
 config = Config('config/')
 print('Valid configuration:', config.validate())
 "
+
 ```
 
 ### Policy Validation
-```bash
+
 # Test policy rules
+
 python -c "
 from mcp_ssh.policy import Policy
 policy = Policy('config/policy.yml')
 print('Policy valid:', policy.validate())
 "
-```
+
+```bash
 
 ## Configuration Security
 
@@ -210,81 +236,100 @@ All YAML configuration files are protected against resource exhaustion attacks:
 **Effect**: Protects against memory exhaustion and processing time attacks while allowing legitimate large configurations.
 
 ### File Permissions
-```bash
+
 # Secure configuration files
+
 chmod 0600 config/servers.yml
-chmod 0600 config/credentials.yml  
+chmod 0600 config/credentials.yml
 chmod 0600 config/policy.yml
 chmod 0400 keys/*.pem
 chmod 0400 keys/id_ed25519
+
 ```
 
 ### Secrets Management
-```yaml
+
 # credentials.yml - Use secrets, not plaintext
+
 entries:
-  - name: "prod_admin"
+
+- name: "prod_admin"
     username: "ubuntu"
     key_path: "id_ed25519"
     key_passphrase_secret: "prod_key_passphrase"  # Docker secret
     password_secret: ""                            # Empty = no password
-```
+
+```bash
 
 ### Environment Variables
-```bash
+
 # Override configuration via environment
+
 export MCP_SSH_CONFIG_DIR="/custom/config"
 export MCP_SSH_SECRET_PROD_PASSWORD="secret-password"
+
 ```
 
 ## Configuration Examples
 
 ### Development Environment
-```yaml
+
 # servers.yml - Development hosts
+
 hosts:
-  - alias: "dev-web-1"
+
+- alias: "dev-web-1"
     host: "192.168.1.10"
     port: 22
     credentials: "dev_admin"
     tags: ["development", "web"]
 
 # credentials.yml - Development credentials
+
 entries:
-  - name: "dev_admin"
+
+- name: "dev_admin"
     username: "developer"
     key_path: "dev_key"
     key_passphrase_secret: "dev_passphrase"
 
 # policy.yml - Permissive development policy
+
 limits:
   max_seconds: 120
   require_known_host: true  # Always enforced for security (CWE-295)
 
 rules:
-  - action: "allow"
+
+- action: "allow"
     aliases: ["dev-*"]
     commands: ["*"]  # Allow all commands in dev
-```
+
+```text
 
 ### Production Environment
-```yaml
+
 # servers.yml - Production hosts
+
 hosts:
-  - alias: "prod-web-1"
+
+- alias: "prod-web-1"
     host: "10.0.0.11"
     port: 22
     credentials: "prod_admin"
     tags: ["production", "web"]
 
 # credentials.yml - Production credentials
+
 entries:
-  - name: "prod_admin"
+
+- name: "prod_admin"
     username: "ubuntu"
     key_path: "prod_key"
     key_passphrase_secret: "prod_passphrase"
 
 # policy.yml - Strict production policy
+
 limits:
   max_seconds: 30
   require_known_host: true
@@ -294,71 +339,88 @@ limits:
     - "reboot*"
 
 rules:
-  - action: "allow"
+
+- action: "allow"
     aliases: ["prod-*"]
     commands: ["uptime*", "df -h*", "systemctl status *"]
+
 ```
 
 ## Configuration Management
 
 ### Hot Reloading
-```bash
+
 # Reload configuration without restart
+
 ssh_reload_config
-```
+
+```text
 
 ### Configuration Backup
-```bash
+
 # Backup configuration
+
 tar -czf config-backup-$(date +%Y%m%d).tar.gz config/ keys/
+
 ```
 
 ### Configuration Versioning
-```bash
+
 # Track configuration changes
+
 git add config/
 git commit -m "Update production policy for new hosts"
-```
+
+```bash
 
 ## Troubleshooting Configuration
 
 ### Common Issues
 
 1. **YAML Syntax Errors**
-   ```bash
+
    # Check YAML syntax
+
    python -c "import yaml; yaml.safe_load(open('config/servers.yml'))"
+
    ```
 
-2. **Missing Credential References**
-   ```bash
+1. **Missing Credential References**
+
    # Validate credential references
+
    python -c "
    from mcp_ssh.config import Config
    config = Config('config/')
    for host in config.list_hosts():
        print(f'{host}: {config.get_host(host).credentials}')
    "
-   ```
 
-3. **Policy Rule Conflicts**
-   ```bash
+```bash
+
+1. **Policy Rule Conflicts**
+
    # Test policy rules
+
    ssh_plan --alias "web1" --command "uptime"
+
    ```
 
 ### Configuration Validation Tools
 
-```bash
 # Validate all configuration files
+
 python -m mcp_ssh.config validate config/
 
 # Test policy rules
+
 python -m mcp_ssh.policy test config/policy.yml
 
 # Check credential references
+
 python -m mcp_ssh.config check-refs config/
-```
+
+```bash
 
 ## Policy-as-Code Best Practices
 

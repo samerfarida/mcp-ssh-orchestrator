@@ -48,7 +48,7 @@
       "required": true
     },
     "credentials": {
-      "type": "object", 
+      "type": "object",
       "description": "Authentication credentials for servers",
       "required": true
     },
@@ -70,13 +70,13 @@
         "description": "Configuration files directory"
       },
       {
-        "name": "keys", 
+        "name": "keys",
         "path": "/app/keys",
         "description": "SSH private keys directory"
       },
       {
         "name": "secrets",
-        "path": "/app/secrets", 
+        "path": "/app/secrets",
         "description": "Secrets and passwords directory"
       }
     ],
@@ -98,7 +98,7 @@
   },
   "documentation": {
     "setup": "https://github.com/samerfarida/mcp-ssh-orchestrator#setup",
-    "configuration": "https://github.com/samerfarida/mcp-ssh-orchestrator#configuration", 
+    "configuration": "https://github.com/samerfarida/mcp-ssh-orchestrator#configuration",
     "examples": "https://github.com/samerfarida/mcp-ssh-orchestrator#examples",
     "troubleshooting": "https://github.com/samerfarida/mcp-ssh-orchestrator#troubleshooting"
   }

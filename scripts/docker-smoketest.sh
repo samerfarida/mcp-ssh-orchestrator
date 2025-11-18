@@ -73,4 +73,3 @@ npx @modelcontextprotocol/inspector \
     -v "${KEYS_DIR}:/app/keys:ro" \
     -v "${SECRETS_DIR}:/app/secrets:ro" \
     "${IMAGE_NAME}"
-

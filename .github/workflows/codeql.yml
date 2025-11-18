@@ -22,10 +22,10 @@ jobs:
     permissions:
       # Required for all workflows
       security-events: write
-      
+
       # Required to fetch internal or private CodeQL packs
       packages: read
-      
+
       # Only required for workflows in private repositories
       actions: read
       contents: read
@@ -60,4 +60,3 @@ jobs:
       uses: github/codeql-action/analyze@v4
       with:
         category: "/language:${{matrix.language}}"
-

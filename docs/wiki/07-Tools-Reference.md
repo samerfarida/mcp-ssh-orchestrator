@@ -18,6 +18,7 @@ Invalid inputs are rejected with clear error messages. Security events are logge
 MCP SSH Orchestrator provides **13 MCP tools** that enable secure SSH command execution, host management, and policy testing. All tools follow the MCP specification and return structured JSON responses.
 
 **Structured Output:** All tools return structured Python dicts (not JSON strings). FastMCP automatically:
+
 - Generates JSON schemas for clients
 - Validates tool outputs
 - Wraps responses in MCP tool response format
@@ -27,16 +28,19 @@ This provides better type safety, schema validation, and improved client experie
 ## Tool Categories
 
 ### Health & Discovery Tools
+
 - `ssh_ping` - Health check
 - `ssh_list_hosts` - List configured hosts
 - `ssh_describe_host` - Get host details
 
 ### Synchronous Execution Tools
+
 - `ssh_run` - Execute command on single host (blocks until complete)
 - `ssh_run_on_tag` - Execute command on multiple hosts (blocks until all complete)
 - `ssh_cancel` - Cancel running command
 
 ### Asynchronous Execution Tools
+
 - `ssh_run_async` - Start command execution asynchronously (returns immediately)
 - `ssh_get_task_status` - Get current status of async task
 - `ssh_get_task_result` - Get final result of completed task
@@ -44,6 +48,7 @@ This provides better type safety, schema validation, and improved client experie
 - `ssh_cancel_async_task` - Cancel async task
 
 ### Management Tools
+
 - `ssh_plan` - Dry-run command (policy testing)
 - `ssh_reload_config` - Reload configuration
 
@@ -52,8 +57,10 @@ This provides better type safety, schema validation, and improved client experie
 FastMCP also exposes read-only resources so MCP clients can inspect your fleet without invoking tools.
 
 ### `ssh://hosts`
+
 - **Purpose:** Sanitized inventory with `alias`, `host`, `port`, `tags`, `description`, and `has_credentials_ref`
 - **Response:**
+
 ```json
 {
   "count": 4,
@@ -64,17 +71,21 @@ FastMCP also exposes read-only resources so MCP clients can inspect your fleet w
 ```
 
 ### `ssh://host/{alias}`
+
 - **Purpose:** Detailed metadata for a single alias, reusing `_validate_alias()` for safety
 - **Behavior:** Returns `{ "error": "<reason>" }` for invalid inputs or missing hosts
 
 ### `ssh://host/{alias}/tags`
+
 - **Purpose:** Lightweight tag list for planning tag-based executions
 - **Response:** `{ "alias": "prod-web-1", "tags": ["production","web","critical-service"] }`
 
 ### `ssh://host/{alias}/capabilities`
+
 - **Purpose:** High-level summary of policy-derived limits, network controls, and sample command allowances
 - **Fields:** `limits`, `policy_probes`, `network`, `features`
 - **Example snippet:**
+
 ```json
 {
   "alias": "prod-web-1",
@@ -112,6 +123,7 @@ Resources show up in MCP Inspector, Cursor, Claude Desktop, and any MCP-compatib
 **Parameters:** None
 
 **Request:**
+
 ```json
 {
   "name": "ssh_ping",
@@ -120,6 +132,7 @@ Resources show up in MCP Inspector, Cursor, Claude Desktop, and any MCP-compatib
 ```
 
 **Response:**
+
 ```json
 {
   "status": "pong"
@@ -135,6 +148,7 @@ Resources show up in MCP Inspector, Cursor, Claude Desktop, and any MCP-compatib
 - Health monitoring and alerting
 
 **Example:**
+
 ```bash
 # Test via Claude Desktop
 ssh_ping
@@ -149,6 +163,7 @@ ssh_ping
 **Parameters:** None
 
 **Request:**
+
 ```json
 {
   "name": "ssh_list_hosts",
@@ -157,11 +172,12 @@ ssh_ping
 ```
 
 **Response:**
+
 ```json
 {
   "hosts": [
     "web1",
-    "web2", 
+    "web2",
     "db1",
     "monitor1"
   ]
@@ -177,6 +193,7 @@ ssh_ping
 - Build dynamic host lists
 
 **Example:**
+
 ```bash
 # List all configured hosts
 ssh_list_hosts
@@ -189,11 +206,13 @@ ssh_list_hosts
 **Purpose:** Get detailed information about a specific host.
 
 **Parameters:**
+
 | Parameter | Type | Required | Description | Example |
 |-----------|------|----------|-------------|---------|
 | `alias` | string | Yes | Host alias to describe | `"web1"` |
 
 **Request:**
+
 ```json
 {
   "name": "ssh_describe_host",
@@ -204,6 +223,7 @@ ssh_list_hosts
 ```
 
 **Response:**
+
 ```json
 {
   "alias": "web1",
@@ -222,6 +242,7 @@ ssh_list_hosts
 - Check policy limits for specific host
 
 **Example:**
+
 ```bash
 # Get details for web1
 ssh_describe_host --alias "web1"
@@ -234,12 +255,14 @@ ssh_describe_host --alias "web1"
 **Purpose:** Dry-run a command to test policy rules without executing.
 
 **Parameters:**
+
 | Parameter | Type | Required | Description | Example |
 |-----------|------|----------|-------------|---------|
 | `alias` | string | Yes | Target host alias | `"web1"` |
 | `command` | string | Yes | Command to test | `"uptime"` |
 
 **Request:**
+
 ```json
 {
   "name": "ssh_plan",
@@ -251,6 +274,7 @@ ssh_describe_host --alias "web1"
 ```
 
 **Response:**
+
 ```json
 {
   "alias": "web1",
@@ -276,6 +300,7 @@ ssh_describe_host --alias "web1"
 - Validate command authorization
 
 **Example:**
+
 ```bash
 # Test if command would be allowed
 ssh_plan --alias "web1" --command "uptime"
@@ -289,12 +314,14 @@ ssh_plan --alias "prod-web-1" --command "systemctl restart nginx"
 **Purpose:** Execute a command on a single host.
 
 **Parameters:**
+
 | Parameter | Type | Required | Description | Example |
 |-----------|------|----------|-------------|---------|
 | `alias` | string | Yes | Target host alias | `"web1"` |
 | `command` | string | Yes | Command to execute | `"uptime"` |
 
 **Request:**
+
 ```json
 {
   "name": "ssh_run",
@@ -306,6 +333,7 @@ ssh_plan --alias "prod-web-1" --command "systemctl restart nginx"
 ```
 
 **Response:**
+
 ```json
 {
   "task_id": "web1:4c2d8a8f7b1e:1700000000000",
@@ -323,6 +351,7 @@ ssh_plan --alias "prod-web-1" --command "systemctl restart nginx"
 > Policy or network denials return structured JSON with a `hint` field that reminds the caller to use `ssh_plan` or review the orchestrator prompts for next steps.
 
 **Response Fields:**
+
 | Field | Type | Description |
 |-------|------|-------------|
 | `task_id` | string | Unique task identifier (`alias:hash:timestamp`) |
@@ -338,12 +367,14 @@ ssh_plan --alias "prod-web-1" --command "systemctl restart nginx"
 **Error Handling:**
 
 If SSH connection fails, the response includes:
+
 - `exit_code: -1` indicating connection/execution failure
 - `output`: Specific, sanitized error message (e.g., "SSH connection refused: Port may be closed or firewall blocking")
 - `target_ip: ""` (empty, as connection was not established)
 - `duration_ms: 0` or small value (connection failed quickly)
 
 **Error Message Examples:**
+
 - `"SSH authentication failed: Invalid credentials"`
 - `"SSH connection timeout: Host did not respond"`
 - `"SSH connection refused: Port may be closed or firewall blocking"`
@@ -360,6 +391,7 @@ All error messages are sanitized for security (no IPs, hostnames, or file paths 
 - Test host connectivity
 
 **Example:**
+
 ```bash
 # Execute uptime command
 ssh_run --alias "web1" --command "uptime"
@@ -378,12 +410,14 @@ ssh_run --alias "web1" --command "systemctl status nginx"
 **Purpose:** Execute a command on all hosts with a specific tag.
 
 **Parameters:**
+
 | Parameter | Type | Required | Description | Example |
 |-----------|------|----------|-------------|---------|
 | `tag` | string | Yes | Tag to match hosts | `"production"` |
 | `command` | string | Yes | Command to execute | `"uptime"` |
 
 **Request:**
+
 ```json
 {
   "name": "ssh_run_on_tag",
@@ -395,6 +429,7 @@ ssh_run --alias "web1" --command "systemctl status nginx"
 ```
 
 **Response:**
+
 ```json
 {
   "tag": "production",
@@ -421,6 +456,7 @@ ssh_run --alias "web1" --command "systemctl status nginx"
 ```
 
 **Notes:**
+
 - Entries include `task_id` when a command was executed. Denied hosts omit `task_id` and include `denied`/`reason`.
 - Policy or network denials include `hint` text that points MCP clients back to `ssh_plan` or the orchestrator prompts for next steps.
 - No summary object is returned; aggregate stats can be derived from the `results` array.
@@ -434,6 +470,7 @@ Individual host failures are handled gracefully - one host failure does not stop
 - **Denied hosts:** `denied: true`, `reason` explains why (policy/network)
 
 **Example Response with Mixed Success/Failure:**
+
 ```json
 {
   "tag": "production",
@@ -473,6 +510,7 @@ Individual host failures are handled gracefully - one host failure does not stop
 **Error Messages:**
 
 Failed hosts return specific, actionable error messages in the `output` field:
+
 - `"SSH connection refused: Port may be closed or firewall blocking"`
 - `"SSH connection timeout: Host did not respond"`
 - `"SSH authentication failed: Invalid credentials"`
@@ -488,6 +526,7 @@ All error messages are sanitized for security. See [Troubleshooting Guide](../12
 - Parallel command execution
 
 **Example:**
+
 ```bash
 # Check uptime on all production hosts
 ssh_run_on_tag --tag "production" --command "uptime"
@@ -506,11 +545,13 @@ ssh_run_on_tag --tag "database" --command "systemctl status postgresql"
 **Purpose:** Cancel a running command using its task ID.
 
 **Parameters:**
+
 | Parameter | Type | Required | Description | Example |
 |-----------|------|----------|-------------|---------|
 | `task_id` | string | Yes | Task ID to cancel | `"web1:a1b2c3d4:1234567890"` |
 
 **Request:**
+
 ```json
 {
   "name": "ssh_cancel",
@@ -521,11 +562,13 @@ ssh_run_on_tag --tag "database" --command "systemctl status postgresql"
 ```
 
 **Response:**
+
 ```text
 Cancellation signaled for task_id: web1:4c2d8a8f7b1e:1700000000000
 ```
 
 **Errors:**
+
 - `Task not found: <task_id>` — the ID is unknown or already completed.
 
 **Use Cases:**
@@ -536,6 +579,7 @@ Cancellation signaled for task_id: web1:4c2d8a8f7b1e:1700000000000
 - Resource management
 
 **Example:**
+
 ```bash
 # Cancel a running command
 ssh_cancel --task_id "web1:a1b2c3d4:1234567890"
@@ -550,6 +594,7 @@ ssh_cancel --task_id "web1:a1b2c3d4:1234567890"
 **Parameters:** None
 
 **Request:**
+
 ```json
 {
   "name": "ssh_reload_config",
@@ -558,6 +603,7 @@ ssh_cancel --task_id "web1:a1b2c3d4:1234567890"
 ```
 
 **Response:**
+
 ```text
 Configuration reloaded.
 ```
@@ -570,6 +616,7 @@ Configuration reloaded.
 - Update credentials
 
 **Example:**
+
 ```bash
 # Reload configuration
 ssh_reload_config
@@ -582,12 +629,14 @@ ssh_reload_config
 **Purpose:** Start SSH command execution asynchronously. Returns immediately with a task ID for polling results.
 
 **Parameters:**
+
 | Parameter | Type | Required | Description | Example |
 |-----------|------|----------|-------------|---------|
 | `alias` | string | Yes | Target host alias | `"web1"` |
 | `command` | string | Yes | Command to execute | `"long-running-script.sh"` |
 
 **Request:**
+
 ```json
 {
   "name": "ssh_run_async",
@@ -599,6 +648,7 @@ ssh_reload_config
 ```
 
 **Response:**
+
 ```json
 {
   "task_id": "web1:4c2d8a8f7b1e:1700000000000",
@@ -612,6 +662,7 @@ ssh_reload_config
 ```
 
 **Response Fields:**
+
 | Field | Type | Description |
 |-------|------|-------------|
 | `task_id` | string | Unique async task identifier |
@@ -630,6 +681,7 @@ ssh_reload_config
 - Progress monitoring
 
 **Example:**
+
 ```bash
 # Start long-running backup
 ssh_run_async --alias "backup-server" --command "tar -czf /backup/full.tar.gz /data"
@@ -645,11 +697,13 @@ ssh_run_async --alias "prod-web" --command "./deploy.sh"
 **Purpose:** Get current status and progress of an async task without waiting for completion.
 
 **Parameters:**
+
 | Parameter | Type | Required | Description | Example |
 |-----------|------|----------|-------------|---------|
 | `task_id` | string | Yes | Async task ID | `"async:web1:abc123"` |
 
 **Request:**
+
 ```json
 {
   "name": "ssh_get_task_status",
@@ -660,6 +714,7 @@ ssh_run_async --alias "prod-web" --command "./deploy.sh"
 ```
 
 **Response:**
+
 ```json
 {
   "task_id": "web1:4c2d8a8f7b1e:1700000000000",
@@ -674,6 +729,7 @@ ssh_run_async --alias "prod-web" --command "./deploy.sh"
 ```
 
 **Response Fields:**
+
 | Field | Description |
 |-------|-------------|
 | `task_id` | Async task identifier |
@@ -686,6 +742,7 @@ ssh_run_async --alias "prod-web" --command "./deploy.sh"
 | `output_lines_available` | Number of buffered output lines retrievable via `ssh_get_task_output` |
 
 **Errors:**
+
 - `Error: Task not found: <task_id>` — unknown or expired ID.
 
 **Use Cases:**
@@ -696,6 +753,7 @@ ssh_run_async --alias "prod-web" --command "./deploy.sh"
 - Track execution time
 
 **Example:**
+
 ```bash
 # Check status
 ssh_get_task_status --task_id "async:web1:abc123def456"
@@ -711,11 +769,13 @@ watch -n 5 ssh_get_task_status --task_id "async:web1:abc123def456"
 **Purpose:** Get final result of a completed async task (success or failure).
 
 **Parameters:**
+
 | Parameter | Type | Required | Description | Example |
 |-----------|------|----------|-------------|---------|
 | `task_id` | string | Yes | Async task ID | `"async:web1:abc123"` |
 
 **Request:**
+
 ```json
 {
   "name": "ssh_get_task_result",
@@ -726,6 +786,7 @@ watch -n 5 ssh_get_task_status --task_id "async:web1:abc123def456"
 ```
 
 **Response:**
+
 ```json
 {
   "task_id": "web1:4c2d8a8f7b1e:1700000000000",
@@ -741,6 +802,7 @@ watch -n 5 ssh_get_task_status --task_id "async:web1:abc123def456"
 ```
 
 **Errors:**
+
 - `Error: Task not found or expired: <task_id>` — result exceeded TTL or never existed.
 
 **Use Cases:**
@@ -751,6 +813,7 @@ watch -n 5 ssh_get_task_status --task_id "async:web1:abc123def456"
 - Handle task outcomes
 
 **Example:**
+
 ```bash
 # Get final result
 ssh_get_task_result --task_id "async:web1:abc123def456"
@@ -768,12 +831,14 @@ fi
 **Purpose:** Stream recent output lines from a running or completed task.
 
 **Parameters:**
+
 | Parameter | Type | Required | Description | Example |
 |-----------|------|----------|-------------|---------|
 | `task_id` | string | Yes | Async task ID | `"async:web1:abc123"` |
 | `max_lines` | integer | No | Maximum lines to return (default: 50) | `100` |
 
 **Request:**
+
 ```json
 {
   "name": "ssh_get_task_output",
@@ -785,6 +850,7 @@ fi
 ```
 
 **Response:**
+
 ```json
 {
   "task_id": "web1:4c2d8a8f7b1e:1700000000000",
@@ -798,6 +864,7 @@ fi
 ```
 
 **Response Fields:**
+
 | Field | Description |
 |-------|-------------|
 | `task_id` | Async task identifier |
@@ -806,6 +873,7 @@ fi
 | `has_more` | `true` if additional lines can be retrieved |
 
 **Errors:**
+
 - `Error: Task not found or no output available: <task_id>` — ID invalid or no buffered output.
 
 **Use Cases:**
@@ -816,6 +884,7 @@ fi
 - Check recent activity
 
 **Example:**
+
 ```bash
 # Get last 50 lines of output
 ssh_get_task_output --task_id "async:web1:abc123def456"
@@ -837,11 +906,13 @@ done
 **Purpose:** Cancel a running async task.
 
 **Parameters:**
+
 | Parameter | Type | Required | Description | Example |
 |-----------|------|----------|-------------|---------|
 | `task_id` | string | Yes | Async task ID to cancel | "web1:4c2d8a8f7b1e:1700000000000" |
 
 **Request:**
+
 ```json
 {
   "name": "ssh_cancel_async_task",
@@ -852,11 +923,13 @@ done
 ```
 
 **Response:**
+
 ```text
 Cancellation signaled for async task: web1:4c2d8a8f7b1e:1700000000000
 ```
 
 **Errors:**
+
 - `Task not found or not cancellable: <task_id>` — task already finished or unknown.
 
 **Use Cases:**
@@ -867,6 +940,7 @@ Cancellation signaled for async task: web1:4c2d8a8f7b1e:1700000000000
 - Resource management
 
 **Example:**
+
 ```bash
 # Cancel async task
 ssh_cancel_async_task --task_id "web1:4c2d8a8f7b1e:1700000000000"
@@ -1018,6 +1092,7 @@ MCP SSH Orchestrator provides **6 prompts** that guide LLM behavior when interac
 Prompts are exposed via the MCP protocol and can be retrieved using `prompts/list` and `prompts/get` operations. MCP clients (Claude Desktop, Cursor, etc.) can use these prompts to guide LLM behavior.
 
 **Example:**
+
 ```bash
 # List all available prompts
 prompts/list
@@ -1065,6 +1140,7 @@ Policy and network denials now return structured JSON for better LLM understandi
 This structured format makes it easier for LLMs to parse and respond appropriately using the provided prompts.
 
 **Command Timeout:**
+
 ```json
 {
   "task_id": "web1:a1b2c3d4:1234567890",
@@ -1081,6 +1157,7 @@ This structured format makes it easier for LLMs to parse and respond appropriate
 ### Policy Enforcement
 
 All tools respect policy configuration:
+
 - **ssh_run**, **ssh_run_on_tag**, and **ssh_run_async** check policy before execution
 - **ssh_plan** shows policy decision without executing
 - **ssh_cancel** and **ssh_cancel_async_task** respect cancellation policies
@@ -1089,6 +1166,7 @@ All tools respect policy configuration:
 ### Audit Logging
 
 All tool usage is logged:
+
 - **JSON audit logs** to stderr
 - **Complete operation trail** for compliance
 - **Security-relevant metadata** in every log entry
@@ -1097,6 +1175,7 @@ All tool usage is logged:
 ### Network Security
 
 All tools enforce network policies:
+
 - **IP allowlists** prevent unauthorized connections
 - **Host key verification** prevents MITM attacks
 - **DNS resolution** verification before connection

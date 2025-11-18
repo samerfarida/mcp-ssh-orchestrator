@@ -269,17 +269,17 @@ async def main():
             "ghcr.io/samerfarida/mcp-ssh-orchestrator:latest"
         ]
     )
-    
+
     # Create client session
     async with stdio_client(server_params) as (read, write):
         async with ClientSession(read, write) as session:
             # Initialize session
             await session.initialize()
-            
+
             # List available tools
             tools = await session.list_tools()
             print("Available tools:", tools)
-            
+
             # Execute SSH command
             result = await session.call_tool(
                 "ssh_run",
@@ -312,7 +312,7 @@ async function main() {
       'ghcr.io/samerfarida/mcp-ssh-orchestrator:latest'
     ]
   });
-  
+
   // Create client
   const client = new Client({
     name: 'ssh-orchestrator-client',
@@ -320,14 +320,14 @@ async function main() {
   }, {
     capabilities: {}
   });
-  
+
   // Connect
   await client.connect(transport);
-  
+
   // List tools
   const tools = await client.listTools();
   console.log('Available tools:', tools);
-  
+
   // Execute SSH command
   const result = await client.callTool({
     name: 'ssh_run',
@@ -336,9 +336,9 @@ async function main() {
       command: 'uptime'
     }
   });
-  
+
   console.log('Command result:', result);
-  
+
   // Disconnect
   await client.close();
 }

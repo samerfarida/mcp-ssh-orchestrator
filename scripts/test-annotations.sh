@@ -130,4 +130,3 @@ echo "Format that will be used in release workflow:"
 echo ""
 echo "outputs: type=image,name=\${{ env.REGISTRY }}/\${{ env.IMAGE_NAME }},annotation-index.org.opencontainers.image.description=A secure SSH fleet orchestrator for MCP STDIO transport. Enforces declarative policy and audited access for Claude Desktop Cursor and MCP-aware clients,annotation-index.org.opencontainers.image.source=https://github.com/\${{ github.repository }},annotation-index.org.opencontainers.image.licenses=Apache-2.0"
 echo ""
-

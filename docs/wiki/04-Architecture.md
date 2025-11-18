@@ -14,43 +14,43 @@ graph TB
         LLM[LLM/AI Agent]
         MCP_CLIENT[MCP Client]
     end
-    
+
     subgraph "Transport Layer"
         STDIO[stdio Transport]
     end
-    
+
     subgraph "mcp-ssh-orchestrator Container"
         MCP_SERVER[MCP Server]
         POLICY_ENGINE[Policy Engine]
         SSH_CLIENT[SSH Client]
         AUDIT_LOGGER[Audit Logger]
     end
-    
+
     subgraph "Configuration Layer"
         SERVERS_CONFIG[servers.yml]
         CREDS_CONFIG[credentials.yml]
         POLICY_CONFIG[policy.yml]
         SSH_KEYS[SSH Keys]
     end
-    
+
     subgraph "Target Infrastructure"
         WEB_SERVERS[Web Servers]
         DB_SERVERS[Database Servers]
         MON_SERVERS[Monitoring Servers]
     end
-    
+
     LLM --> MCP_CLIENT
     MCP_CLIENT --> STDIO
     STDIO --> MCP_SERVER
-    
+
     MCP_SERVER --> POLICY_ENGINE
     POLICY_ENGINE --> SSH_CLIENT
     SSH_CLIENT --> WEB_SERVERS
     SSH_CLIENT --> DB_SERVERS
     SSH_CLIENT --> MON_SERVERS
-    
+
     MCP_SERVER --> AUDIT_LOGGER
-    
+
     POLICY_ENGINE --> SERVERS_CONFIG
     POLICY_ENGINE --> CREDS_CONFIG
     POLICY_ENGINE --> POLICY_CONFIG
@@ -70,28 +70,28 @@ graph TB
         SSH_CLIENT[ssh_client.py]
         UTILITIES[tools/utilities.py]
     end
-    
+
     subgraph "Configuration Files"
         SERVERS[servers.yml]
         CREDS[credentials.yml]
         POLICY_FILE[policy.yml]
     end
-    
+
     subgraph "External Dependencies"
         PARAMIKO[paramiko - SSH]
         YAML[yaml - Config]
         JSON[json - Logging]
     end
-    
+
     MCP_SERVER --> CONFIG
     MCP_SERVER --> POLICY
     MCP_SERVER --> SSH_CLIENT
     MCP_SERVER --> UTILITIES
-    
+
     CONFIG --> SERVERS
     CONFIG --> CREDS
     POLICY --> POLICY_FILE
-    
+
     SSH_CLIENT --> PARAMIKO
     CONFIG --> YAML
     UTILITIES --> JSON
@@ -109,14 +109,14 @@ sequenceDiagram
     participant SSH as SSH Client
     participant TARGET as Target Host
     participant AUDIT as Audit Logger
-    
+
     LLM->>MCP: {"name": "ssh_run", "arguments": {"alias": "web1", "command": "uptime"}}
-    
+
     MCP->>POLICY: Validate request
     POLICY->>POLICY: Check policy rules
     POLICY->>POLICY: Verify network access
     POLICY->>POLICY: Check command patterns
-    
+
     alt Policy allows
         POLICY-->>MCP: Allow
         MCP->>SSH: Execute command
@@ -137,25 +137,25 @@ sequenceDiagram
 ```mermaid
 flowchart TD
     START[Command Request] --> DENY_CHECK{Check deny_substrings}
-    
+
     DENY_CHECK -->|Contains blocked| DENY[Deny Request]
     DENY_CHECK -->|Safe| NETWORK_CHECK{Check network access}
-    
+
     NETWORK_CHECK -->|IP blocked| DENY
     NETWORK_CHECK -->|IP allowed| RULE_CHECK{Check policy rules}
-    
+
     RULE_CHECK -->|No matching rule| DENY
     RULE_CHECK -->|Rule found| ACTION_CHECK{Check rule action}
-    
+
     ACTION_CHECK -->|deny| DENY
     ACTION_CHECK -->|allow| LIMIT_CHECK{Check execution limits}
-    
+
     LIMIT_CHECK -->|Within limits| ALLOW[Allow Request]
     LIMIT_CHECK -->|Exceeds limits| DENY
-    
+
     DENY --> AUDIT_LOG[Log Denial]
     ALLOW --> AUDIT_LOG2[Log Allowance]
-    
+
     AUDIT_LOG --> END[End]
     AUDIT_LOG2 --> END
 ```
@@ -174,11 +174,12 @@ flowchart TD
 - Coordinate with other components
 
 **Key Functions:**
+
 ```python
 @mcp.tool()
 def ssh_run(alias: str = "", command: str = "") -> str:
     """Execute a command on a host."""
-    
+
 @mcp.tool()
 def ssh_plan(alias: str = "", command: str = "") -> str:
     """Dry-run a command (shows policy decision)."""
@@ -251,6 +252,7 @@ def ssh_plan(alias: str = "", command: str = "") -> str:
 - Support compliance requirements
 
 **Log Format:**
+
 ```json
 {
   "type": "audit",
@@ -273,28 +275,28 @@ graph TB
         subgraph "Application Layer"
             MCP_SERVER[MCP Server Process]
         end
-        
+
         subgraph "Configuration Layer"
             CONFIG_DIR["/app/config"]
             KEYS_DIR["/app/keys"]
             SECRETS_DIR["/app/secrets"]
         end
-        
+
         subgraph "System Layer"
             NON_ROOT[Non-root User<br/>UID 10001]
             RESOURCE_LIMITS[CPU/Memory Limits]
         end
     end
-    
+
     subgraph "Host System"
         VOLUMES[Volume Mounts]
         NETWORK[Network Access]
     end
-    
+
     VOLUMES --> CONFIG_DIR
     VOLUMES --> KEYS_DIR
     VOLUMES --> SECRETS_DIR
-    
+
     NETWORK --> MCP_SERVER
 ```
 
@@ -307,25 +309,25 @@ graph TB
         DEV_CONTAINER[mcp-ssh-orchestrator]
         DEV_HOSTS[Dev Servers]
     end
-    
+
     subgraph "Staging Environment"
         STG_CLIENT[Claude Desktop]
         STG_CONTAINER[mcp-ssh-orchestrator]
         STG_HOSTS[Staging Servers]
     end
-    
+
     subgraph "Production Environment"
         PROD_CLIENT[Claude Desktop]
         PROD_CONTAINER[mcp-ssh-orchestrator]
         PROD_HOSTS[Production Servers]
     end
-    
+
     DEV_CLIENT --> DEV_CONTAINER
     DEV_CONTAINER --> DEV_HOSTS
-    
+
     STG_CLIENT --> STG_CONTAINER
     STG_CONTAINER --> STG_HOSTS
-    
+
     PROD_CLIENT --> PROD_CONTAINER
     PROD_CONTAINER --> PROD_HOSTS
 ```
@@ -340,25 +342,25 @@ graph TB
         STDIO_SEC[stdio Transport]
         CONTAINER_SEC[Container Isolation]
     end
-    
+
     subgraph "Layer 2: Network Security"
         IP_ALLOW[IP Allowlists]
         HOST_KEY[Host Key Verification]
         DNS_VERIFY[DNS Resolution]
     end
-    
+
     subgraph "Layer 3: Policy Security"
         DENY_DEFAULT[Deny-by-Default]
         PATTERN_MATCH[Pattern Matching]
         EXEC_LIMITS[Execution Limits]
     end
-    
+
     subgraph "Layer 4: Application Security"
         NON_ROOT[Non-root Execution]
         RESOURCE_LIMITS[Resource Limits]
         AUDIT_LOG[Audit Logging]
     end
-    
+
     STDIO_SEC --> IP_ALLOW
     CONTAINER_SEC --> HOST_KEY
     IP_ALLOW --> DENY_DEFAULT
@@ -379,17 +381,17 @@ graph TB
     subgraph "MCP Client (Claude Desktop / Cursor)"
         CLIENT[MCP Client]
     end
-    
+
     subgraph "MCP SSH Orchestrator Instance"
         INSTANCE[mcp-ssh-orchestrator<br/>Container]
         CONFIG[Configuration<br/>servers.yml, policy.yml]
         KEYS[SSH Keys<br/>known_hosts]
     end
-    
+
     subgraph "Target Infrastructure"
         HOSTS[SSH Hosts<br/>Server Fleet]
     end
-    
+
     CLIENT --> INSTANCE
     INSTANCE --> CONFIG
     INSTANCE --> KEYS
@@ -417,18 +419,18 @@ graph TB
         PROGRESS_LOG[Progress Logs]
         SSH_PING[ssh_ping Tool]
     end
-    
+
     subgraph "External Integration Options"
         DOCKER_LOGS[Docker Logs]
         LOG_ROTATION[Log Rotation]
         SIEM[SIEM Integration]
     end
-    
+
     AUDIT_LOG --> DOCKER_LOGS
     POLICY_LOG --> DOCKER_LOGS
     PROGRESS_LOG --> DOCKER_LOGS
     SSH_PING --> DOCKER_LOGS
-    
+
     DOCKER_LOGS --> LOG_ROTATION
     DOCKER_LOGS --> SIEM
 ```
@@ -457,25 +459,25 @@ graph TB
         CLAUDE_UI[Claude UI]
         MCP_CLIENT[MCP Client]
     end
-    
+
     subgraph "Docker Desktop"
         DOCKER_UI[Docker Desktop UI]
         MCP_TOOLKIT[MCP Toolkit]
     end
-    
+
     subgraph "Custom Applications"
         CUSTOM_APP[Custom App]
         MCP_SDK[MCP SDK]
     end
-    
+
     subgraph "mcp-ssh-orchestrator"
         MCP_SERVER[MCP Server]
     end
-    
+
     CLAUDE_UI --> MCP_CLIENT
     DOCKER_UI --> MCP_TOOLKIT
     CUSTOM_APP --> MCP_SDK
-    
+
     MCP_CLIENT --> MCP_SERVER
     MCP_TOOLKIT --> MCP_SERVER
     MCP_SDK --> MCP_SERVER
@@ -494,23 +496,23 @@ graph TB
         MEMORY_LIMIT[Memory Limit<br/>512MB recommended]
         ASYNC[Async Task Support]
     end
-    
+
     subgraph "Execution Model"
         SYNC[Sync Commands]
         ASYNC_TASKS[Async Background Tasks]
         CANCELLATION[Task Cancellation]
     end
-    
+
     subgraph "Resource Control"
         TIMEOUT[Command Timeouts]
         OUTPUT_LIMIT[Output Size Limits]
         CONCURRENT[Concurrent Executions]
     end
-    
+
     CPU_LIMIT --> SYNC
     MEMORY_LIMIT --> ASYNC_TASKS
     ASYNC --> CANCELLATION
-    
+
     TIMEOUT --> CONCURRENT
     OUTPUT_LIMIT --> CONCURRENT
 ```

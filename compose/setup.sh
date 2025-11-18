@@ -41,14 +41,14 @@ if [ "$MODE" = "dev" ]; then
     else
         echo "  - example-servers.yml not found"
     fi
-    
+
     if [ -f "../examples/example-credentials.yml" ]; then
         cp ../examples/example-credentials.yml "${BASE_DIR}/config/credentials.yml"
         echo "  - credentials.yml copied"
     else
         echo "  - example-credentials.yml not found"
     fi
-    
+
     if [ -f "../examples/example-policy.yml" ]; then
         cp ../examples/example-policy.yml "${BASE_DIR}/config/policy.yml"
         echo "  - policy.yml copied"
@@ -64,14 +64,14 @@ else
 
 hosts: []
 EOF
-    
+
     cat > "${BASE_DIR}/config/credentials.yml" << 'EOF'
 # credentials.yml - Add your SSH credentials here
 # See examples at: https://github.com/samerfarida/mcp-ssh-orchestrator/blob/main/examples/example-credentials.yml
 
 entries: []
 EOF
-    
+
     cat > "${BASE_DIR}/config/policy.yml" << 'EOF'
 # policy.yml - Configure security policies
 # See examples at: https://github.com/samerfarida/mcp-ssh-orchestrator/blob/main/examples/example-policy.yml
@@ -86,7 +86,7 @@ network:
 
 rules: []
 EOF
-    
+
     echo "  Configuration templates created"
 fi
 

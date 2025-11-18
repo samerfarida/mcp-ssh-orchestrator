@@ -8,31 +8,30 @@ mcp-ssh-orchestrator implements a **defense-in-depth security model** inspired b
 
 ## Defense-in-Depth Architecture
 
-```mermaid
 graph TB
     subgraph "Layer 1: Transport Security"
         STDIO_SEC[stdio Transport]
         CONTAINER_SEC[Container Isolation]
     end
-    
+
     subgraph "Layer 2: Network Security"
         IP_ALLOW[IP Allowlists]
         HOST_KEY[Host Key Verification]
         DNS_VERIFY[DNS Resolution]
     end
-    
+
     subgraph "Layer 3: Policy Security"
         DENY_DEFAULT[Deny-by-Default]
         PATTERN_MATCH[Pattern Matching]
         EXEC_LIMITS[Execution Limits]
     end
-    
+
     subgraph "Layer 4: Application Security"
         NON_ROOT[Non-root Execution]
         RESOURCE_LIMITS[Resource Limits]
         AUDIT_LOG[Audit Logging]
     end
-    
+
     STDIO_SEC --> IP_ALLOW
     CONTAINER_SEC --> HOST_KEY
     IP_ALLOW --> DENY_DEFAULT
@@ -40,7 +39,8 @@ graph TB
     DENY_DEFAULT --> NON_ROOT
     PATTERN_MATCH --> RESOURCE_LIMITS
     EXEC_LIMITS --> AUDIT_LOG
-```
+
+```bash
 
 ### Policy-as-Code Enforcement Chain
 
@@ -56,22 +56,22 @@ This chain makes “policy-as-code” tangible: whatever is merged into Git is e
 
 **Purpose:** Secure communication between MCP client and server.
 
-**Implementation:**
+### Implementation:
 
 - **Process isolation** via stdio transport
 - **No network exposure** of MCP server
 - **Structured JSON-RPC** communication
 - **Type-safe interfaces** for all tools
 
-**Security Benefits:**
+### Security Benefits:
 
 - No network attack surface
 - Process-level isolation
 - Structured data prevents injection
 - Type validation ensures integrity
 
-**Example:**
-```json
+### Example:
+
 {
   "jsonrpc": "2.0",
   "method": "tools/call",
@@ -90,32 +90,36 @@ This chain makes “policy-as-code” tangible: whatever is merged into Git is e
 
 **Purpose:** Isolate the MCP server from the host system.
 
-**Implementation:**
+### Implementation
 
 - **Non-root execution** (UID 10001)
 - **Read-only mounts** for config and keys (recommended at runtime)
 - **Resource limits** (CPU, memory) via container runtime
 - **Minimal base image** (python:3.13-slim)
 
-**Security Benefits:**
+### Security Benefits
 
 - Prevents host privilege escalation
 - Limits resource consumption
 - Reduces attack surface
 - Immutable runtime environment
 
-**Example:**
-```dockerfile
+### Example
+
 # Non-root user
+
 RUN useradd -u 10001 -m appuser
 USER appuser
 
 # Read-only mounts (applied by runtime via -v :ro)
+
 VOLUME ["/app/config", "/app/keys"]
 
 # Resource limits
+
 CMD ["python", "-m", "mcp_ssh.mcp_server", "stdio"]
-```
+
+```bash
 
 ## Layer 2: Network Security
 
@@ -123,29 +127,29 @@ CMD ["python", "-m", "mcp_ssh.mcp_server", "stdio"]
 
 **Purpose:** Restrict SSH connections to authorized networks only.
 
-**Implementation:**
+### Implementation:
 
 - **CIDR-based allowlists** for network ranges
 - **Specific IP allowlists** for individual hosts
 - **IP blocklists** for dangerous addresses
 - **DNS resolution verification** before connection
 
-**Security Benefits:**
+### Security Benefits:
 
 - Prevents connections to unauthorized hosts
 - Blocks access to public internet
 - Mitigates DNS poisoning attacks
 - Enforces network segmentation
 
-**Example:**
-```yaml
+### Example:
+
 network:
   # Allow only private networks
   allow_cidrs:
     - "10.0.0.0/8"
     - "192.168.0.0/16"
     - "172.16.0.0/12"
-  
+
   # Block dangerous IPs
   block_ips:
     - "0.0.0.0"
@@ -157,49 +161,50 @@ network:
 
 **Purpose:** Prevent man-in-the-middle attacks on SSH connections.
 
-**Implementation:**
+### Implementation
 
 - **known_hosts verification** before connection
 - **Host key fingerprinting** for identity verification
 - **Strict host checking** in production
 - **Auto-add option** for development only
 
-**Security Benefits:**
+### Security Benefits
 
 - Prevents MITM attacks
 - Ensures host identity verification
 - Detects host key changes
 - Maintains connection integrity
 
-**Example:**
-```yaml
+### Example
+
 limits:
   require_known_host: true  # Production default
 
 network:
   require_known_host: true   # Override for strict checking
-```
+
+```text
 
 ### DNS Rate Limiting
 
 **Purpose:** Prevent DNS-based DoS attacks and reduce load from repeated resolutions.
 
-**Implementation:**
+### Implementation:
 
 - **Rate limiting**: Maximum 10 DNS resolutions per second per hostname
 - **Result caching**: 60-second TTL cache for DNS results
 - **Timeout protection**: 5-second timeout for DNS resolution
 - **Per-hostname tracking**: Separate rate limits for different hostnames
 
-**Security Benefits:**
+### Security Benefits:
 
 - Prevents DNS-based DoS attacks
 - Reduces load on DNS infrastructure
 - Protects against slow DNS server responses
 - Caches results to minimize repeated lookups
 
-**Example:**
-```python
+### Example:
+
 # Rate limiting prevents excessive resolutions:
 # - First 10 resolutions/second: allowed
 # - 11th resolution in same second: blocked (returns empty list)
@@ -218,51 +223,54 @@ Everything in this layer is sourced from `config/policy.yml`, letting you review
 
 **Purpose:** Ensure no unauthorized commands can execute.
 
-**Implementation:**
+### Implementation
 
 - **Empty rules list** = deny all
 - **Explicit allow rules** required for access
 - **Rule precedence** with deny rules taking priority
 - **Pattern matching** with glob support
 
-**Security Benefits:**
+### Security Benefits
 
 - Prevents accidental access
 - Requires explicit authorization
 - Reduces attack surface
 - Enables least-privilege access
 
-**Example:**
-```yaml
+### Example
+
 rules:
-  # Explicit allow rules only
-  - action: "allow"
+
+# Explicit allow rules only
+
+- action: "allow"
     aliases: ["prod-*"]
     commands: ["uptime*", "df -h*"]
-  
-  # All other commands denied by default
-```
+
+# All other commands denied by default
+
+```text
 
 ### Pattern Matching Security
 
 **Purpose:** Provide flexible yet secure command filtering.
 
-**Implementation:**
+### Implementation:
 
 - **Glob pattern matching** for commands
 - **Substring blocking** for dangerous commands
 - **Alias and tag matching** for host targeting
 - **Case-sensitive matching** for precision
 
-**Security Benefits:**
+### Security Benefits:
 
 - Flexible command authorization
 - Blocks dangerous command patterns
 - Enables environment-specific policies
 - Prevents command injection
 
-**Example:**
-```yaml
+### Example:
+
 limits:
   deny_substrings:
     - "rm -rf /"
@@ -282,22 +290,22 @@ rules:
 
 **Purpose:** Prevent resource exhaustion and runaway processes.
 
-**Implementation:**
+### Implementation
 
 - **Command timeouts** (max_seconds)
 - **Output size limits** (max_output_bytes)
 - **Per-host overrides** for specific limits
 - **Per-tag overrides** for environment limits
 
-**Security Benefits:**
+### Security Benefits
 
 - Prevents resource exhaustion
 - Limits data exfiltration
 - Enables DoS protection
 - Supports compliance requirements
 
-**Example:**
-```yaml
+### Example
+
 limits:
   max_seconds: 60
   max_output_bytes: 1048576
@@ -307,7 +315,8 @@ overrides:
     prod-db-1:
       max_seconds: 20           # Stricter for production DB
       max_output_bytes: 131072  # Smaller output limit
-```
+
+```text
 
 ## Layer 4: Application Security
 
@@ -315,14 +324,14 @@ overrides:
 
 **Purpose:** Limit damage if the application is compromised.
 
-**Implementation:**
+### Implementation:
 
 - **UID 10001** for application user
 - **No sudo privileges** or escalation
 - **Limited filesystem access** via volumes
 - **No system modification** capabilities
 
-**Security Benefits:**
+### Security Benefits:
 
 - Prevents privilege escalation
 - Limits system access
@@ -333,14 +342,14 @@ overrides:
 
 **Purpose:** Prevent resource exhaustion attacks.
 
-**Implementation:**
+### Implementation:
 
 - **CPU limits** via container constraints
 - **Memory limits** via container constraints
 - **File descriptor limits** via ulimits
 - **Process limits** via container policies
 
-**Security Benefits:**
+### Security Benefits:
 
 - Prevents DoS attacks
 - Ensures fair resource usage
@@ -351,22 +360,22 @@ overrides:
 
 **Purpose:** Provide comprehensive audit trail for compliance and security.
 
-**Implementation:**
+### Implementation:
 
 - **JSON structured logs** to stderr
 - **Complete operation trail** for all commands
 - **Security-relevant metadata** in every log entry
 - **Immutable log format** for integrity
 
-**Security Benefits:**
+### Security Benefits:
 
 - Enables incident response
 - Supports compliance audits
 - Provides forensic evidence
 - Enables security monitoring
 
-**Example:**
-```json
+### Example:
+
 {
   "type": "policy_decision",
   "ts": 1729512345.12,
@@ -406,14 +415,14 @@ overrides:
 
 **Purpose:** Ensure policy decisions are secure and auditable.
 
-**Implementation:**
+### Implementation
 
 - **Deterministic evaluation** order
 - **Rule precedence** with deny rules first
 - **Pattern validation** before matching
 - **Decision logging** for audit
 
-**Security Benefits:**
+### Security Benefits
 
 - Predictable policy behavior
 - Secure default decisions
@@ -424,14 +433,14 @@ overrides:
 
 **Purpose:** Allow granular control while maintaining security.
 
-**Implementation:**
+### Implementation
 
 - **Per-host overrides** for specific limits
 - **Per-tag overrides** for environment limits
 - **Override precedence** (alias > tag > global)
 - **Override validation** before application
 
-**Security Benefits:**
+### Security Benefits
 
 - Granular security control
 - Environment-specific policies
@@ -442,40 +451,46 @@ overrides:
 
 ### OWASP LLM Top 10
 
-**LLM07: Insecure Plugin Design** 
+### LLM07: Insecure Plugin Design
+
 - Policy-based command validation prevents unauthorized execution
 - Input sanitization and dangerous command blocking
 - Access control for AI plugin operations
 
-**LLM08: Excessive Agency** 
+### LLM08: Excessive Agency
+
 - Role-based restrictions via host tags
 - Deny-by-default security model
 - Command pattern matching limits autonomous actions
 
-**LLM01: Prompt Injection Mitigation**
+### LLM01: Prompt Injection Mitigation
+
 - SSH command validation prevents injection attacks
 - Network egress controls block unauthorized connections
 - DNS verification prevents DNS rebinding attacks
 
 ### MITRE ATT&CK Alignment
 
-**T1071: Application Layer Protocol**
+### T1071: Application Layer Protocol
+
 - SSH protocol monitoring and control
 - Command and response logging
 
-**T1071.004: DNS**
+### T1071.004: DNS
+
 - DNS resolution verification
 - DNS rate limiting prevents DoS attacks
 - DNS result caching reduces infrastructure load
 - Prevents DNS-based attack vectors
 
-**T1659: Content Injection**
+### T1659: Content Injection
+
 - Policy-based command filtering
 - Dangerous command substring blocking
 
 ### Security Features Supporting Compliance
 
-**Features that can assist with reporting and controls:**
+### Features that can assist with reporting and controls
 
 - **Access Control:** Policy-based command authorization
 - **Audit Trail:** JSON audit logs to stderr (no command content)
@@ -490,18 +505,18 @@ overrides:
 
 - **GPG release signatures**: All archives attached to GitHub Releases include detached `.asc` files signed by `openpgp4fpr:6775BF3F439A2A8A198DE10D4FC5342A979BD358`. Import the key and verify every artifact before unpacking:
 
-  ```bash
   gpg --receive-keys 4FC5342A979BD358
   gpg --verify mcp-ssh-orchestrator-v1.0.0.tar.gz.asc mcp-ssh-orchestrator-v1.0.0.tar.gz
-  ```
+
+```bash
 
 - **Cosign-signed container images**: The GitHub Actions release workflow signs `ghcr.io/samerfarida/mcp-ssh-orchestrator` with Sigstore keyless certificates (`release.yml`). Validate the signature and provenance in CI/CD before promotion:
 
-  ```bash
   COSIGN_EXPERIMENTAL=1 cosign verify \
-    --certificate-identity-regexp "https://github.com/samerfarida/mcp-ssh-orchestrator/.github/workflows/release.yml@.*" \
-    --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+    --certificate-identity-regexp "<https://github.com/samerfarida/mcp-ssh-orchestrator/.github/workflows/release.yml@>.*" \
+    --certificate-oidc-issuer <https://token.actions.githubusercontent.com> \
     ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
+
   ```
 
   Digests, signatures, and attestations are published alongside each tag in the GitHub Packages feed, enabling immutable deployment pins.
@@ -512,14 +527,14 @@ overrides:
 
 ### Real-Time Monitoring
 
-**Metrics Tracked:**
+### Metrics Tracked
 
 - **Policy violations** (denied commands)
 - **Execution failures** (timeouts, errors)
 - **Resource usage** (CPU, memory, connections)
 - **Network access** (unauthorized IPs)
 
-**Alerting:**
+### Alerting
 
 - **Repeated policy violations** from same source
 - **Unexpected target IPs** in connections
@@ -528,14 +543,14 @@ overrides:
 
 ### Incident Response
 
-**Detection:**
+### Detection
 
 - **Audit log analysis** for suspicious patterns
 - **Policy violation correlation** across hosts
 - **Resource usage anomalies** detection
 - **Network access violations** monitoring
 
-**Response:**
+### Response
 
 - **Immediate policy updates** for new threats
 - **Host isolation** for compromised systems

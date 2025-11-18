@@ -10,7 +10,7 @@ MCP SSH Orchestrator provides observability through structured JSON logging to s
 
 ### Log Output Destination
 
-**Log Separation:**
+### Log Separation
 
 - **stderr**: All audit, policy decision, and progress logs (structured JSON)
 - **stdout**: MCP protocol responses (JSON-RPC 2.0)
@@ -33,17 +33,17 @@ Use context logs for quick human feedback inside LLM tooling, while shipping str
 MCP SSH Orchestrator emits five types of structured JSON logs to stderr:
 
 - 1. **Policy Decision Log** - Before every command execution
-- 2. **Audit Log** - After command execution completes  
-- 3. **Progress Log** - During long-running commands (every 0.5s)
-- 4. **Security Audit Log** - Security-relevant events (path traversal, invalid access, etc.)
-- 5. **Error/Trace Log** - On exceptions or function completion
+- 1. **Audit Log** - After command execution completes
+- 1. **Progress Log** - During long-running commands (every 0.5s)
+- 1. **Security Audit Log** - Security-relevant events (path traversal, invalid access, etc.)
+- 1. **Error/Trace Log** - On exceptions or function completion
 
 ### 1. Policy Decision Log
 
 **When:** Emitted before command execution to record policy evaluation.
 
-**Example:**
-```json
+### Example
+
 {
   "type": "policy_decision",
   "ts": 1761489054.1433952,
@@ -51,9 +51,10 @@ MCP SSH Orchestrator emits five types of structured JSON logs to stderr:
   "hash": "7063dece7ccc",
   "allowed": true
 }
-```
 
-**Fields:**
+```bash
+
+### Fields:
 
 - `type`: Always `"policy_decision"`
 - `ts`: Unix timestamp (seconds since epoch)
@@ -61,8 +62,8 @@ MCP SSH Orchestrator emits five types of structured JSON logs to stderr:
 - `hash`: SHA256 hash of the command
 - `allowed`: Boolean indicating policy decision
 
-**Denied Command Example:**
-```json
+### Denied Command Example:
+
 {
   "type": "policy_decision",
   "ts": 1761489054.1433952,
@@ -76,8 +77,8 @@ MCP SSH Orchestrator emits five types of structured JSON logs to stderr:
 
 **When:** Emitted after command execution (success or failure).
 
-**Example:**
-```json
+### Example
+
 {
   "type": "audit",
   "ts": 1761489054.143448,
@@ -91,9 +92,10 @@ MCP SSH Orchestrator emits five types of structured JSON logs to stderr:
   "timeout": false,
   "target_ip": "10.0.0.11"
 }
-```
 
-**Fields:**
+```bash
+
+### Fields:
 
 - `type`: Always `"audit"`
 - `ts`: Unix timestamp (seconds since epoch)
@@ -113,8 +115,8 @@ MCP SSH Orchestrator emits five types of structured JSON logs to stderr:
 
 **Purpose:** Comprehensive audit trail for security monitoring and incident response.
 
-**Example:**
-```json
+### Example:
+
 {
   "level": "error",
   "kind": "security_audit",
@@ -129,7 +131,7 @@ MCP SSH Orchestrator emits five types of structured JSON logs to stderr:
 }
 ```
 
-**Fields:**
+### Fields
 
 - `level`: Always `"error"` for security events
 - `kind`: Always `"security_audit"`
@@ -142,44 +144,48 @@ MCP SSH Orchestrator emits five types of structured JSON logs to stderr:
 - `reason`: Human-readable reason for the security event (optional)
 - `additional_data`: Event-specific context (field names, sizes, limits, etc.) (optional)
 
-**Security Event Types:**
+### Security Event Types
 
 1. **`path_traversal_attempt`**: Path traversal detected in secret names or key paths
    - Includes: `attempted_path`, `resolved_path`, `reason`, `base_dir`
    - Example reasons: `"path_outside_allowed_directory"`, `"contains_traversal_pattern"`, `"absolute_path_rejected"`
 
-2. **`file_validation_failed`**: File path validation failure
+1. **`file_validation_failed`**: File path validation failure
    - Includes: `attempted_path`, `resolved_path`, `reason`
    - Example reasons: `"path_is_directory"`, `"path_is_symlink"`, `"path_not_regular_file"`, `"path_outside_allowed_directory"`
 
-3. **`file_size_limit_exceeded`**: YAML file exceeds size limit
+1. **`file_size_limit_exceeded`**: YAML file exceeds size limit
    - Includes: `attempted_path`, `resolved_path`, `file_size`, `max_size`
 
-4. **`input_length_limit_exceeded`**: Input string exceeds length limit
+1. **`input_length_limit_exceeded`**: Input string exceeds length limit
    - Includes: `attempted_path`, `field`, `length`, `max_length`
    - Example fields: `"secret_name"`, `"key_path"`
 
-5. **`invalid_secret_name`**: Secret name contains invalid characters
+1. **`invalid_secret_name`**: Secret name contains invalid characters
    - Includes: `attempted_path`, `reason`
 
-6. **`dns_rate_limit_exceeded`**: DNS resolution rate limit exceeded
+1. **`dns_rate_limit_exceeded`**: DNS resolution rate limit exceeded
    - Includes: `hostname`, `max_per_second`
 
-7. **`command_bypass_attempt`**: Command denial bypass attempt detected
+1. **`command_bypass_attempt`**: Command denial bypass attempt detected
    - Includes: `original_command`, `normalized_command`, `blocked_pattern`
 
-**Log Collection Example:**
-```bash
+### Log Collection Example
+
 # Filter security audit events
+
 docker logs -f mcp-ssh-orchestrator 2>&1 | \
   jq -r 'select(.kind == "security_audit") | @json'
 
 # Alert on path traversal attempts
+
 docker logs -f mcp-ssh-orchestrator 2>&1 | \
   jq -r 'select(.event_type == "path_traversal_attempt") | "ALERT: \(.timestamp) - \(.reason) - \(.attempted_path)"'
-```
 
-**Security Monitoring:**
+```text
+
+### Security Monitoring:
+
 - Alert on any `path_traversal_attempt` events
 - Monitor `file_validation_failed` for patterns
 - Track `input_length_limit_exceeded` for potential DoS attempts
@@ -189,8 +195,8 @@ docker logs -f mcp-ssh-orchestrator 2>&1 | \
 
 **When:** Emitted every 0.5 seconds during command execution (while reading output).
 
-**Example:**
-```json
+### Example:
+
 {
   "type": "progress",
   "ts": 1761489054.143455,
@@ -201,7 +207,7 @@ docker logs -f mcp-ssh-orchestrator 2>&1 | \
 }
 ```
 
-**Fields:**
+### Fields
 
 - `type`: Always `"progress"`
 - `ts`: Unix timestamp
@@ -213,20 +219,21 @@ docker logs -f mcp-ssh-orchestrator 2>&1 | \
 - `bytes_read`: Total bytes read (stdout + stderr)
 - `elapsed_ms`: Elapsed time in milliseconds
 
-**Complete Progress Sequence:**
-```json
+### Complete Progress Sequence
+
 {"type": "progress", "ts": 1761489054.200, "task_id": "task_123", "phase": "connecting", "bytes_read": 0, "elapsed_ms": 50}
 {"type": "progress", "ts": 1761489054.450, "task_id": "task_123", "phase": "connected", "bytes_read": 0, "elapsed_ms": 250}
 {"type": "progress", "ts": 1761489054.700, "task_id": "task_123", "phase": "running", "bytes_read": 0, "elapsed_ms": 500}
 {"type": "progress", "ts": 1761489055.000, "task_id": "task_123", "phase": "running", "bytes_read": 512, "elapsed_ms": 800}
-```
+
+```json
 
 ### 4. Error/Trace Logs
 
 **When:** Exceptions occur or operations complete (trace).
 
-**Error Example:**
-```json
+### Error Example:
+
 {
   "level": "error",
   "msg": "run_exception",
@@ -234,16 +241,17 @@ docker logs -f mcp-ssh-orchestrator 2>&1 | \
 }
 ```
 
-**Trace Example:**
-```json
+### Trace Example
+
 {
   "type": "trace",
   "op": "run_done",
   "elapsed_ms": 123
 }
-```
 
-**Fields:**
+```text
+
+### Fields:
 
 - `level`: "error" | "warn"
 - `msg`: Error message identifier
@@ -258,9 +266,8 @@ docker logs -f mcp-ssh-orchestrator 2>&1 | \
 
 All logs are written to stderr by the Docker container and can be captured using standard Docker logging.
 
-**Basic Commands:**
+### Basic Commands:
 
-```bash
 # View all logs (stdout + stderr mixed)
 docker logs mcp-ssh-container
 
@@ -276,19 +283,20 @@ docker logs mcp-ssh-container 2>&1 | grep '^{' | jq '.'
 
 ### Docker Compose
 
-```bash
 # Follow logs
+
 docker-compose logs -f mcp-ssh
 
 # View specific service
+
 docker-compose logs mcp-ssh
-```
+
+```bash
 
 ### Log Parsing and Analysis
 
-**Extract Specific Log Types:**
+### Extract Specific Log Types:
 
-```bash
 # Extract only policy decision logs
 docker logs mcp-ssh-container 2>&1 | grep '{"type":"policy_decision"' | jq '.'
 
@@ -299,23 +307,24 @@ docker logs mcp-ssh-container 2>&1 | grep '{"type":"audit"' | jq '.'
 docker logs mcp-ssh-container 2>&1 | grep '{"type":"progress"' | jq '.'
 ```
 
-**Count Policy Violations:**
+### Count Policy Violations
 
-```bash
 # Count denied commands
+
 docker logs mcp-ssh-container 2>&1 | \
   jq 'select(.type == "policy_decision" and .allowed == false)' | \
   jq -r '.alias' | sort | uniq -c
 
 # Count policy violations per host
+
 docker logs mcp-ssh-container 2>&1 | \
   jq 'select(.type == "policy_decision" and .allowed == false) | .alias' | \
   sort | uniq -c
-```
-
-**Analyze Execution Metrics:**
 
 ```bash
+
+### Analyze Execution Metrics:
+
 # Calculate average execution time
 docker logs mcp-ssh-container 2>&1 | \
   jq 'select(.type == "audit") | .duration_ms' | \
@@ -332,26 +341,28 @@ docker logs mcp-ssh-container 2>&1 | \
   sort | uniq -c
 ```
 
-**Security Analysis:**
+### Security Analysis
 
-```bash
 # List all target IPs accessed
+
 docker logs mcp-ssh-container 2>&1 | \
   jq 'select(.type == "audit") | .target_ip' | \
   sort | uniq
 
 # Find timeout occurrences
+
 docker logs mcp-ssh-container 2>&1 | \
   jq 'select(.type == "audit" and .timeout == true)'
 
 # Find cancelled tasks
+
 docker logs mcp-ssh-container 2>&1 | \
   jq 'select(.type == "audit" and .cancelled == true)'
-```
-
-**Complete Audit Trail for a Host:**
 
 ```bash
+
+### Complete Audit Trail for a Host:
+
 # Show all operations for a specific host
 docker logs mcp-ssh-container 2>&1 | \
   jq 'select(.alias == "Proxmox Prod 01")'
@@ -363,14 +374,14 @@ docker logs mcp-ssh-container 2>&1 | \
 
 All timestamps use Unix epoch time (seconds since January 1, 1970) as floating-point values with microsecond precision:
 
-```json
 {
   "ts": 1761489054.143455
 }
-```
+
+```text
 
 Convert to readable format:
-```bash
+
 date -r 1761489054.143455
 ```
 
@@ -378,21 +389,23 @@ date -r 1761489054.143455
 
 Commands are hashed using SHA256 before logging for privacy and consistency:
 
-```bash
 echo -n "hostname" | sha256sum
-# Output: 7063dece7ccc...
-```
+
+# Output: 7063dece7ccc
+
+```json
 
 ### JSON Lines Format
 
 Each log entry is a complete JSON object on a single line. This format:
+
 - Is easy to parse with tools like `jq`
 - Can be streamed efficiently
 - Works well with log aggregators (ELK, Splunk, etc.)
 - Maintains structural integrity
 
-**Example of multi-line output:**
-```json
+### Example of multi-line output:
+
 {"type": "policy_decision", "ts": 1761489054.1433952, "alias": "web1", "hash": "abc123", "allowed": true}
 {"type": "progress", "ts": 1761489054.200, "task_id": "task_123", "phase": "connecting", "bytes_read": 0, "elapsed_ms": 50}
 {"type": "audit", "ts": 1761489054.650, "alias": "web1", "hash": "abc123", "exit_code": 0, "duration_ms": 150, "bytes_out": 25, "bytes_err": 0, "cancelled": false, "timeout": false, "target_ip": "10.0.0.11"}
@@ -404,20 +417,21 @@ Each log entry is a complete JSON object on a single line. This format:
 
 ### Access Control Reporting
 
-```bash
 # Total commands executed
+
 docker logs mcp-ssh-container 2>&1 | \
   jq 'select(.type == "audit") | length'
 
 # Allowed vs denied command ratio
+
 docker logs mcp-ssh-container 2>&1 | \
   jq -r 'select(.type == "policy_decision") | .allowed' | \
   awk 'BEGIN{allow=0;deny=0} {if($1=="true") allow++; else deny++} END {print "Allowed:", allow, "Denied:", deny}'
-```
+
+```bash
 
 ### Audit Trail Reporting
 
-```bash
 # Complete audit trail with timestamps
 docker logs mcp-ssh-container 2>&1 | \
   jq 'select(.type == "audit") | {
@@ -435,34 +449,35 @@ docker logs mcp-ssh-container 2>&1 | \
 
 ### Network Security Reporting
 
-```bash
 # List all target IPs accessed
+
 docker logs mcp-ssh-container 2>&1 | \
   jq 'select(.type == "audit") | .target_ip' | \
   sort | uniq -c
 
 # Network policy violations (IP not allowed)
+
 docker logs mcp-ssh-container 2>&1 | \
   jq 'select(.type == "audit" and .target_ip != null and .exit_code == 0) | .target_ip'
-```
+
+```dockerfile
 
 ## Best Practices
 
 ### Log Retention
 
-**Docker Log Drivers:**
+### Docker Log Drivers:
 
 Use Docker's built-in log drivers for retention:
 
-```bash
 docker run --log-driver json-file \
   --log-opt max-size=10m \
   --log-opt max-file=3 \
   mcp-ssh-orchestrator:latest
 ```
 
-**docker-compose.yml:**
-```yaml
+### docker-compose.yml
+
 services:
   mcp-ssh:
     image: ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
@@ -471,13 +486,13 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-```
+
+```dockerfile
 
 ### Log Aggregation
 
 Forward logs to external systems:
 
-```bash
 # Forward to a syslog server
 docker run --log-driver syslog \
   --log-opt syslog-address=udp://logserver:514 \
@@ -492,16 +507,17 @@ docker run --log-driver journald \
 
 Here's what gets logged for a simple `hostname` command on a Proxmox host:
 
-```json
 {"type": "policy_decision", "ts": 1761489054.1433952, "alias": "Proxmox Prod 01", "hash": "abc123", "allowed": true}
 {"type": "progress", "ts": 1761489054.2000000, "task_id": "task_xyz", "phase": "connecting", "bytes_read": 0, "elapsed_ms": 50}
 {"type": "progress", "ts": 1761489054.4500000, "task_id": "task_xyz", "phase": "connected", "bytes_read": 0, "elapsed_ms": 250}
 {"type": "progress", "ts": 1761489054.7000000, "task_id": "task_xyz", "phase": "running", "bytes_read": 0, "elapsed_ms": 500}
 {"type": "audit", "ts": 1761489054.6500000, "alias": "Proxmox Prod 01", "hash": "abc123", "exit_code": 0, "duration_ms": 650, "bytes_out": 25, "bytes_err": 0, "cancelled": false, "timeout": false, "target_ip": "10.0.0.50"}
 {"type": "trace", "op": "run_done", "elapsed_ms": 700}
-```
+
+```bash
 
 This sequence shows:
+
 1. **Policy decision** (command allowed)
 2. **Progress logs** during connection and execution
 3. **Final audit log** with execution results

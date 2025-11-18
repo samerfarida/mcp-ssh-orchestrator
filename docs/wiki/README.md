@@ -4,7 +4,7 @@ This directory contains the source files for the mcp-ssh-orchestrator GitHub wik
 
 ## Directory Structure
 
-```
+```text
 docs/wiki/
 ├── Home.md                    # Landing page
 ├── _Sidebar.md                # Navigation structure
@@ -102,47 +102,55 @@ The sync process includes automatic validation:
 
 Before committing, validate your changes:
 
-```bash
 # Check markdown syntax
+
 python -c "import yaml; yaml.safe_load(open('docs/wiki/06.3-policy.yml.md'))"
 
 # Validate links (if link checker is installed)
+
 markdown-link-check docs/wiki/Home.md
 
 # Check for broken references
+
 grep -r "\[.*\](" docs/wiki/ | grep -v "http"
-```
+
+```bash
 
 ## Troubleshooting
 
 ### Sync Issues
 
-**Wiki not updating:**
+### Wiki not updating:
+
 1. Check GitHub Actions workflow status
 2. Verify wiki repository exists and is accessible
 3. Check for YAML syntax errors in configuration examples
 4. Review workflow logs for specific error messages
 
-**Broken links:**
+### Broken links:
+
 1. Use relative paths for internal wiki links
 2. Test links before committing
 3. Check that referenced pages exist
 4. Use absolute URLs for external links
 
-**Missing images:**
+### Missing images:
+
 1. Ensure images are in `docs/wiki/assets/` directory
 2. Use relative paths in markdown: `![alt](assets/image.png)`
 3. Check file permissions and case sensitivity
 
 ### Content Issues
 
-**Markdown rendering:**
+### Markdown rendering:
+
 1. Use standard Markdown syntax
 2. Avoid complex HTML in markdown files
 3. Test rendering in GitHub preview
 4. Check for special characters that need escaping
 
-**Mermaid diagrams:**
+### Mermaid diagrams:
+
 1. Embed diagrams directly in markdown using ` ```mermaid ` code blocks
 2. Test diagram syntax with Mermaid preview tools
 3. Keep diagrams close to the content they illustrate

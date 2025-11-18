@@ -34,7 +34,7 @@ jobs:
       has-code-changes: ${{ steps.is-tag.outputs.is-tag == 'true' || steps.filter.outputs.src == 'true' || steps.filter.outputs.tests == 'true' || steps.filter.outputs.config == 'true' || steps.filter.outputs.docker == 'true' }}
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Check if tag push
         id: is-tag
         run: |
@@ -43,7 +43,7 @@ jobs:
           else
             echo "is-tag=false" >> $GITHUB_OUTPUT
           fi
-      
+
       - name: Check for code changes
         uses: dorny/paths-filter@v3
         id: filter
@@ -61,7 +61,7 @@ jobs:
             docker:
               - 'Dockerfile'
               - '.dockerignore'
-      
+
 
   lint:
     name: Lint
@@ -72,23 +72,23 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
-      
+
       - name: Run ruff
         run: ruff check src/ tests/
-      
+
       - name: Run black
         run: black --check src/ tests/
-      
+
       - name: Run mypy
         run: mypy src/ --ignore-missing-imports
         continue-on-error: true
@@ -103,24 +103,24 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.11", "3.12", "3.13"]
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[test]"
-      
+
       - name: Run tests
         run: |
           pytest --cov=mcp_ssh --cov-report=xml --cov-report=term
-      
+
       - name: Upload coverage
         uses: codecov/codecov-action@v5
         if: matrix.python-version == '3.11'
@@ -139,10 +139,10 @@ jobs:
       packages: read
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      
+
       - name: Build Docker image
         uses: docker/build-push-action@v5
         with:
@@ -152,7 +152,7 @@ jobs:
           tags: mcp-ssh-orchestrator:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      
+
       - name: Test Docker image
         run: |
           echo "Testing Docker image..."
@@ -170,4 +170,3 @@ jobs:
     steps:
       - name: Skip workflow
         run: echo "Documentation-only PR - build and test checks skipped"
-

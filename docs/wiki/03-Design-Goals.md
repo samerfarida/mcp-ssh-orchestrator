@@ -21,6 +21,7 @@ mcp-ssh-orchestrator is built on the principle that **AI agents should have safe
 - **Network segmentation** with IP allowlists
 
 **Example:**
+
 ```yaml
 # Default policy: deny everything
 rules: []  # No rules = deny all
@@ -45,6 +46,7 @@ rules:
 - **Non-root execution** (least privilege)
 
 **Example:**
+
 ```dockerfile
 # Minimal base image
 FROM python:3.13-slim
@@ -70,13 +72,14 @@ VOLUME ["/app/config:ro", "/app/keys:ro"]
 - **Dry-run capability** (`ssh_plan`)
 
 **Example:**
+
 ```yaml
 # Environment-specific policies
 rules:
   - action: "allow"
     tags: ["production"]
     commands: ["uptime*", "df -h*"]
-  
+
   - action: "allow"
     tags: ["development"]
     commands: ["systemctl restart *", "docker ps*"]
@@ -95,6 +98,7 @@ rules:
 - **Target IP tracking** for network analysis
 
 **Example:**
+
 ```json
 {
   "type": "audit",
@@ -120,6 +124,7 @@ rules:
 - **Secrets management** via Docker secrets
 
 **Example:**
+
 ```yaml
 # Docker Compose integration
 services:
@@ -218,7 +223,8 @@ services:
 
 **Trade-off:** Strict security policies may limit legitimate operations.
 
-**Resolution:** 
+**Resolution:**
+
 - Provide comprehensive policy examples
 - Enable dry-run testing (`ssh_plan`)
 - Support per-environment policies
