@@ -921,7 +921,15 @@ def ssh_plan(alias: str = "", command: str = "") -> ToolResult:
             },
         }
         if not allowed:
-            preview["why"] = "Policy blocked this command."
+            # Enhanced error message: identify which command in chain is denied
+            denied_cmd = pol.get_denied_command_in_chain(alias, tags, command)
+            if denied_cmd and denied_cmd != command:
+                # Command chain with denied command
+                preview["why"] = f"Policy blocked command in chain: '{denied_cmd}'"
+                preview["denied_command"] = denied_cmd
+            else:
+                # Single command or entire chain denied
+                preview["why"] = "Policy blocked this command."
             preview["hint"] = _POLICY_DENY_HINT
         return preview
     except Exception as e:

@@ -731,3 +731,141 @@ def test_ssh_run_on_tag_task_cleanup_on_failure(mock_config_multiple_hosts):
             # All results should have exit_code -1 indicating failure
             for result in results:
                 assert result["exit_code"] == -1
+
+
+# ==================== Command Chaining Integration Tests ====================
+
+
+@pytest.fixture
+def mock_config_with_chaining_policy():
+    """Create a mock config with policy that allows some commands for chaining tests."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        servers = {
+            "hosts": [
+                {
+                    "alias": "test1",
+                    "host": "10.0.0.1",
+                    "port": 22,
+                    "credentials": "cred1",
+                    "tags": ["web"],
+                },
+            ]
+        }
+        with open(os.path.join(tmpdir, "servers.yml"), "w") as f:
+            yaml.dump(servers, f)
+
+        credentials = {
+            "entries": [
+                {"name": "cred1", "username": "user1", "key_path": "id_ed25519"},
+            ]
+        }
+        with open(os.path.join(tmpdir, "credentials.yml"), "w") as f:
+            yaml.dump(credentials, f)
+
+        # Policy with multiple allowed commands for chaining tests
+        policy = {
+            "limits": {"max_seconds": 60},
+            "rules": [
+                {
+                    "action": "allow",
+                    "aliases": ["*"],
+                    "tags": [],
+                    "commands": ["uptime*", "whoami", "hostname*", "date*", "echo*"],
+                },
+                {
+                    "action": "deny",
+                    "aliases": ["*"],
+                    "tags": [],
+                    "commands": ["apt list --upgradable*", "cat /etc/passwd*"],
+                },
+            ],
+        }
+        with open(os.path.join(tmpdir, "policy.yml"), "w") as f:
+            yaml.dump(policy, f)
+
+        config = Config(config_dir=tmpdir)
+        mcp_server.config = config
+
+        yield config
+
+
+def test_ssh_plan_chain_both_allowed(mock_config_with_chaining_policy):
+    """Test ssh_plan with chained commands where both are allowed."""
+    result = mcp_server.ssh_plan(alias="test1", command="uptime && whoami")
+    assert isinstance(result, dict)
+    assert result["allowed"] is True
+    assert result["alias"] == "test1"
+    assert result["command"] == "uptime && whoami"
+
+
+def test_ssh_plan_chain_first_allowed_second_denied(mock_config_with_chaining_policy):
+    """Test ssh_plan with chained commands where second is denied."""
+    result = mcp_server.ssh_plan(
+        alias="test1", command="uptime && apt list --upgradable"
+    )
+    assert isinstance(result, dict)
+    assert result["allowed"] is False
+    assert "why" in result
+    # Should identify which command is denied
+    assert "denied_command" in result or "apt list --upgradable" in result["why"]
+
+
+def test_ssh_plan_chain_first_denied_second_allowed(mock_config_with_chaining_policy):
+    """Test ssh_plan with chained commands where first is denied."""
+    result = mcp_server.ssh_plan(
+        alias="test1", command="apt list --upgradable && uptime"
+    )
+    assert isinstance(result, dict)
+    assert result["allowed"] is False
+    assert "why" in result
+
+
+def test_ssh_plan_chain_multiple_all_allowed(mock_config_with_chaining_policy):
+    """Test ssh_plan with multiple chained commands all allowed."""
+    result = mcp_server.ssh_plan(alias="test1", command="uptime && whoami && hostname")
+    assert isinstance(result, dict)
+    assert result["allowed"] is True
+
+
+def test_ssh_plan_chain_multiple_one_denied(mock_config_with_chaining_policy):
+    """Test ssh_plan with multiple chained commands where one is denied."""
+    result = mcp_server.ssh_plan(
+        alias="test1", command="uptime && apt list --upgradable && whoami"
+    )
+    assert isinstance(result, dict)
+    assert result["allowed"] is False
+    # Should identify the denied command
+    assert "denied_command" in result or "apt list --upgradable" in result.get(
+        "why", ""
+    )
+
+
+def test_ssh_plan_chain_with_semicolon(mock_config_with_chaining_policy):
+    """Test ssh_plan with semicolon operator."""
+    result = mcp_server.ssh_plan(alias="test1", command="uptime; whoami")
+    assert isinstance(result, dict)
+    assert result["allowed"] is True
+
+    result = mcp_server.ssh_plan(alias="test1", command="uptime; apt list --upgradable")
+    assert isinstance(result, dict)
+    assert result["allowed"] is False
+
+
+def test_ssh_plan_chain_with_pipe(mock_config_with_chaining_policy):
+    """Test ssh_plan with pipe operator."""
+    # Pipe should be treated as chaining - both commands must be allowed
+    # Since "cat" is not in allow list, this should be denied
+    result = mcp_server.ssh_plan(alias="test1", command="uptime | cat")
+    assert isinstance(result, dict)
+    assert result["allowed"] is False
+
+
+def test_ssh_plan_chain_backward_compatibility(mock_config_with_chaining_policy):
+    """Test that simple commands (no chaining) still work."""
+    result = mcp_server.ssh_plan(alias="test1", command="uptime")
+    assert isinstance(result, dict)
+    assert result["allowed"] is True
+
+    result = mcp_server.ssh_plan(alias="test1", command="unknown-command")
+    assert isinstance(result, dict)
+    assert result["allowed"] is False

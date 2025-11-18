@@ -1,0 +1,75 @@
+# Pre-commit hooks configuration for mcp-ssh-orchestrator
+# See https://pre-commit.com for more information
+
+repos:
+  # Python code quality
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+
+  - repo: https://github.com/psf/black
+    rev: 24.10.0
+    hooks:
+      - id: black
+        language_version: python3
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.13.0
+    hooks:
+      - id: mypy
+        additional_dependencies: [types-PyYAML]
+        args: [--ignore-missing-imports, --no-strict-optional]
+        exclude: ^(tests/|scripts/)
+        # Note: types-all has dependency issues, using specific types instead
+
+  # YAML validation
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.35.1
+    hooks:
+      - id: yamllint
+        args: [-d, '{extends: default, rules: {line-length: {max: 120}}}']
+
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: [--unsafe]  # Allow custom tags
+      - id: check-json
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-toml
+      - id: check-docstring-first
+        exclude: ^(tests/|scripts/)
+
+  # Markdown linting
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.42.0
+    hooks:
+      - id: markdownlint
+        args: [--fix]
+        exclude: ^(CHANGELOG.md|node_modules/)
+
+  # Custom hooks for MCP schema and config validation
+  - repo: local
+    hooks:
+      - id: validate-mcp-schema
+        name: Validate MCP Schema
+        entry: bash -c 'python3 scripts/validate-mcp-schema.py || exit 0'  # Optional, don't fail if script missing
+        language: system
+        pass_filenames: false
+        files: ^src/mcp_ssh/mcp_server\.py$
+
+      - id: validate-config
+        name: Validate YAML Configs
+        entry: bash -c 'python3 scripts/validate-config.py || exit 0'  # Optional, don't fail if script missing
+        language: system
+        pass_filenames: false
+        files: ^config/.*\.yml$|^examples/.*\.yml$

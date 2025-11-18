@@ -1275,7 +1275,7 @@ def test_audit_logging_includes_timestamp():
 
         # Check Unix timestamp
         assert "ts" in data
-        assert isinstance(data["ts"], (int, float))
+        assert isinstance(data["ts"], int | float)
         assert before <= data["ts"] <= after
 
         # Check ISO timestamp

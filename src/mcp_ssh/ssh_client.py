@@ -332,7 +332,7 @@ class SSHClient:
                 raise RuntimeError(
                     "SSH key requires passphrase: Provide key_passphrase_secret"
                 ) from e
-            elif isinstance(e, (socket.timeout, TimeoutError)):
+            elif isinstance(e, socket.timeout | TimeoutError):
                 raise RuntimeError(
                     "SSH connection timeout: Host did not respond"
                 ) from e
@@ -341,7 +341,7 @@ class SSHClient:
                     "SSH connection refused: Port may be closed or firewall blocking"
                 ) from e
             elif (
-                isinstance(e, (socket.gaierror, OSError))
+                isinstance(e, socket.gaierror | OSError)
                 and "Name or service not known" in error_msg
             ):
                 raise RuntimeError(

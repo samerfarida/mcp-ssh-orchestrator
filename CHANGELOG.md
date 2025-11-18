@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **CRITICAL FIX**: Fixed command chaining bypass vulnerability where commands like `uptime && apt list --upgradable` could bypass policy restrictions by chaining an allowed command with a denied one
+- Command chaining operators (`&&`, `||`, `;`, `|`) are now parsed and each command is validated individually
+- All commands in a chain must be allowed for the chain to execute; if any command is denied, the entire chain is blocked
+- Enhanced error messages in `ssh_plan` to identify which specific command in a chain is denied
+- Added comprehensive security logging for command chain parsing and denials
+- Added 25+ unit tests and 8 integration tests for command chaining validation
+- Backward compatibility maintained: simple commands (no chaining) work exactly as before
+
+### Added
+- Command chain parsing function `_parse_command_chain()` supporting all chaining operators and command substitution
+- `get_denied_command_in_chain()` helper method to identify which command in a chain is denied
+- Security logging for command chain parsing (`command_chain_parsed`) and denials (`command_chain_denied`)
+- Comprehensive documentation for command chaining behavior in policy.yml and troubleshooting guides
+
 ## [0.7.0] - 2025-11-17
 
 ### Added

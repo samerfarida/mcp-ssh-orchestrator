@@ -2,7 +2,7 @@
 
 import pytest
 
-from mcp_ssh.policy import Policy
+from mcp_ssh.policy import Policy, _parse_command_chain
 
 
 @pytest.fixture
@@ -379,3 +379,219 @@ def test_bypass_prevention_multiple_patterns(basic_policy):
     # Both patterns should be caught
     assert pol.is_allowed("test1", [], "'rm -rf /'") is False
     assert pol.is_allowed("test1", [], '"shutdown -h"') is False
+
+
+# ==================== Command Chain Parsing Tests ====================
+
+
+def test_parse_command_chain_simple():
+    """Test parsing simple command (no chaining)."""
+    result = _parse_command_chain("uptime")
+    assert result == ["uptime"]
+
+
+def test_parse_command_chain_and_operator():
+    """Test parsing && operator."""
+    result = _parse_command_chain("uptime && whoami")
+    assert result == ["uptime", "whoami"]
+
+
+def test_parse_command_chain_semicolon():
+    """Test parsing ; operator."""
+    result = _parse_command_chain("uptime; whoami")
+    assert result == ["uptime", "whoami"]
+
+
+def test_parse_command_chain_pipe():
+    """Test parsing | operator."""
+    result = _parse_command_chain("uptime | cat")
+    assert result == ["uptime", "cat"]
+
+
+def test_parse_command_chain_or_operator():
+    """Test parsing || operator."""
+    result = _parse_command_chain("uptime || whoami")
+    assert result == ["uptime", "whoami"]
+
+
+def test_parse_command_chain_multiple():
+    """Test parsing multiple chained commands."""
+    result = _parse_command_chain("uptime && whoami && hostname")
+    assert result == ["uptime", "whoami", "hostname"]
+
+
+def test_parse_command_chain_mixed_operators():
+    """Test parsing mixed operators."""
+    result = _parse_command_chain("uptime; whoami && hostname")
+    assert result == ["uptime", "whoami", "hostname"]
+
+
+def test_parse_command_chain_with_quotes():
+    """Test parsing commands with quotes (operators in quotes should be ignored)."""
+    result = _parse_command_chain('echo "hello && world" && whoami')
+    assert result == ['echo "hello && world"', "whoami"]
+
+
+def test_parse_command_chain_backtick_substitution():
+    """Test parsing commands with backtick substitution."""
+    result = _parse_command_chain("uptime `whoami`")
+    # Backtick substitution is kept as part of command for validation
+    assert len(result) == 1
+    assert "uptime" in result[0]
+    assert "`whoami`" in result[0]
+
+
+def test_parse_command_chain_dollar_paren_substitution():
+    """Test parsing commands with $(command) substitution."""
+    result = _parse_command_chain("echo $(whoami) && uptime")
+    # $(whoami) should be kept with echo, then uptime is separate
+    assert len(result) == 2
+    assert "$(whoami)" in result[0]
+    assert result[1] == "uptime"
+
+
+def test_parse_command_chain_parentheses():
+    """Test parsing commands with parentheses grouping."""
+    result = _parse_command_chain("uptime && (whoami || hostname)")
+    # Parentheses grouping should be preserved in the command
+    assert len(result) == 2
+    assert result[0] == "uptime"
+    assert "(whoami || hostname)" in result[1]
+
+
+def test_parse_command_chain_empty():
+    """Test parsing empty command."""
+    result = _parse_command_chain("")
+    assert result == []
+
+
+def test_parse_command_chain_whitespace():
+    """Test parsing commands with extra whitespace."""
+    result = _parse_command_chain("uptime   &&   whoami")
+    assert result == ["uptime", "whoami"]
+
+
+# ==================== Command Chain Policy Validation Tests ====================
+
+
+def test_chain_both_commands_allowed(basic_policy):
+    """Test that chaining two allowed commands works."""
+    pol = Policy(basic_policy)
+
+    # Both uptime and df -h are allowed
+    assert pol.is_allowed("test1", [], "uptime && df -h") is True
+    assert pol.is_allowed("test1", [], "uptime; df -h") is True
+
+
+def test_chain_first_allowed_second_denied(basic_policy):
+    """Test that chaining allowed with denied command is blocked."""
+    pol = Policy(basic_policy)
+
+    # uptime is allowed, but "rm -rf" is in deny_substrings
+    assert pol.is_allowed("test1", [], "uptime && rm -rf /tmp") is False
+    assert pol.is_allowed("test1", [], "uptime; rm -rf /tmp") is False
+
+
+def test_chain_first_denied_second_allowed(basic_policy):
+    """Test that chaining denied with allowed command is blocked."""
+    pol = Policy(basic_policy)
+
+    # rm -rf is denied, even if followed by allowed command
+    assert pol.is_allowed("test1", [], "rm -rf /tmp && uptime") is False
+    assert pol.is_allowed("test1", [], "rm -rf /tmp; uptime") is False
+
+
+def test_chain_both_denied(basic_policy):
+    """Test that chaining two denied commands is blocked."""
+    pol = Policy(basic_policy)
+
+    # Both commands are denied
+    assert pol.is_allowed("test1", [], "rm -rf / && shutdown -h") is False
+
+
+def test_chain_multiple_commands_all_allowed(basic_policy):
+    """Test that chaining multiple allowed commands works."""
+    pol = Policy(basic_policy)
+
+    # All three commands are allowed
+    assert pol.is_allowed("test1", [], "uptime && df -h && uptime") is True
+
+
+def test_chain_multiple_commands_one_denied(basic_policy):
+    """Test that chaining multiple commands fails if any is denied."""
+    pol = Policy(basic_policy)
+
+    # Middle command is denied
+    assert pol.is_allowed("test1", [], "uptime && rm -rf / && df -h") is False
+
+
+def test_chain_order_independence(basic_policy):
+    """Test that command order doesn't affect validation."""
+    pol = Policy(basic_policy)
+
+    # Both should behave the same (both allowed)
+    result1 = pol.is_allowed("test1", [], "uptime && df -h")
+    result2 = pol.is_allowed("test1", [], "df -h && uptime")
+    assert result1 == result2
+    assert result1 is True
+
+
+def test_chain_with_command_substitution_denied(basic_policy):
+    """Test that command substitution with denied command is blocked."""
+    pol = Policy(basic_policy)
+
+    # echo is allowed, but $(rm -rf /) contains denied substring
+    # Note: This depends on how substitution is handled in parsing
+    # For now, the entire command with substitution is checked
+    assert pol.is_allowed("test1", [], 'echo "$(rm -rf /)"') is False
+
+
+def test_chain_backward_compatibility_simple(basic_policy):
+    """Test that simple commands (no chaining) still work as before."""
+    pol = Policy(basic_policy)
+
+    # These should work exactly as before
+    assert pol.is_allowed("test1", [], "uptime") is True
+    assert pol.is_allowed("test1", [], "df -h") is True
+    assert pol.is_allowed("test1", [], "unknown-command") is False
+
+
+def test_get_denied_command_in_chain_single(basic_policy):
+    """Test identifying denied command in single command."""
+    pol = Policy(basic_policy)
+
+    denied = pol.get_denied_command_in_chain("test1", [], "rm -rf /tmp")
+    assert denied == "rm -rf /tmp"
+
+    denied = pol.get_denied_command_in_chain("test1", [], "uptime")
+    assert denied is None
+
+
+def test_get_denied_command_in_chain_multiple(basic_policy):
+    """Test identifying which command in chain is denied."""
+    pol = Policy(basic_policy)
+
+    # First command denied
+    denied = pol.get_denied_command_in_chain("test1", [], "rm -rf /tmp && uptime")
+    assert denied == "rm -rf /tmp"
+
+    # Second command denied
+    denied = pol.get_denied_command_in_chain("test1", [], "uptime && rm -rf /tmp")
+    assert denied == "rm -rf /tmp"
+
+    # All allowed
+    denied = pol.get_denied_command_in_chain("test1", [], "uptime && df -h")
+    assert denied is None
+
+
+def test_chain_with_pipe_operator(basic_policy):
+    """Test that pipe operator is treated as chaining."""
+    pol = Policy(basic_policy)
+
+    # Pipe should be treated as chaining - both commands must be allowed
+    # uptime is allowed, but we need to check what "cat" would match
+    # For this test, assume both are allowed or adjust policy
+    result = pol.is_allowed("test1", [], "uptime | cat")
+    # Result depends on whether "cat" matches any allow rule
+    # Since basic_policy doesn't have "cat", it should be denied
+    assert result is False
