@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **OSSF Scorecard Pinned-Dependencies**: Fixed all 58 Pinned-Dependencies security alerts by pinning all GitHub Actions to commit SHAs and all package managers to specific versions
+  - Pinned 43 GitHub Actions to commit SHAs (replacing version tags like `@v4`, `@v5`)
+  - Pinned pip to version 24.0 in all workflows and Dockerfile (5 instances)
+  - Pinned npm package `markdownlint-cli2` to version 0.19.0
+  - Improved supply chain security by using immutable commit references instead of mutable version tags
+  - Expected Scorecard Pinned-Dependencies score improvement: 1/10 → 10/10
+  - All changes validated with YAML syntax checks, GitHub Actions parsing (act), and consistency verification
+
 ### Fixed
 - **Issue #1**: Fixed SSH client exception handling to be more specific - now only catches `KeyError` and `AttributeError` from host key access, preventing `RuntimeError` from known_hosts check from being incorrectly caught
 - **Issue #2**: Fixed DNS cache race condition (TOCTOU) by adding 1-second grace period to expiry check

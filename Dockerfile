@@ -28,7 +28,7 @@ COPY src /app/src
 COPY examples /app/examples
 
 # Install dependencies as root
-RUN pip install --no-cache-dir --upgrade pip && \
+RUN pip install --no-cache-dir pip==24.0 && \
     pip install --no-cache-dir --require-hashes -r requirements.txt && \
     pip install --no-cache-dir .
 
