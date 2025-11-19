@@ -431,10 +431,10 @@ uptime && apt list --upgradable && whoami
    chmod 0400 /path/to/keys/id_ed25519
    ```
 
+Additional best practices:
+
 1. **Separate Keys**: Use dedicated keys for the orchestrator (not your personal keys)
-
 2. **Key Rotation**: Rotate keys periodically (quarterly recommended)
-
 3. **Passphrase Protection**: Use passphrases for private keys
 
    ```yaml
@@ -466,8 +466,9 @@ uptime && apt list --upgradable && whoami
    - `.env` file: `/app/secrets/.env` (consolidated secrets file with `KEY=value` format)
    - Docker secret file: `/app/secrets/<name>`
 
-1. **Strong Passwords**: Minimum 16 characters, high entropy
+Additional requirements:
 
+1. **Strong Passwords**: Minimum 16 characters, high entropy
 2. **Limited Scope**: Use password auth only for hosts that don't support keys
 
 ### Secrets Storage
@@ -957,7 +958,7 @@ docker logs -f mcp-ssh-orchestrator 2>&1 | \
        - "<bypass pattern>"
    ```
 
-1. **Reload config**: `ssh_reload_config`
+5. **Reload config**: `ssh_reload_config`
 
 ### Unauthorized Access
 
@@ -968,10 +969,10 @@ docker logs -f mcp-ssh-orchestrator 2>&1 | \
    jq -r 'select(.alias == "compromised-host") | [.ts, .hash, .target_ip] | @tsv' < audit.log
    ```
 
-1. **Identify command hashes** executed
-2. **Correlate with target host logs**
-3. **Contain affected hosts**
-4. **Rotate credentials**
+2. **Identify command hashes** executed
+3. **Correlate with target host logs**
+4. **Contain affected hosts**
+5. **Rotate credentials**
 
 ## Security Framework Alignment
 
