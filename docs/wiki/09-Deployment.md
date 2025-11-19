@@ -245,6 +245,66 @@ docker run -i --rm \
   ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 ```
 
+**.env File (Consolidated Secrets):**
+
+The `.env` file provides a convenient way to manage all secrets in a single file. This is especially useful for development and smaller deployments.
+
+```bash
+# Create .env file
+cat > ~/mcp-ssh/secrets/.env << EOF
+# SSH Key Passphrases
+prod_key_passphrase=production-passphrase
+staging_key_passphrase=staging-passphrase
+
+# SSH Passwords
+admin_password=admin-password
+lab_password=lab-password
+EOF
+
+# Set secure permissions (critical!)
+chmod 600 ~/mcp-ssh/secrets/.env
+
+# Verify permissions
+ls -l ~/mcp-ssh/secrets/.env
+# Should show: -rw------- (600)
+
+# The .env file is automatically read from /app/secrets/.env in the container
+# No additional configuration needed - just mount the secrets directory
+docker run -i --rm \
+  -v ~/mcp-ssh/config:/app/config:ro \
+  -v ~/mcp-ssh/keys:/app/keys:ro \
+  -v ~/mcp-ssh/secrets:/app/secrets:ro \
+  ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
+```
+
+**Security Notes for .env File:**
+
+- **File Permissions**: Always set to `600` (owner read/write only)
+
+  ```bash
+  chmod 600 secrets/.env
+  ```
+
+- **Directory Permissions**: Ensure secrets directory is `700` or more restrictive
+
+  ```bash
+  chmod 700 secrets/
+  ```
+
+- **Never Commit**: The `.env` file is automatically ignored by Git (via `.gitignore`)
+- **Backup Security**: If backing up `.env` files, encrypt them and store securely
+- **Container Mount**: Mount as read-only (`:ro`) to prevent accidental modification
+
+**Mixed Approach:**
+
+You can use a combination of methods:
+
+- Use `.env` file for most secrets (easier management)
+- Use individual files for secrets that need to be managed separately
+- Use environment variables for secrets injected by orchestration systems
+
+The resolution order ensures environment variables take precedence, followed by `.env` file, then individual files.
+
 ## Resource Management
 
 ### Container Optimization

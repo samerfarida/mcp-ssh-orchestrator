@@ -54,6 +54,8 @@ mcp-ssh-orchestrator/
 │   └── policy.yml        # Security policies
 ├── keys/                 # SSH private keys (chmod 0400)
 └── secrets/              # Docker secrets (passwords, passphrases)
+    ├── .env              # Consolidated secrets file (optional, KEY=value format)
+    └── <name>            # Individual secret files (Docker secrets compatible)
 ```bash
 
 ## Configuration Loading Process

@@ -158,9 +158,25 @@ chmod 0400 ~/mcp-ssh/keys/id_ed25519
 
 # (Optional) Pin trusted hosts and prepare secret files
 cp ~/.ssh/known_hosts ~/mcp-ssh/keys/known_hosts
+
+# Option 1: Individual secret files (Docker secrets compatible)
 cat > ~/mcp-ssh/secrets/prod_db_password.txt <<'EOF'
 CHANGE-ME
 EOF
+chmod 600 ~/mcp-ssh/secrets/prod_db_password.txt
+
+# Option 2: Consolidated .env file (recommended for easier management)
+cat > ~/mcp-ssh/secrets/.env <<'EOF'
+# SSH Passwords
+prod_db_password=CHANGE-ME
+lab_password=CHANGE-ME-TOO
+
+# SSH Key Passphrases
+prod_key_passphrase=CHANGE-ME-PASSPHRASE
+EOF
+chmod 600 ~/mcp-ssh/secrets/.env
+# Note: .env file supports KEY=value format, comments, and quoted values
+# See docs/wiki/06.2-credentials.yml.md for details
 ```
 
 ### 2. Launch the orchestrator container

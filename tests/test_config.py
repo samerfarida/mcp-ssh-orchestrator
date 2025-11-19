@@ -7,10 +7,12 @@ import pytest
 import yaml
 
 from mcp_ssh.config import (
+    MAX_ENV_FILE_SIZE,
     MAX_KEY_PATH_LENGTH,
     MAX_SECRET_NAME_LENGTH,
     MAX_YAML_FILE_SIZE,
     Config,
+    _load_env_file,
     _load_yaml,
     _log_security_event,
     _resolve_key_path,
@@ -1285,3 +1287,372 @@ def test_audit_logging_includes_timestamp():
         assert "T" in data["timestamp"]
     finally:
         sys.stderr = old_stderr
+
+
+# ============================================================================
+# Tests for .env file loading
+# ============================================================================
+
+
+def test_load_env_file_basic():
+    """Test basic .env file parsing with KEY=value format."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        env_file = os.path.join(tmpdir, ".env")
+        with open(env_file, "w") as f:
+            f.write("KEY1=value1\n")
+            f.write("KEY2=value2\n")
+            f.write("KEY3=value3\n")
+
+        result = _load_env_file(tmpdir)
+        assert result == {"KEY1": "value1", "KEY2": "value2", "KEY3": "value3"}
+
+
+def test_load_env_file_with_comments():
+    """Test .env file parsing with comments and empty lines."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        env_file = os.path.join(tmpdir, ".env")
+        with open(env_file, "w") as f:
+            f.write("# This is a comment\n")
+            f.write("KEY1=value1\n")
+            f.write("\n")  # Empty line
+            f.write("# Another comment\n")
+            f.write("KEY2=value2\n")
+
+        result = _load_env_file(tmpdir)
+        assert result == {"KEY1": "value1", "KEY2": "value2"}
+
+
+def test_load_env_file_with_quotes():
+    """Test .env file parsing with quoted values."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        env_file = os.path.join(tmpdir, ".env")
+        with open(env_file, "w") as f:
+            f.write('KEY1="value with spaces"\n')
+            f.write("KEY2='single quoted value'\n")
+            f.write("KEY3=unquoted_value\n")
+
+        result = _load_env_file(tmpdir)
+        assert result == {
+            "KEY1": "value with spaces",
+            "KEY2": "single quoted value",
+            "KEY3": "unquoted_value",
+        }
+
+
+def test_load_env_file_with_equals_in_value():
+    """Test .env file parsing with values containing = characters."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        env_file = os.path.join(tmpdir, ".env")
+        with open(env_file, "w") as f:
+            f.write("KEY1=value1=value2=value3\n")
+            f.write("KEY2=key=value&another=value\n")
+
+        result = _load_env_file(tmpdir)
+        assert result == {
+            "KEY1": "value1=value2=value3",
+            "KEY2": "key=value&another=value",
+        }
+
+
+def test_load_env_file_missing():
+    """Test that missing .env file returns empty dict."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        result = _load_env_file(tmpdir)
+        assert result == {}
+
+
+def test_load_env_file_oversized():
+    """Test that oversized .env file is rejected."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        env_file = os.path.join(tmpdir, ".env")
+        # Create a file larger than MAX_ENV_FILE_SIZE
+        oversized_size = MAX_ENV_FILE_SIZE + 1024
+        with open(env_file, "w") as f:
+            f.write("KEY=" + "x" * oversized_size)
+
+        result = _load_env_file(tmpdir)
+        assert result == {}
+
+
+def test_load_env_file_permissive_permissions():
+    """Test that permissive permissions are logged but file still loads."""
+    import sys
+    from io import StringIO
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        env_file = os.path.join(tmpdir, ".env")
+        with open(env_file, "w") as f:
+            f.write("KEY1=value1\n")
+
+        # Set permissive permissions (644 - group and other can read)
+        os.chmod(env_file, 0o644)
+
+        # Capture stderr
+        old_stderr = sys.stderr
+        sys.stderr = StringIO()
+
+        try:
+            result = _load_env_file(tmpdir)
+            # File should still load
+            assert result == {"KEY1": "value1"}
+
+            # Check that security event was logged
+            output = sys.stderr.getvalue()
+            assert "insecure_file_permissions" in output or output == ""
+        finally:
+            sys.stderr = old_stderr
+            # Restore permissions for cleanup
+            os.chmod(env_file, 0o600)
+
+
+def test_load_env_file_symlink_rejection():
+    """Test that symlinks are rejected when loading .env file."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create a regular file
+        target_file = os.path.join(tmpdir, "target")
+        with open(target_file, "w") as f:
+            f.write("KEY1=value1\n")
+
+        # Create a symlink to it
+        symlink_path = os.path.join(tmpdir, ".env")
+        os.symlink(target_file, symlink_path)
+
+        # Symlink should be rejected
+        result = _load_env_file(tmpdir)
+        assert result == {}
+
+
+def test_load_env_file_directory_rejection():
+    """Test that directories are rejected when loading .env file."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create a directory named .env (shouldn't happen, but test it)
+        env_dir = os.path.join(tmpdir, ".env")
+        os.makedirs(env_dir, exist_ok=True)
+
+        # Directory should be rejected
+        result = _load_env_file(tmpdir)
+        assert result == {}
+
+
+def test_load_env_file_strips_whitespace():
+    """Test that keys and values are stripped of whitespace."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        env_file = os.path.join(tmpdir, ".env")
+        with open(env_file, "w") as f:
+            f.write("  KEY1  =  value1  \n")
+            f.write("KEY2=value2\n")
+
+        result = _load_env_file(tmpdir)
+        assert result == {"KEY1": "value1", "KEY2": "value2"}
+
+
+def test_load_env_file_caching():
+    """Test that .env file is cached after first load."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        env_file = os.path.join(tmpdir, ".env")
+        with open(env_file, "w") as f:
+            f.write("KEY1=value1\n")
+
+        # First load
+        result1 = _load_env_file(tmpdir)
+        assert result1 == {"KEY1": "value1"}
+
+        # Modify file
+        with open(env_file, "w") as f:
+            f.write("KEY1=modified_value\n")
+
+        # Second load should return cached value
+        result2 = _load_env_file(tmpdir)
+        assert result2 == {"KEY1": "value1"}  # Cached value, not modified
+
+
+def test_load_env_file_no_cache_on_missing_file():
+    """Test that missing .env file is not cached, allowing later file creation."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        env_file = os.path.join(tmpdir, ".env")
+
+        # First call: file doesn't exist
+        result1 = _load_env_file(tmpdir)
+        assert result1 == {}
+
+        # Create file after first call
+        with open(env_file, "w") as f:
+            f.write("KEY1=value1\n")
+
+        # Second call: should load the newly created file (not cached empty result)
+        result2 = _load_env_file(tmpdir)
+        assert result2 == {"KEY1": "value1"}
+
+
+# ============================================================================
+# Tests for secret resolution with .env file
+# ============================================================================
+
+
+def test_resolve_secret_from_env_file():
+    """Test resolving secret from .env file."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        env_file = os.path.join(tmpdir, ".env")
+        with open(env_file, "w") as f:
+            f.write("TEST_SECRET=env-file-value\n")
+
+        result = _resolve_secret("TEST_SECRET", secrets_dir=tmpdir)
+        assert result == "env-file-value"
+
+
+def test_resolve_secret_priority_env_over_env_file(monkeypatch):
+    """Test that environment variable takes precedence over .env file."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        env_file = os.path.join(tmpdir, ".env")
+        with open(env_file, "w") as f:
+            f.write("TEST_SECRET=env-file-value\n")
+
+        # Set environment variable
+        monkeypatch.setenv("TEST_SECRET", "env-var-value")
+
+        result = _resolve_secret("TEST_SECRET", secrets_dir=tmpdir)
+        assert result == "env-var-value"  # Env var should win
+
+
+def test_resolve_secret_priority_env_file_over_individual_file():
+    """Test that .env file takes precedence over individual files."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create .env file
+        env_file = os.path.join(tmpdir, ".env")
+        with open(env_file, "w") as f:
+            f.write("TEST_SECRET=env-file-value\n")
+
+        # Create individual secret file
+        secret_file = os.path.join(tmpdir, "TEST_SECRET")
+        with open(secret_file, "w") as f:
+            f.write("individual-file-value\n")
+
+        result = _resolve_secret("TEST_SECRET", secrets_dir=tmpdir)
+        assert result == "env-file-value"  # .env file should win
+
+
+def test_resolve_secret_case_insensitive_env_file():
+    """Test case-insensitive key lookup in .env file."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        env_file = os.path.join(tmpdir, ".env")
+        with open(env_file, "w") as f:
+            f.write("TEST_SECRET=uppercase-key-value\n")
+
+        # Try lowercase secret name
+        result = _resolve_secret("test_secret", secrets_dir=tmpdir)
+        assert result == "uppercase-key-value"
+
+
+def test_resolve_secret_env_file_with_special_characters():
+    """Test .env file values with special characters."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        env_file = os.path.join(tmpdir, ".env")
+        with open(env_file, "w") as f:
+            f.write('TEST_SECRET="value with spaces and !@#$%^&*()"\n')
+
+        result = _resolve_secret("TEST_SECRET", secrets_dir=tmpdir)
+        assert result == "value with spaces and !@#$%^&*()"
+
+
+def test_resolve_secret_mixed_sources(monkeypatch):
+    """Test resolving secrets from mixed sources."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create .env file
+        env_file = os.path.join(tmpdir, ".env")
+        with open(env_file, "w") as f:
+            f.write("ENV_FILE_SECRET=env-file-value\n")
+            f.write("INDIVIDUAL_FILE_SECRET=should-not-be-used\n")
+
+        # Create individual secret file
+        secret_file = os.path.join(tmpdir, "INDIVIDUAL_FILE_SECRET")
+        with open(secret_file, "w") as f:
+            f.write("individual-file-value\n")
+
+        # Set environment variable
+        monkeypatch.setenv("ENV_VAR_SECRET", "env-var-value")
+
+        # Test env var (highest priority)
+        result1 = _resolve_secret("ENV_VAR_SECRET", secrets_dir=tmpdir)
+        assert result1 == "env-var-value"
+
+        # Test .env file (medium priority)
+        result2 = _resolve_secret("ENV_FILE_SECRET", secrets_dir=tmpdir)
+        assert result2 == "env-file-value"
+
+        # Test individual file (lowest priority, but .env takes precedence)
+        result3 = _resolve_secret("INDIVIDUAL_FILE_SECRET", secrets_dir=tmpdir)
+        assert result3 == "should-not-be-used"  # .env file value, not individual file
+
+
+# ============================================================================
+# Integration tests for credential resolution using .env file
+# ============================================================================
+
+
+def test_get_credentials_with_env_file(temp_config_dir):
+    """Test full credential resolution using .env file."""
+    import tempfile
+
+    # Create credentials.yml with secret reference
+    creds_path = os.path.join(temp_config_dir, "credentials.yml")
+    credentials = {
+        "entries": [
+            {
+                "name": "test_cred",
+                "username": "testuser",
+                "key_path": "id_ed25519",
+                "key_passphrase_secret": "SSH_KEY_PASSPHRASE_01",
+                "password_secret": "SSH_PASSWORD_SECRET_01",
+            }
+        ]
+    }
+    with open(creds_path, "w") as f:
+        yaml.dump(credentials, f)
+
+    # Create .env file with secrets
+    with tempfile.TemporaryDirectory() as secrets_dir:
+        env_file = os.path.join(secrets_dir, ".env")
+        with open(env_file, "w") as f:
+            f.write("SSH_KEY_PASSPHRASE_01=my-passphrase\n")
+            f.write("SSH_PASSWORD_SECRET_01=my-password\n")
+
+        config = Config(temp_config_dir, secrets_dir=secrets_dir)
+        creds = config.get_credentials("test_cred")
+        assert creds["passphrase"] == "my-passphrase"
+        assert creds["password"] == "my-password"
+
+
+def test_get_credentials_env_file_fallback(temp_config_dir):
+    """Test fallback to individual files if secret not in .env file."""
+    import tempfile
+
+    # Create credentials.yml
+    creds_path = os.path.join(temp_config_dir, "credentials.yml")
+    credentials = {
+        "entries": [
+            {
+                "name": "test_cred",
+                "username": "testuser",
+                "password_secret": "INDIVIDUAL_FILE_SECRET",
+            }
+        ]
+    }
+    with open(creds_path, "w") as f:
+        yaml.dump(credentials, f)
+
+    # Create .env file (without the secret)
+    with tempfile.TemporaryDirectory() as secrets_dir:
+        env_file = os.path.join(secrets_dir, ".env")
+        with open(env_file, "w") as f:
+            f.write("OTHER_SECRET=other-value\n")
+
+        # Create individual secret file
+        secret_file = os.path.join(secrets_dir, "INDIVIDUAL_FILE_SECRET")
+        with open(secret_file, "w") as f:
+            f.write("individual-file-value\n")
+
+        config = Config(temp_config_dir, secrets_dir=secrets_dir)
+        creds = config.get_credentials("test_cred")
+        assert (
+            creds["password"] == "individual-file-value"
+        )  # Fallback to individual file

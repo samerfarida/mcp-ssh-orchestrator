@@ -20,6 +20,10 @@ MAX_YAML_FILE_SIZE = 10 * 1024 * 1024  # 10MB in bytes
 MAX_SECRET_NAME_LENGTH = 100  # Maximum length for secret names
 MAX_KEY_PATH_LENGTH = 500  # Maximum length for SSH key paths
 
+# .env file configuration
+ENV_FILE_NAME = ".env"  # Name of the consolidated secrets file
+MAX_ENV_FILE_SIZE = 100 * 1024  # 100KB limit for .env file
+
 
 def _load_yaml(path: str) -> dict:
     """Load YAML file to dict with size limit protection.
@@ -206,6 +210,106 @@ def _validate_file_path(
     return True
 
 
+# Cache for parsed .env files (keyed by secrets_dir)
+_env_file_cache: dict[str, dict[str, str]] = {}
+
+
+def _load_env_file(secrets_dir: str = "") -> dict[str, str]:
+    """Load .env file from secrets directory.
+
+    Security: Validates file permissions and size before loading.
+    Returns empty dict if file doesn't exist or has security issues.
+
+    Args:
+        secrets_dir: Directory containing the .env file
+
+    Returns:
+        Dictionary of key-value pairs from .env file, or empty dict on error
+    """
+    base_dir = secrets_dir or DEFAULT_SECRETS_DIR
+    env_path = os.path.join(base_dir, ENV_FILE_NAME)
+
+    # Check cache first
+    if base_dir in _env_file_cache:
+        return _env_file_cache[base_dir]
+
+    if not os.path.exists(env_path):
+        return {}
+
+    # Check file size
+    try:
+        file_size = os.path.getsize(env_path)
+        if file_size > MAX_ENV_FILE_SIZE:
+            _log_security_event(
+                event_type="file_size_limit_exceeded",
+                attempted_path=env_path,
+                resolved_path=os.path.abspath(env_path),
+                reason="env_file_too_large",
+                additional_data={
+                    "file_size": file_size,
+                    "max_size": MAX_ENV_FILE_SIZE,
+                },
+            )
+            return {}
+    except OSError:
+        return {}
+
+    # Check file permissions (should be 600 or more restrictive)
+    try:
+        stat_info = os.stat(env_path)
+        mode = stat_info.st_mode & 0o777
+        # Warn if permissions are too permissive (group or other can read)
+        if mode & 0o077:
+            _log_security_event(
+                event_type="insecure_file_permissions",
+                attempted_path=env_path,
+                resolved_path=os.path.abspath(env_path),
+                reason="env_file_permissions_too_permissive",
+                additional_data={"mode": oct(mode)},
+            )
+            # Still load, but log the security issue
+    except OSError:
+        pass
+
+    # Validate it's a regular file, not symlink
+    base_abs = os.path.abspath(base_dir)
+    if not _validate_file_path(env_path, base_abs):
+        return {}
+
+    # Parse .env file
+    env_vars: dict[str, str] = {}
+    try:
+        with open(env_path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                # Skip empty lines and comments
+                if not line or line.startswith("#"):
+                    continue
+
+                # Parse KEY=value format
+                if "=" in line:
+                    # Split on first = only (values can contain =)
+                    key, value = line.split("=", 1)
+                    key = key.strip()
+                    value = value.strip()
+
+                    # Remove quotes if present (single or double)
+                    if (value.startswith('"') and value.endswith('"')) or (
+                        value.startswith("'") and value.endswith("'")
+                    ):
+                        value = value[1:-1]
+
+                    if key:
+                        env_vars[key] = value
+    except Exception as e:
+        _log_err("env_file_parse_error", {"path": env_path, "error": str(e)})
+        return {}
+
+    # Cache the result only after successful parsing
+    _env_file_cache[base_dir] = env_vars
+    return env_vars
+
+
 def _resolve_secret(secret_name: str, secrets_dir: str = "") -> str:
     """Resolve a secret from Docker secrets directory or environment variable.
 
@@ -219,7 +323,10 @@ def _resolve_secret(secret_name: str, secrets_dir: str = "") -> str:
        - Example: server.yml has 'env: SSH_KEY_PASSPHRASE_01' -> container gets 'SSH_KEY_PASSPHRASE_01'
     2. Prefixed environment variable (standalone/backward compatibility): MCP_SSH_SECRET_<SECRET_NAME>
        - Supports existing standalone deployments using prefixed env vars
-    3. Docker secrets file: /app/secrets/<secret_name>
+    3. .env file: /app/secrets/.env
+       - Consolidated secrets file with KEY=value format
+       - Supports comments and quoted values
+    4. Docker secrets file: /app/secrets/<secret_name>
        - Supports file-based secret storage for standalone deployments
     """
     if not secret_name:
@@ -253,6 +360,15 @@ def _resolve_secret(secret_name: str, secrets_dir: str = "") -> str:
     if prefixed_env_key in os.environ:
         return os.environ[prefixed_env_key]
 
+    # Try .env file (consolidated secrets file)
+    base_dir = secrets_dir or DEFAULT_SECRETS_DIR
+    env_vars = _load_env_file(base_dir)
+    # Check both exact match and uppercase match (case-insensitive lookup)
+    if secret_name in env_vars:
+        return env_vars[secret_name]
+    if secret_name.upper() in env_vars:
+        return env_vars[secret_name.upper()]
+
     # Security validation: only allow safe characters in secret_name
     # Allowed: alphanumeric, dash, underscore
     if not secret_name.replace("-", "").replace("_", "").isalnum():
@@ -273,7 +389,6 @@ def _resolve_secret(secret_name: str, secrets_dir: str = "") -> str:
         return ""
 
     # Try Docker secrets file with path traversal protection
-    base_dir = secrets_dir or DEFAULT_SECRETS_DIR
     secret_path = os.path.join(base_dir, secret_name)
 
     # Normalize path to handle any ../ sequences
