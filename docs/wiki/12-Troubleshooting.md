@@ -254,7 +254,7 @@ For `ssh_run_on_tag`, individual host failures don't stop the operation - each h
   ]
 }
 
-```text
+```
 
 ### Command Chaining Errors
 
@@ -323,9 +323,9 @@ The policy engine parses chained commands and validates each command individuall
 
    echo $(apt list --upgradable)
 
-```text
+```
 
-   If the substitution contains a denied command, the entire command is blocked.
+If the substitution contains a denied command, the entire command is blocked.
 
 ### Common Scenarios
 
@@ -345,7 +345,7 @@ uptime && whoami  # ✅ ALLOWED
 
 uptime && apt list --upgradable  # ❌ DENIED (second command denied)
 
-```text
+```
 
 ### Scenario 3: Multiple Commands
 

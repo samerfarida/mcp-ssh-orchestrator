@@ -182,7 +182,7 @@ docker logs -f mcp-ssh-orchestrator 2>&1 | \
 docker logs -f mcp-ssh-orchestrator 2>&1 | \
   jq -r 'select(.event_type == "path_traversal_attempt") | "ALERT: \(.timestamp) - \(.reason) - \(.attempted_path)"'
 
-```text
+```
 
 ### Security Monitoring:
 
@@ -249,7 +249,7 @@ docker logs -f mcp-ssh-orchestrator 2>&1 | \
   "elapsed_ms": 123
 }
 
-```text
+```
 
 ### Fields:
 
@@ -378,7 +378,7 @@ All timestamps use Unix epoch time (seconds since January 1, 1970) as floating-p
   "ts": 1761489054.143455
 }
 
-```text
+```
 
 Convert to readable format:
 

@@ -7,7 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2025-11-20
+
+### Added
+- **README Documentation Improvements**:
+  - Added interactive mermaid diagram for Defense-in-Depth Architecture visualization
+  - Enhanced Real-World Use Cases with persona-aligned scenarios (Homelab Enthusiasts, DevOps Teams, Platform Engineers)
+  - Improved code block formatting throughout the document for better readability
+
+### Changed
+- **README Structure**:
+  - Fixed all broken code blocks and formatting issues (bash, json, yaml blocks)
+  - Removed redundant "Docker Build & Inspector Workflow" section (content already in Contributing guide and Usage Cookbook)
+  - Improved flow and organization for better readability
+  - Enhanced use case scenarios to be more practical and aligned with target personas
+
+### Fixed
+- **Documentation Formatting**:
+  - Fixed stray markdown characters and formatting inconsistencies
+  - Corrected ordered list prefixes to follow markdown linting standards (MD029)
+  - Removed empty lines in code blocks
+  - Fixed all markdown linting issues for publication readiness
+
 ## [0.9.0] - 2025-11-18
+
+### Added
+- **.env File Support for Consolidated Secrets Management (#72)**:
+  - Added support for consolidated `.env` file in secrets directory for easier secret management
+  - Maintains backward compatibility with individual secret files
+  - Implements caching with proper cache invalidation on missing files
+  - Supports comments, quoted values, and values with `=` characters
+  - Resolution order: environment variables → `.env` file → individual files
+  - Added 20 comprehensive tests covering all edge cases
+  - Updated all documentation with `.env` file usage and examples
+
+### Changed
+- **Documentation Comprehensive Review and Alignment (#73)**:
+  - Fixed markdown linting issues across all documentation files
+  - Added language tags to fenced code blocks for better syntax highlighting
+  - Fixed ordered list numbering in SECURITY.md and other wiki documents
+  - Improved consistency and formatting across docs/wiki files
+  - Enhanced readability and maintainability of documentation structure
 
 ### Security
 - **OSSF Scorecard Pinned-Dependencies**: Fixed all 58 Pinned-Dependencies security alerts by pinning all GitHub Actions to commit SHAs and all package managers to specific versions

@@ -54,7 +54,7 @@ network:
   allow_cidrs:
     - "192.168.0.0/16"
     - "10.0.0.0/8"
-      require_known_host: true  # Always enforced for security (CWE-295)
+  require_known_host: true  # Always enforced for security (CWE-295)
 
 rules:
   # Allow all commands in development

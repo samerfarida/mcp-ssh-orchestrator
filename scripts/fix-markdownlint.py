@@ -264,7 +264,6 @@ def main():
         project_root / "docs/wiki/05-Security-Model.md",
         project_root / "docs/wiki/12-Troubleshooting.md",
         project_root / "docs/wiki/13-Contributing.md",
-        project_root / "docs/wiki/README.md",
         project_root / "docs/CONTRIBUTING.md",
         project_root / "docs/wiki/06-Configuration.md",
         project_root / "README.md",

@@ -14,6 +14,7 @@ mcp-ssh-orchestrator uses a **three-file configuration system** that separates c
 
 ## Configuration Architecture
 
+```mermaid
 graph TB
     subgraph "Configuration Files"
         SERVERS[servers.yml<br/>Host Inventory]
@@ -41,8 +42,7 @@ graph TB
     CONFIG_LOADER --> SSH_CLIENT
 
     POLICY_ENGINE --> POLICY
-
-```text
+```
 
 ## Directory Structure
 
@@ -297,17 +297,16 @@ entries:
 
 # policy.yml - Permissive development policy
 
+```yaml
 limits:
   max_seconds: 120
   require_known_host: true  # Always enforced for security (CWE-295)
 
 rules:
-
-- action: "allow"
+  - action: "allow"
     aliases: ["dev-*"]
     commands: ["*"]  # Allow all commands in dev
-
-```text
+```
 
 ### Production Environment
 
@@ -346,24 +345,22 @@ rules:
     aliases: ["prod-*"]
     commands: ["uptime*", "df -h*", "systemctl status *"]
 
-```
+```yaml
 
 ## Configuration Management
 
 ### Hot Reloading
 
+```bash
 # Reload configuration without restart
-
 ssh_reload_config
-
-```text
+```
 
 ### Configuration Backup
 
+```bash
 # Backup configuration
-
 tar -czf config-backup-$(date +%Y%m%d).tar.gz config/ keys/
-
 ```
 
 ### Configuration Versioning

@@ -37,6 +37,7 @@ Secret names and paths are validated to prevent directory traversal attacks:
 
 1. **Secret Name Validation**: Only alphanumeric characters, dashes, and underscores are allowed
 
+   ```yaml
    # Valid secret names
 
    password_secret: "prod_password"
@@ -48,8 +49,7 @@ Secret names and paths are validated to prevent directory traversal attacks:
    password_secret: "../etc/passwd"     # Path traversal
    password_secret: "/absolute/path"    # Absolute path
    password_secret: "secret.name"       # Special characters
-
-```text
+   ```
 
 1. **Path Normalization**: All paths are normalized and validated to stay within `/app/secrets`
 
@@ -59,6 +59,7 @@ Secret names and paths are validated to prevent directory traversal attacks:
 
 1. **Security Event Logging**: Path traversal attempts are logged for monitoring:
 
+   ```json
    {
      "level": "error",
      "kind": "security_event",
@@ -66,7 +67,6 @@ Secret names and paths are validated to prevent directory traversal attacks:
      "secret_name": "../etc/passwd",
      "reason": "path_outside_allowed_directory"
    }
-
    ```
 
 #### SSH Key Path Protection
@@ -75,6 +75,7 @@ SSH key paths include similar protections:
 
 1. **Traversal Pattern Detection**: Paths containing `..` patterns are rejected
 
+   ```yaml
    # Valid key paths
 
    key_path: "id_ed25519"
@@ -86,8 +87,7 @@ SSH key paths include similar protections:
    key_path: "../outside_key"        # Path traversal
    key_path: "/etc/passwd"           # Outside keys_dir
    key_path: "key/../../etc/passwd"   # Encoded traversal
-
-```text
+   ```
 
 1. **Absolute Path Validation**: Absolute paths must be within the configured `keys_dir`
 
@@ -104,19 +104,19 @@ All resolved paths are validated to ensure they are regular files:
 
 1. **Directory Rejection**: Paths pointing to directories are rejected
 
+   ```yaml
    # Invalid (will be rejected)
 
    password_secret: "subdirectory"  # Points to a directory, not a file
-
    ```
 
 1. **Symlink Rejection**: Symbolic links are rejected for security
 
+   ```yaml
    # Invalid (will be rejected)
 
    password_secret: "symlink_secret"  # Points to a symlink, not a regular file
-
-```bash
+   ```
 
    **Why reject symlinks?** Symlinks can be manipulated to point outside the allowed directory or to sensitive files, creating security risks.
 
@@ -127,6 +127,7 @@ All resolved paths are validated to ensure they are regular files:
 
 1. **Security Event Logging**: File validation failures are logged:
 
+   ```json
    {
      "level": "error",
      "kind": "security_event",
@@ -134,7 +135,6 @@ All resolved paths are validated to ensure they are regular files:
      "file_path": "/app/secrets/subdirectory",
      "reason": "path_is_directory"
    }
-
    ```
 
 **Effect**: Prevents accessing directories or symlinks that could lead to security vulnerabilities or unauthorized access.
@@ -155,6 +155,7 @@ All YAML configuration files are validated for size before loading to prevent re
 
 1. **Security Event Logging**: Size limit violations are logged:
 
+   ```json
    {
      "level": "error",
      "kind": "security_event",
@@ -164,8 +165,7 @@ All YAML configuration files are validated for size before loading to prevent re
      "max_size": 10485760,
      "reason": "yaml_file_too_large"
    }
-
-```yaml
+   ```
 
 1. **Normal Operation**: Files at or below the 10MB limit load normally
    - 10MB is sufficient for typical configuration files
@@ -205,13 +205,13 @@ All user-controlled parameters are validated before processing to prevent inject
 
 1. **Security Event Logging**: Invalid input attempts are logged:
 
+   ```json
    {
      "level": "error",
      "msg": "security_event",
      "type": "null_byte_injection_attempt",
      "field": "command"
    }
-
    ```
 
 **Effect**: Prevents injection attacks (null bytes, control characters) and resource exhaustion (length limits) via malformed user inputs.
@@ -240,6 +240,7 @@ String parameters in configuration files have length limits to prevent resource 
 
 1. **Security Event Logging**: Length limit violations are logged:
 
+   ```json
    {
      "level": "error",
      "kind": "security_event",
@@ -249,8 +250,7 @@ String parameters in configuration files have length limits to prevent resource 
      "max_length": 100,
      "reason": "secret_name_too_long"
    }
-
-```text
+   ```
 
 **Effect**: Prevents resource exhaustion attacks via oversized string inputs in configuration files and user-controlled parameters.
 
@@ -277,6 +277,10 @@ DNS resolution is rate-limited and cached to prevent DNS-based DoS attacks:
 
 1. **Rate Limit Logging**: Rate limit violations are logged:
 
+1. **Thread Safety**: Rate limiter and cache are thread-safe for concurrent access.
+
+**Effect**: Prevents DNS-based DoS attacks by limiting resolution frequency and caching results, reducing load on DNS infrastructure.
+
 #### Command Denial Bypass Prevention
 
 Command denial logic has been enhanced to prevent bypass attempts via obfuscation:
@@ -299,27 +303,17 @@ Command denial logic has been enhanced to prevent bypass attempts via obfuscatio
 
 1. **Bypass Attempt Detection**: Commands that would bypass original checking but are caught by normalization are logged:
 
+   ```json
    {
      "level": "error",
      "msg": "security_event",
-     "type": "dns_rate_limit_exceeded",
-     "hostname": "malicious-host.example.com",
-     "max_per_second": 10
-   }
-
-   ```
-
-1. **Thread Safety**: Rate limiter and cache are thread-safe for concurrent access.
-
-**Effect**: Prevents DNS-based DoS attacks by limiting resolution frequency and caching results, reducing load on DNS infrastructure.
      "type": "command_bypass_attempt",
      "alias": "web1",
      "original_command": "'rm -rf /'",
      "normalized_command": "rm -rf /",
      "blocked_pattern": "rm -rf /"
    }
-
-```text
+   ```
 
 1. **Supported Bypass Techniques Prevented**:
    - Quote obfuscation: `'rm -rf /'`, `"rm -rf /"`
@@ -341,25 +335,29 @@ Command denial logic has been enhanced to prevent bypass attempts via obfuscatio
 **Vulnerability Addressed:**
 Previously, commands like `uptime && apt list --upgradable` could bypass policy if `uptime` was allowed, even though `apt list --upgradable` was denied. This occurred because the policy engine matched the entire command string against patterns, and `"uptime*"` matched any string starting with "uptime".
 
-### Implementation:
+### Implementation
+
 1. **Command Chain Parsing**: Commands containing chaining operators (`&&`, `||`, `;`, `|`) are parsed into individual commands
 2. **Individual Validation**: Each command in the chain is validated separately against policy rules
 3. **Strict Enforcement**: All commands in a chain must be allowed; if any command is denied, the entire chain is blocked
 4. **Order Independence**: Validation is order-independent (e.g., `cmd1 && cmd2` and `cmd2 && cmd1` are validated the same way)
 
-### Supported Operators:
+### Supported Operators
+
 - `&&` - Logical AND
 - `||` - Logical OR
 - `;` - Sequential execution
 - `|` - Pipe operator
 
-### Command Substitution Handling:
+### Command Substitution Handling
+
 - Backtick substitution: `` `command` ``
 - Dollar-paren substitution: `$(command)`
 - Substitutions are preserved within commands and validated as part of the command
 
 **Security Logging:**
 Command chain parsing and denials are logged for security audit:
+
 ```json
 {
   "level": "info",
@@ -370,7 +368,7 @@ Command chain parsing and denials are logged for security audit:
   "parsed_commands": ["uptime", "apt list --upgradable"],
   "command_count": 2
 }
-```text
+```
 
 ```json
 {
@@ -383,9 +381,9 @@ Command chain parsing and denials are logged for security audit:
   "parsed_commands": ["uptime", "apt list --upgradable"],
   "denied_index": 1
 }
-```text
+```
 
-### Examples:
+### Examples
 
 ```bash
 # Policy allows: uptime*, whoami
@@ -405,9 +403,9 @@ uptime && whoami && hostname
 
 # ❌ DENIED: Middle command is denied
 uptime && apt list --upgradable && whoami
-```text
+```
 
-### Testing Coverage:
+### Testing Coverage
 
 - Unit tests for command parsing (all operators, edge cases)
 - Policy validation tests (all chaining scenarios)
@@ -419,24 +417,24 @@ uptime && apt list --upgradable && whoami
 
 ### SSH Key Management
 
-### Best Practices:
+### Best Practices
 
 1. **Use Ed25519 Keys**: Prefer `ed25519` over RSA for modern security
 
    ```bash
    ssh-keygen -t ed25519 -f ~/.ssh/mcp_orchestrator -C "mcp-ssh-orchestrator"
-```text
+   ```
 
 1. **Key Permissions**: Set private keys to read-only for owner
 
    ```bash
    chmod 0400 /path/to/keys/id_ed25519
-```text
+   ```
+
+Additional best practices:
 
 1. **Separate Keys**: Use dedicated keys for the orchestrator (not your personal keys)
-
 2. **Key Rotation**: Rotate keys periodically (quarterly recommended)
-
 3. **Passphrase Protection**: Use passphrases for private keys
 
    ```yaml
@@ -446,7 +444,7 @@ uptime && apt list --upgradable && whoami
        username: ubuntu
        key_path: id_ed25519
        key_passphrase_secret: prod_key_passphrase
-```text
+   ```
 
 ### Password Authentication
 
@@ -460,19 +458,22 @@ uptime && apt list --upgradable && whoami
      - name: legacy_system
        username: admin
        password_secret: legacy_password  # Resolved from secret
-```text
+   ```
 
 1. **Secret Resolution Order**:
-   - Environment variable: `MCP_SSH_SECRET_<NAME>` (uppercase)
+   - Direct environment variable (Docker MCP Gateway): `<SECRET_NAME>` (uppercase, matches `env:` field in server.yml)
+   - Prefixed environment variable (standalone/backward compatibility): `MCP_SSH_SECRET_<NAME>` (uppercase)
+   - `.env` file: `/app/secrets/.env` (consolidated secrets file with `KEY=value` format)
    - Docker secret file: `/app/secrets/<name>`
 
-1. **Strong Passwords**: Minimum 16 characters, high entropy
+Additional requirements:
 
+1. **Strong Passwords**: Minimum 16 characters, high entropy
 2. **Limited Scope**: Use password auth only for hosts that don't support keys
 
 ### Secrets Storage
 
-### Docker Secrets (Recommended for Production):
+### Docker Secrets (Recommended for Production)
 
 ```bash
 # Create secret
@@ -486,17 +487,17 @@ services:
 secrets:
   ssh_key_passphrase:
     external: true
-```text
+   ```
 
-### Environment Variables (Development Only):
+### Environment Variables (Development Only)
 
 ```bash
 docker run -i --rm \
   -e MCP_SSH_SECRET_ADMIN_PASSWORD="dev-password" \
   ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
-```text
+```
 
-### File-Based Secrets (Simple Deployments):
+### File-Based Secrets (Simple Deployments)
 
 ```bash
 # Create secrets directory
@@ -506,7 +507,7 @@ chmod 0700 ~/mcp-ssh/secrets
 # Add secret
 echo "passphrase" > ~/mcp-ssh/secrets/key_passphrase
 chmod 0400 ~/mcp-ssh/secrets/key_passphrase
-```text
+```
 
 ### Package & Image Verification
 
@@ -517,7 +518,7 @@ chmod 0400 ~/mcp-ssh/secrets/key_passphrase
      ```bash
      gpg --receive-keys 4FC5342A979BD358
      gpg --verify mcp-ssh-orchestrator-v1.0.0.tar.gz.asc mcp-ssh-orchestrator-v1.0.0.tar.gz
-```bash
+     ```
 
 1. **Container Images (GHCR)**
    - The `ghcr.io/samerfarida/mcp-ssh-orchestrator` images are keylessly signed with Sigstore cosign in `.github/workflows/release.yml`.
@@ -528,7 +529,7 @@ chmod 0400 ~/mcp-ssh/secrets/key_passphrase
        --certificate-identity-regexp "https://github.com/samerfarida/mcp-ssh-orchestrator/.github/workflows/release.yml@.*" \
        --certificate-oidc-issuer https://token.actions.githubusercontent.com \
        ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
-```bash
+     ```
 
    - Published digests and signature bundles are available for every tag in the GitHub Packages feed so you can pin exact builds.
 
@@ -541,7 +542,7 @@ chmod 0400 ~/mcp-ssh/secrets/key_passphrase
 
 **Security Requirement (CWE-295)**: Host key verification is **always enforced** for security. The system always uses `RejectPolicy()` to prevent MITM attacks. Unsafe policies (`AutoAddPolicy`, `AcceptPolicy`) are never used.
 
-### Configuration:
+### Configuration
 
 ```yaml
 # policy.yml
@@ -551,11 +552,11 @@ limits:
 
 network:
   require_known_host: true   # Always enforced (default)
-```text
+```
 
 **Note**: `host_key_auto_add: true` and `require_known_host: false` are deprecated and ignored. Deprecation warnings are logged when these unsafe configurations are detected.
 
-### Populate known_hosts:
+### Populate known_hosts
 
 ```bash
 # Scan host keys
@@ -564,7 +565,7 @@ ssh-keyscan -H 10.0.0.21 >> ~/mcp-ssh/keys/known_hosts
 
 # Or copy from existing
 cp ~/.ssh/known_hosts ~/mcp-ssh/keys/
-```text
+```
 
 **Effect**: Prevents MITM attacks by verifying host identity before connection. All SSH connections require a known_hosts entry.
 
@@ -576,7 +577,7 @@ cp ~/.ssh/known_hosts ~/mcp-ssh/keys/
 
 ### IP Allowlisting
 
-### Restrict SSH targets to known networks:
+### Restrict SSH targets to known networks
 
 ```yaml
 # policy.yml
@@ -590,9 +591,9 @@ network:
   # Block specific IPs
   block_ips:
     - "10.10.10.10"
-```text
+```
 
-### Two-Stage Verification:
+### Two-Stage Verification
 
 1. **Pre-Connect**: DNS resolution must match allowlist
 2. **Post-Connect**: Actual peer IP must match allowlist
@@ -601,7 +602,7 @@ network:
 
 ### Egress Controls
 
-### Block lateral movement tools by default:
+### Block lateral movement tools by default
 
 ```yaml
 # policy.yml
@@ -614,7 +615,7 @@ limits:
     - "wget "
     - "nc "
     - "nmap "
-```text
+```
 
 **Effect**: Prevents compromised hosts from initiating outbound connections.
 
@@ -622,7 +623,7 @@ limits:
 
 ### Deny-by-Default
 
-### Start with no access, add only what's needed:
+### Start with no access, add only what's needed
 
 ```yaml
 # policy.yml
@@ -637,11 +638,11 @@ rules:
       - "df -h*"
 
   # All other commands denied by default
-```text
+```
 
 ### Glob Pattern Safety
 
-### Use specific patterns to avoid overly broad matches:
+### Use specific patterns to avoid overly broad matches
 
 ```yaml
 # BAD: Too permissive
@@ -652,11 +653,11 @@ commands:
 commands:
   - "systemctl status nginx"
   - "systemctl restart nginx"
-```text
+```
 
 ### Environment Separation
 
-### Use tags to separate production from non-production:
+### Use tags to separate production from non-production
 
 ```yaml
 # Policy for production
@@ -681,11 +682,11 @@ rules:
     tags: ["staging"]
     commands:
       - "systemctl restart*"  # Allowed on staging
-```text
+```
 
 ### Per-Host Overrides
 
-### Apply stricter limits to sensitive hosts:
+### Apply stricter limits to sensitive hosts
 
 ```yaml
 # policy.yml
@@ -695,13 +696,13 @@ overrides:
       max_seconds: 20           # Shorter timeout
       max_output_bytes: 262144  # Smaller output cap
       require_known_host: true  # Strict host key check
-```text
+```
 
 ## Execution Limits
 
 ### Timeout Enforcement
 
-### Prevent runaway commands:
+### Prevent runaway commands
 
 ```yaml
 # policy.yml
@@ -715,11 +716,11 @@ overrides:
 
     longrun:
       max_seconds: 300  # Exception for maintenance
-```text
+```
 
 ### Output Size Caps
 
-### Prevent memory exhaustion:
+### Prevent memory exhaustion
 
 ```yaml
 # policy.yml
@@ -730,11 +731,11 @@ overrides:
   aliases:
     log-server:
       max_output_bytes: 10485760  # 10 MiB for log hosts
-```text
+```
 
 ### Deny Dangerous Substrings
 
-### Block destructive commands:
+### Block destructive commands
 
 ```yaml
 # policy.yml
@@ -748,7 +749,7 @@ limits:
     - "reboot"
     - "userdel"
     - "passwd"
-```text
+```
 
 ## Container Security
 
@@ -759,20 +760,20 @@ Container runs as UID 10001 (non-root):
 ```dockerfile
 RUN useradd -u 10001 -m appuser
 USER appuser
-```text
+```
 
 **Effect**: Limits damage if container is compromised.
 
 ### Read-Only Mounts
 
-### Mount configuration and keys as read-only:
+### Mount configuration and keys as read-only
 
 ```bash
 docker run -i --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
   ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
-```text
+```
 
 **Effect**: Prevents accidental or malicious modification of config/keys.
 
@@ -789,7 +790,7 @@ Uses `python:3.13-slim`:
 ```dockerfile
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD python -c "import mcp_ssh" || exit 1
-```text
+```
 
 **Effect**: Early detection of container failures.
 
@@ -799,7 +800,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 
 Security-relevant events are logged to stderr in structured JSON format via `_log_security_event()`:
 
-### Security Audit Log Format:
+### Security Audit Log Format
 
 ```json
 {
@@ -814,9 +815,9 @@ Security-relevant events are logged to stderr in structured JSON format via `_lo
   "reason": "path_outside_allowed_directory",
   "base_dir": "/app/secrets"
 }
-```text
+```
 
-### Event Types Logged:
+### Event Types Logged
 
 - `path_traversal_attempt`: Path traversal detected in secret/key resolution
 - `file_validation_failed`: Directory/symlink/non-file paths rejected
@@ -826,7 +827,7 @@ Security-relevant events are logged to stderr in structured JSON format via `_lo
 - `dns_rate_limit_exceeded`: DNS resolution rate limit violations
 - `command_bypass_attempt`: Command denial bypass attempts detected
 
-### Audit Log Fields:
+### Audit Log Fields
 
 - `ts`: Unix timestamp (float)
 - `timestamp`: ISO 8601 formatted timestamp (string)
@@ -856,14 +857,14 @@ All operations logged to stderr as JSON:
   "timeout": false,
   "target_ip": "10.0.0.11"
 }
-```text
+```
 
-### Fields:
+### Fields
 
 - `type`: Event type (audit, policy_decision, progress)
 - `ts`: Unix timestamp
 - `alias`: Target host
-- `hash`: Command hash (first 12 chars of SHA256)
+- `hash`: Command hash (first 16 chars of SHA256)
 - `exit_code`: Command exit status
 - `duration_ms`: Execution time
 - `bytes_out/bytes_err`: Output size
@@ -872,7 +873,7 @@ All operations logged to stderr as JSON:
 
 ### Log Collection
 
-### Docker Compose with logging driver:
+### Docker Compose with logging driver
 
 ```yaml
 services:
@@ -882,19 +883,19 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-```text
+```
 
-### Forward to SIEM:
+### Forward to SIEM
 
 ```bash
 docker logs -f mcp-ssh-orchestrator 2>&1 | \
   jq -r 'select(.type == "audit") | @json' | \
   curl -X POST https://siem.example.com/ingest -d @-
-```text
+```
 
 ### Monitoring Recommendations
 
-### Alert on:
+### Alert on
 
 - Policy denials (especially repeated)
 - Timeouts
@@ -902,7 +903,7 @@ docker logs -f mcp-ssh-orchestrator 2>&1 | \
 - Unexpected target IPs
 - High-privilege commands (sudo, systemctl)
 
-### Metrics to track:
+### Metrics to track
 
 - Commands per hour
 - Success rate by host
@@ -918,7 +919,7 @@ docker logs -f mcp-ssh-orchestrator 2>&1 | \
    ```bash
    # Remove from authorized_keys on each host
    ssh user@host "sed -i '/mcp-orchestrator/d' ~/.ssh/authorized_keys"
-```text
+   ```
 
 1. **Rotate keys**:
 
@@ -930,7 +931,7 @@ docker logs -f mcp-ssh-orchestrator 2>&1 | \
    for host in $(cat hosts.txt); do
      ssh-copy-id -i new_key.pub user@$host
    done
-```text
+   ```
 
 1. **Update configuration**:
 
@@ -939,7 +940,7 @@ docker logs -f mcp-ssh-orchestrator 2>&1 | \
    entries:
      - name: prod_admin
        key_path: new_key  # Updated
-```text
+   ```
 
 1. **Review audit logs** for unauthorized usage
 
@@ -955,9 +956,9 @@ docker logs -f mcp-ssh-orchestrator 2>&1 | \
    limits:
      deny_substrings:
        - "<bypass pattern>"
-```bash
+   ```
 
-1. **Reload config**: `ssh_reload_config`
+5. **Reload config**: `ssh_reload_config`
 
 ### Unauthorized Access
 
@@ -966,12 +967,12 @@ docker logs -f mcp-ssh-orchestrator 2>&1 | \
    ```bash
    # Audit log analysis
    jq -r 'select(.alias == "compromised-host") | [.ts, .hash, .target_ip] | @tsv' < audit.log
-```bash
+   ```
 
-1. **Identify command hashes** executed
-2. **Correlate with target host logs**
-3. **Contain affected hosts**
-4. **Rotate credentials**
+2. **Identify command hashes** executed
+3. **Correlate with target host logs**
+4. **Contain affected hosts**
+5. **Rotate credentials**
 
 ## Security Framework Alignment
 
@@ -1007,7 +1008,7 @@ This tool provides structured logging, policy enforcement, and network safeguard
 
 ## Security Checklist
 
-### Before Production Deployment:
+### Before Production Deployment
 
 - [ ] Use Ed25519 or RSA 4096-bit keys
 - [ ] Set private key permissions to 0400
@@ -1032,9 +1033,9 @@ This tool provides structured logging, policy enforcement, and network safeguard
 
 ## Reporting Security Issues
 
-### Do not open public issues for security vulnerabilities.
+### Do not open public issues for security vulnerabilities
 
-Email: <security@example.com> (replace with your contact)
+Email: `samer.farida@yahoo.com` or use [GitHub Security Advisories](https://github.com/samerfarida/mcp-ssh-orchestrator/security/advisories/new)
 
 Include:
 

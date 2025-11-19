@@ -41,7 +41,7 @@ cp ~/.ssh/known_hosts ~/mcp-ssh/keys/known_hosts
 
 **5. Populate secrets files (optional but recommended):**
 
-```text
+```bash
 ~/mcp-ssh/secrets/
 ├── prod_db_password.txt
 └── jump_host_passphrase.txt

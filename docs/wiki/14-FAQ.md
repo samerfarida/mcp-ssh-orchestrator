@@ -308,7 +308,7 @@ ssh -i ~/mcp-ssh/keys/id_ed25519 ubuntu@10.0.0.11
 
 **Via Claude Desktop:**
 
-```text
+```
 Execute the command "uptime" on the production web server
 ```
 
@@ -335,7 +335,7 @@ echo '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"ssh_run","argumen
 
 **Via Claude Desktop:**
 
-```text
+```
 List all available SSH hosts
 ```
 

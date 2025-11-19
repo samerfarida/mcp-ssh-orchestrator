@@ -274,7 +274,7 @@ rules:
   - "rm -rf *"
   - "shutdown*"
 
-```text
+```
 
 ## Development Workflow
 
@@ -528,7 +528,7 @@ rules:
       start_time: "09:00"
       end_time: "17:00"
       timezone: "UTC"
-```text
+```
 
 ### Resource-based Rules
 
@@ -541,9 +541,7 @@ rules:
     resource_limits:
       max_memory: "1GB"
       max_cpu: "50%"
-```text
-
-```bash
+```
 
 ### API Documentation
 
