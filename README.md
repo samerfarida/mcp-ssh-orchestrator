@@ -407,7 +407,8 @@ Your AI assistant gets 13 powerful tools with built-in security:
 - `ssh_get_task_status` - Check progress of async tasks
 - `ssh_get_task_output` - Stream output in real-time
 - `ssh_get_task_result` - Get final result when done
-- `ssh_cancel` - Stop a running task safely
+- `ssh_cancel` - Stop a running synchronous task safely
+- `ssh_cancel_async_task` - Stop a running async task safely
 
 ### Management
 

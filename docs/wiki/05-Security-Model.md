@@ -8,6 +8,7 @@ mcp-ssh-orchestrator implements a **defense-in-depth security model** inspired b
 
 ## Defense-in-Depth Architecture
 
+```mermaid
 graph TB
     subgraph "Layer 1: Transport Security"
         STDIO_SEC[stdio Transport]
@@ -39,8 +40,7 @@ graph TB
     DENY_DEFAULT --> NON_ROOT
     PATTERN_MATCH --> RESOURCE_LIMITS
     EXEC_LIMITS --> AUDIT_LOG
-
-```bash
+```
 
 ### Policy-as-Code Enforcement Chain
 
@@ -56,22 +56,23 @@ This chain makes “policy-as-code” tangible: whatever is merged into Git is e
 
 **Purpose:** Secure communication between MCP client and server.
 
-### Implementation:
+### Implementation
 
 - **Process isolation** via stdio transport
 - **No network exposure** of MCP server
 - **Structured JSON-RPC** communication
 - **Type-safe interfaces** for all tools
 
-### Security Benefits:
+### Security Benefits
 
 - No network attack surface
 - Process-level isolation
 - Structured data prevents injection
 - Type validation ensures integrity
 
-### Example:
+### Example
 
+```json
 {
   "jsonrpc": "2.0",
   "method": "tools/call",
@@ -106,20 +107,17 @@ This chain makes “policy-as-code” tangible: whatever is merged into Git is e
 
 ### Example
 
+```dockerfile
 # Non-root user
-
 RUN useradd -u 10001 -m appuser
 USER appuser
 
 # Read-only mounts (applied by runtime via -v :ro)
-
 VOLUME ["/app/config", "/app/keys"]
 
 # Resource limits
-
 CMD ["python", "-m", "mcp_ssh.mcp_server", "stdio"]
-
-```bash
+```
 
 ## Layer 2: Network Security
 
@@ -127,22 +125,23 @@ CMD ["python", "-m", "mcp_ssh.mcp_server", "stdio"]
 
 **Purpose:** Restrict SSH connections to authorized networks only.
 
-### Implementation:
+### Implementation
 
 - **CIDR-based allowlists** for network ranges
 - **Specific IP allowlists** for individual hosts
 - **IP blocklists** for dangerous addresses
 - **DNS resolution verification** before connection
 
-### Security Benefits:
+### Security Benefits
 
 - Prevents connections to unauthorized hosts
 - Blocks access to public internet
 - Mitigates DNS poisoning attacks
 - Enforces network segmentation
 
-### Example:
+### Example
 
+```yaml
 network:
   # Allow only private networks
   allow_cidrs:
@@ -177,42 +176,48 @@ network:
 
 ### Example
 
+```yaml
 limits:
   require_known_host: true  # Production default
 
 network:
   require_known_host: true   # Override for strict checking
-
-```text
+```
 
 ### DNS Rate Limiting
 
 **Purpose:** Prevent DNS-based DoS attacks and reduce load from repeated resolutions.
 
-### Implementation:
+### Implementation
 
 - **Rate limiting**: Maximum 10 DNS resolutions per second per hostname
 - **Result caching**: 60-second TTL cache for DNS results
 - **Timeout protection**: 5-second timeout for DNS resolution
 - **Per-hostname tracking**: Separate rate limits for different hostnames
 
-### Security Benefits:
+### Security Benefits
 
 - Prevents DNS-based DoS attacks
 - Reduces load on DNS infrastructure
 - Protects against slow DNS server responses
 - Caches results to minimize repeated lookups
 
-### Example:
+### Example
 
-# Rate limiting prevents excessive resolutions:
+# Rate limiting prevents excessive resolutions
+
 # - First 10 resolutions/second: allowed
+
 # - 11th resolution in same second: blocked (returns empty list)
+
 # - After 1 second: limit resets
 
-# Caching prevents repeated lookups:
+# Caching prevents repeated lookups
+
 # - First resolution: queries DNS server
+
 # - Subsequent resolutions (within 60s): returns cached result
+
 ```
 
 ## Layer 3: Policy Security
@@ -239,37 +244,34 @@ Everything in this layer is sourced from `config/policy.yml`, letting you review
 
 ### Example
 
+```yaml
 rules:
-
-# Explicit allow rules only
-
-- action: "allow"
+  # Explicit allow rules only
+  - action: "allow"
     aliases: ["prod-*"]
     commands: ["uptime*", "df -h*"]
-
-# All other commands denied by default
-
-```text
+  # All other commands denied by default
+```
 
 ### Pattern Matching Security
 
 **Purpose:** Provide flexible yet secure command filtering.
 
-### Implementation:
+### Implementation
 
 - **Glob pattern matching** for commands
 - **Substring blocking** for dangerous commands
 - **Alias and tag matching** for host targeting
 - **Case-sensitive matching** for precision
 
-### Security Benefits:
+### Security Benefits
 
 - Flexible command authorization
 - Blocks dangerous command patterns
 - Enables environment-specific policies
 - Prevents command injection
 
-### Example:
+### Example
 
 limits:
   deny_substrings:
@@ -279,11 +281,13 @@ limits:
     - "ssh "  # Prevent lateral movement
 
 rules:
-  - action: "allow"
+
+- action: "allow"
     commands:
-      - "systemctl status *"  # Safe status commands
-      - "uptime*"            # System information
-      - "df -h*"             # Disk usage
+  - "systemctl status *"  # Safe status commands
+  - "uptime*"            # System information
+  - "df -h*"             # Disk usage
+
 ```
 
 ### Execution Limits
@@ -306,6 +310,7 @@ rules:
 
 ### Example
 
+```yaml
 limits:
   max_seconds: 60
   max_output_bytes: 1048576
@@ -315,8 +320,7 @@ overrides:
     prod-db-1:
       max_seconds: 20           # Stricter for production DB
       max_output_bytes: 131072  # Smaller output limit
-
-```text
+```
 
 ## Layer 4: Application Security
 
@@ -324,14 +328,14 @@ overrides:
 
 **Purpose:** Limit damage if the application is compromised.
 
-### Implementation:
+### Implementation
 
 - **UID 10001** for application user
 - **No sudo privileges** or escalation
 - **Limited filesystem access** via volumes
 - **No system modification** capabilities
 
-### Security Benefits:
+### Security Benefits
 
 - Prevents privilege escalation
 - Limits system access
@@ -342,14 +346,14 @@ overrides:
 
 **Purpose:** Prevent resource exhaustion attacks.
 
-### Implementation:
+### Implementation
 
 - **CPU limits** via container constraints
 - **Memory limits** via container constraints
 - **File descriptor limits** via ulimits
 - **Process limits** via container policies
 
-### Security Benefits:
+### Security Benefits
 
 - Prevents DoS attacks
 - Ensures fair resource usage
@@ -360,22 +364,23 @@ overrides:
 
 **Purpose:** Provide comprehensive audit trail for compliance and security.
 
-### Implementation:
+### Implementation
 
 - **JSON structured logs** to stderr
 - **Complete operation trail** for all commands
 - **Security-relevant metadata** in every log entry
 - **Immutable log format** for integrity
 
-### Security Benefits:
+### Security Benefits
 
 - Enables incident response
 - Supports compliance audits
 - Provides forensic evidence
 - Enables security monitoring
 
-### Example:
+### Example
 
+```json
 {
   "type": "policy_decision",
   "ts": 1729512345.12,
@@ -383,6 +388,9 @@ overrides:
   "hash": "a1b2c3d4e5f6",
   "allowed": true
 }
+```
+
+```json
 {
   "type": "audit",
   "ts": 1729512345.67,
@@ -505,18 +513,18 @@ overrides:
 
 - **GPG release signatures**: All archives attached to GitHub Releases include detached `.asc` files signed by `openpgp4fpr:6775BF3F439A2A8A198DE10D4FC5342A979BD358`. Import the key and verify every artifact before unpacking:
 
+  ```bash
   gpg --receive-keys 4FC5342A979BD358
   gpg --verify mcp-ssh-orchestrator-v1.0.0.tar.gz.asc mcp-ssh-orchestrator-v1.0.0.tar.gz
-
-```bash
+  ```
 
 - **Cosign-signed container images**: The GitHub Actions release workflow signs `ghcr.io/samerfarida/mcp-ssh-orchestrator` with Sigstore keyless certificates (`release.yml`). Validate the signature and provenance in CI/CD before promotion:
 
+  ```bash
   COSIGN_EXPERIMENTAL=1 cosign verify \
-    --certificate-identity-regexp "<https://github.com/samerfarida/mcp-ssh-orchestrator/.github/workflows/release.yml@>.*" \
-    --certificate-oidc-issuer <https://token.actions.githubusercontent.com> \
+    --certificate-identity-regexp "https://github.com/samerfarida/mcp-ssh-orchestrator/.github/workflows/release.yml@.*" \
+    --certificate-oidc-issuer https://token.actions.githubusercontent.com \
     ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
-
   ```
 
   Digests, signatures, and attestations are published alongside each tag in the GitHub Packages feed, enabling immutable deployment pins.

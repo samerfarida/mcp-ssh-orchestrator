@@ -4,7 +4,7 @@ This directory contains the source files for the mcp-ssh-orchestrator GitHub wik
 
 ## Directory Structure
 
-```text
+```bash
 docs/wiki/
 ├── Home.md                    # Landing page
 ├── _Sidebar.md                # Navigation structure

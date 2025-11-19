@@ -42,7 +42,7 @@ graph TB
 
     POLICY_ENGINE --> POLICY
 
-```text
+```
 
 ## Directory Structure
 
@@ -307,7 +307,7 @@ rules:
     aliases: ["dev-*"]
     commands: ["*"]  # Allow all commands in dev
 
-```text
+```
 
 ### Production Environment
 
@@ -356,7 +356,7 @@ rules:
 
 ssh_reload_config
 
-```text
+```
 
 ### Configuration Backup
 

@@ -21,38 +21,36 @@ This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.
 
 1. **Fork and Clone**
 
-   git clone <https://github.com/YOUR_USERNAME/mcp-ssh-orchestrator>
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/mcp-ssh-orchestrator
    cd mcp-ssh-orchestrator
-
-```python
+   ```
 
 1. **Create Virtual Environment**
 
+   ```bash
    python3 -m venv .venv
    source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-
    ```
 
 1. **Install Dependencies**
 
+   ```bash
    pip install --upgrade pip
    pip install -e ".[dev]"
-
-```bash
+   ```
 
 1. **Install Pre-Commit Hooks** (Recommended)
 
    Pre-commit hooks automatically run linting, formatting, and validation checks before commits:
 
+   ```bash
    # Option 1: Use the setup script
-
    ./scripts/setup-pre-commit.sh
 
    # Option 2: Manual installation
-
    pip install pre-commit
    pre-commit install
-
    ```
 
 ### What pre-commit hooks do
@@ -68,14 +66,14 @@ This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.
 
 ### To test hooks manually
 
+   ```bash
    pre-commit run --all-files
+   ```
 
-```text
+### To skip hooks for a commit
 
-   ### To skip hooks for a commit
-
+   ```bash
    git commit --no-verify  # Not recommended
-
    ```
 
 ### Project Structure
@@ -106,7 +104,7 @@ git checkout -b feature/your-feature-name
 
 git checkout -b fix/issue-number-description
 
-```text
+```
 
 ### Branch naming:
 
@@ -180,7 +178,7 @@ def test_function_error():
     with pytest.raises(ValueError):
         function("invalid")
 
-```text
+```
 
 ### Run Tests:
 
@@ -215,29 +213,27 @@ mypy src/ --ignore-missing-imports
 
 ruff check --fix src/ tests/
 
-```text
+```
 
 **Pre-commit** (if installed):
 
+```bash
 pre-commit run --all-files
 ```
 
 ### 5. Test Docker Build
 
+```bash
 # Build image
-
 docker build -t mcp-ssh-orchestrator:dev .
 
 # Test import
-
 docker run --rm mcp-ssh-orchestrator:dev python -c "import mcp_ssh; print('OK')"
 
 # Test entrypoint (will wait for stdin)
-
 echo '{"jsonrpc":"2.0","method":"ping","id":1}' | \
   docker run -i --rm mcp-ssh-orchestrator:dev
-
-```json
+```
 
 ### 6. Update Documentation
 
@@ -250,7 +246,7 @@ If your changes affect:
 
 ### 7. Commit Changes
 
-### Commit Message Format:
+### Commit Message Format
 
 ```bash
 <type>: <short description>
@@ -258,7 +254,7 @@ If your changes affect:
 <optional longer description>
 
 <optional footer>
-```text
+```
 
 ### Types
 
@@ -279,9 +275,9 @@ git commit -m "docs: update Docker Desktop setup instructions"
 
 ### 8. Push and Create PR
 
+```bash
 git push origin feature/your-feature-name
-
-```text
+```
 
 Then create a pull request on GitHub.
 
@@ -291,10 +287,10 @@ Then create a pull request on GitHub.
 
 Use the same format as commit messages:
 
-```text
+```
 feat: add retry logic to SSH connections
 fix: handle missing credentials gracefully
-```text
+```
 
 ### PR Description
 
@@ -388,7 +384,6 @@ def test_ssh_execution_flow():
     # Mock SSH connection
     # Test policy enforcement
     # Verify audit logging
-
 ```
 
 ### MCP Inspector Testing
@@ -462,7 +457,7 @@ def sample_config():
         "policy": {"rules": []}
     }
 
-```python
+```
 
 ## Documentation Guidelines
 
@@ -473,11 +468,11 @@ def sample_config():
 def function(param: str = "") -> str:
     """Single-line description of what the function does."""
     # Implementation
-
 ```
 
 For complex functions (if needed):
 
+```python
 def complex_function(param1: str = "", param2: str = "") -> str:
     """
     Brief description.
@@ -489,8 +484,7 @@ def complex_function(param1: str = "", param2: str = "") -> str:
     Returns:
         Description of return value
     """
-
-```text
+```
 
 ### README Updates
 
