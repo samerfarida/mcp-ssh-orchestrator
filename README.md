@@ -6,9 +6,9 @@
   <p>Launch in minutes with Docker + MCP tooling, deny-by-default controls, and hardened SSH key management.</p>
 </div>
 
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![MCP](https://img.shields.io/badge/MCP-v1.21.1-green.svg)](https://modelcontextprotocol.io)
-[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://python.org)
+[![License](https://img.shields.io/badge/License-Apache%202.0-A020F0)](LICENSE)
+[![MCP](https://img.shields.io/badge/MCP-v1.21.1-7393B3)](https://modelcontextprotocol.io)
+[![Python](https://img.shields.io/badge/Python-v3.13+-blue.svg)](https://python.org)
 [![Docker](https://img.shields.io/badge/Docker-Ready-success)](https://github.com/samerfarida/mcp-ssh-orchestrator)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/samerfarida/mcp-ssh-orchestrator/badge)](https://scorecard.dev/viewer/?uri=github.com/samerfarida/mcp-ssh-orchestrator)
 [![GitHub release](https://img.shields.io/github/v/release/samerfarida/mcp-ssh-orchestrator)](https://github.com/samerfarida/mcp-ssh-orchestrator/releases)
