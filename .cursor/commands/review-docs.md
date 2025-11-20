@@ -5,6 +5,7 @@ Help me comprehensively review and update the repository documentation to ensure
 ## Overview
 
 This command performs a thorough review of:
+
 - All source code in `src/mcp_ssh/` (tools, features, configurations, security)
 - All CI/CD workflows in `.github/workflows/` (build, release, security, signing)
 - All test suites in `tests/` (unit tests, MCP compliance, validation)
@@ -91,81 +92,89 @@ This command performs a thorough review of:
    - Document any security hardening steps in CI/CD
 
 10. **Analyze test suites (`tests/`):**
-   - Review all test files to understand testing coverage
-   - Document unit testing approach and frameworks used
-   - Document MCP compliance testing (test_mcp_compliance.py)
-   - Document MCP inspector usage and validation
-   - Document input validation testing
-   - Document error sanitization testing
-   - Document policy testing approach
-   - Document SSH client testing
-   - Document async task manager testing
-   - Document context logging testing
-   - Document resource testing
-   - Document tool testing
-   - Identify all validation checks performed
-   - Document test coverage areas
+
+- Review all test files to understand testing coverage
+- Document unit testing approach and frameworks used
+- Document MCP compliance testing (test_mcp_compliance.py)
+- Document MCP inspector usage and validation
+- Document input validation testing
+- Document error sanitization testing
+- Document policy testing approach
+- Document SSH client testing
+- Document async task manager testing
+- Document context logging testing
+- Document resource testing
+- Document tool testing
+- Identify all validation checks performed
+- Document test coverage areas
 
 11. **MCP specification compliance:**
-   - Verify MCP version compliance (check for MCP spec version references)
-   - Document MCP tools implementation compliance
-   - Document MCP resources implementation compliance
-   - Document MCP prompts implementation (if any)
-   - Document MCP notifications/context logging compliance
-   - Verify adherence to MCP protocol standards
+
+- Verify MCP version compliance (check for MCP spec version references)
+- Document MCP tools implementation compliance
+- Document MCP resources implementation compliance
+- Document MCP prompts implementation (if any)
+- Document MCP notifications/context logging compliance
+- Verify adherence to MCP protocol standards
 
 ### Phase 2: Documentation Review
 
 12. **Review README.md:**
-   - Verify all mentioned tools exist in code with exact names
-   - Verify all features described are actually implemented
-   - Check that all code examples are syntactically correct
-   - Verify Docker commands and paths are accurate
-   - Check that all badges and links work
-   - Verify version numbers match actual releases
-   - Ensure no roadmap/future features are mentioned as current
-   - Verify all security claims match actual implementation
-   - **CI/CD documentation**: Verify GPG signing process is documented (if mentioned in workflows)
-   - **CI/CD documentation**: Verify container image signing (Cosign) is documented (if mentioned in workflows)
-   - **Testing documentation**: Verify unit testing is mentioned (if tests exist)
-   - **Testing documentation**: Verify MCP inspector usage is mentioned (if used in tests/workflows)
-   - **MCP compliance**: Verify MCP specification compliance is stated
-   - **MCP compliance**: Verify MCP version is mentioned (if referenced in code)
-   - Verify "Supply Chain Integrity" section matches actual workflow processes
-   - Verify all signing commands match actual workflow steps
+
+- Verify all mentioned tools exist in code with exact names
+- Verify all features described are actually implemented
+- Check that all code examples are syntactically correct
+- Verify Docker commands and paths are accurate
+- Check that all badges and links work
+- Verify version numbers match actual releases
+- Ensure no roadmap/future features are mentioned as current
+- Verify all security claims match actual implementation
+- **CI/CD documentation**: Verify GPG signing process is documented (if mentioned in workflows)
+- **CI/CD documentation**: Verify container image signing (Cosign) is documented (if mentioned in workflows)
+- **Testing documentation**: Verify unit testing is mentioned (if tests exist)
+- **Testing documentation**: Verify MCP inspector usage is mentioned (if used in tests/workflows)
+- **MCP compliance**: Verify MCP specification compliance is stated
+- **MCP compliance**: Verify MCP version is mentioned (if referenced in code)
+- Verify "Supply Chain Integrity" section matches actual workflow processes
+- Verify all signing commands match actual workflow steps
 
 13. **Review SECURITY.md:**
-   - Verify supported versions match actual releases
-   - Check that security guidance matches code implementation
-   - Verify all security recommendations are based on actual code features
-   - Ensure contact information is current
+
+- Verify supported versions match actual releases
+- Check that security guidance matches code implementation
+- Verify all security recommendations are based on actual code features
+- Ensure contact information is current
 
 14. **Review CODE_OF_CONDUCT.md:**
-   - Check for placeholder text (e.g., "[INSERT CONTACT METHOD]")
-   - Verify contact information is filled in
-   - Ensure formatting is correct
+
+- Check for placeholder text (e.g., "[INSERT CONTACT METHOD]")
+- Verify contact information is filled in
+- Ensure formatting is correct
 
 15. **Review docs/wiki/ directory:**
-   - Read all wiki markdown files
-   - Verify technical accuracy against code
-   - Check all code examples for syntax correctness
-   - Verify all configuration examples match actual schema
-   - Check for broken internal links
-   - Verify all mermaid diagrams (if any) are valid
-   - Ensure no references to unimplemented features
-   - Check that all tool references match actual tool names
+
+- Read all wiki markdown files
+- Verify technical accuracy against code
+- Check all code examples for syntax correctness
+- Verify all configuration examples match actual schema
+- Check for broken internal links
+- Verify all mermaid diagrams (if any) are valid
+- Ensure no references to unimplemented features
+- Check that all tool references match actual tool names
 
 16. **Review examples/ directory:**
-   - Verify `example-servers.yml` matches actual config.py schema
-   - Verify `example-credentials.yml` matches actual credential handling
-   - Verify `example-policy.yml` matches actual policy.py rules
-   - Test that examples are valid YAML
-   - Ensure examples demonstrate real, working configurations
+
+- Verify `example-servers.yml` matches actual config.py schema
+- Verify `example-credentials.yml` matches actual credential handling
+- Verify `example-policy.yml` matches actual policy.py rules
+- Test that examples are valid YAML
+- Ensure examples demonstrate real, working configurations
 
 17. **Review servers/ directory:**
-   - Check server.json files for MCP server configuration
-   - Verify all paths and commands are correct
-   - Ensure configuration matches actual server implementation
+
+- Check server.json files for MCP server configuration
+- Verify all paths and commands are correct
+- Ensure configuration matches actual server implementation
 
 ### Phase 3: Alignment and Verification
 
@@ -303,6 +312,7 @@ This command performs a thorough review of:
 ## Output format
 
 For each file reviewed, provide:
+
 - Status: ✅ Accurate / ⚠️ Needs Updates / ❌ Major Issues
 - Issues found (if any)
 - Changes made (if any)

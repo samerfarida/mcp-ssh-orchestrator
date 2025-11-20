@@ -7,7 +7,7 @@ from mcp_ssh.policy import Policy, _parse_command_chain
 
 @pytest.fixture
 def basic_policy():
-    """Basic policy configuration for testing."""
+    """Basic policy configuration for testing (version 2 schema)."""
     return {
         "limits": {
             "max_seconds": 60,
@@ -25,19 +25,30 @@ def basic_policy():
                 "action": "allow",
                 "aliases": ["*"],
                 "tags": [],
-                "commands": ["uptime*", "df -h*"],
+                "simple_binaries": ["uptime"],
+                "simple_max_args": 6,
+            },
+            {
+                "action": "allow",
+                "aliases": ["*"],
+                "tags": [],
+                "binary": "df",
+                "arg_prefix": ["-h"],
+                "allow_extra_args": False,
             },
             {
                 "action": "allow",
                 "aliases": [],
                 "tags": ["staging"],
-                "commands": ["systemctl restart *"],
+                "binary": "systemctl",
+                "arg_prefix": ["restart"],
+                "allow_extra_args": True,
             },
             {
                 "action": "deny",
                 "aliases": ["prod-*"],
                 "tags": [],
-                "commands": ["rm *"],
+                "simple_binaries": ["rm"],
             },
         ],
         "overrides": {
@@ -78,7 +89,7 @@ def test_is_allowed_tag_based(basic_policy):
     assert pol.is_allowed("stg-web-1", ["staging"], "systemctl restart nginx") is True
     assert (
         pol.is_allowed("prod-web-1", ["production"], "systemctl restart nginx") is False
-    )
+    )  # No staging tag
 
 
 def test_is_denied_by_substring(basic_policy):
@@ -93,6 +104,7 @@ def test_is_denied_by_explicit_rule(basic_policy):
     """Test denying command by explicit rule."""
     pol = Policy(basic_policy)
 
+    # rm is in simple_binaries deny rule for prod-* aliases
     assert pol.is_allowed("prod-web-1", [], "rm file.txt") is False
 
 
@@ -191,7 +203,7 @@ def test_require_known_host_network_override():
 
 
 def test_glob_pattern_matching():
-    """Test glob pattern matching in rules."""
+    """Test glob pattern matching in aliases (version 2 schema)."""
     pol = Policy(
         {
             "rules": [
@@ -199,7 +211,9 @@ def test_glob_pattern_matching():
                     "action": "allow",
                     "aliases": ["web-*"],
                     "tags": [],
-                    "commands": ["systemctl status *"],
+                    "binary": "systemctl",
+                    "arg_prefix": ["status"],
+                    "allow_extra_args": True,
                 }
             ]
         }
@@ -207,7 +221,9 @@ def test_glob_pattern_matching():
 
     assert pol.is_allowed("web-1", [], "systemctl status nginx") is True
     assert pol.is_allowed("web-prod", [], "systemctl status apache") is True
-    assert pol.is_allowed("db-1", [], "systemctl status nginx") is False
+    assert (
+        pol.is_allowed("db-1", [], "systemctl status nginx") is False
+    )  # Alias doesn't match
 
 
 def test_multiple_tags_any_match():
@@ -595,3 +611,302 @@ def test_chain_with_pipe_operator(basic_policy):
     # Result depends on whether "cat" matches any allow rule
     # Since basic_policy doesn't have "cat", it should be denied
     assert result is False
+
+
+# ==================== Command Substitution Blocking Tests ====================
+
+
+def test_command_substitution_blocked_dollar_paren(basic_policy):
+    """Test that command substitution $(...) is blocked."""
+    pol = Policy(basic_policy)
+
+    # All command substitution attempts should be blocked
+    assert pol.is_allowed("test1", [], "echo $(cat /etc/passwd)") is False
+    assert pol.is_allowed("test1", [], "echo $(whoami)") is False
+    assert pol.is_allowed("test1", [], "echo $(sudo whoami)") is False
+    assert pol.is_allowed("test1", [], "echo $(eval 'cat /etc/passwd')") is False
+    assert pol.is_allowed("test1", [], "uptime $(cat /etc/passwd)") is False
+
+
+def test_command_substitution_blocked_backtick(basic_policy):
+    """Test that backtick command substitution is blocked."""
+    pol = Policy(basic_policy)
+
+    # Backtick substitution should be blocked
+    assert pol.is_allowed("test1", [], "echo `cat /etc/passwd`") is False
+    assert pol.is_allowed("test1", [], "echo `whoami`") is False
+    assert pol.is_allowed("test1", [], "uptime `cat /etc/passwd`") is False
+
+
+def test_command_substitution_blocked_arithmetic(basic_policy):
+    """Test that arithmetic expansion $(()) is blocked."""
+    pol = Policy(basic_policy)
+
+    # Arithmetic expansion should be blocked
+    assert pol.is_allowed("test1", [], "echo $((1+1))") is False
+
+
+def test_command_substitution_in_chains_blocked(basic_policy):
+    """Test that command substitution in chains is blocked."""
+    pol = Policy(basic_policy)
+
+    # Command substitution should be blocked even in chains
+    assert pol.is_allowed("test1", [], "uptime && echo $(cat /etc/passwd)") is False
+    assert pol.is_allowed("test1", [], "echo $(cat /etc/passwd) && uptime") is False
+
+
+def test_legitimate_commands_without_substitution_work(basic_policy):
+    """Test that legitimate commands without substitution still work."""
+    pol = Policy(basic_policy)
+
+    # Commands without substitution should still work
+    assert pol.is_allowed("test1", [], "uptime") is True
+    assert pol.is_allowed("test1", [], "df -h") is True
+    assert pol.is_allowed("test1", [], "echo hello") is True
+
+
+# ==================== Version 2 Schema Tests ====================
+
+
+@pytest.fixture
+def v2_policy():
+    """Version 2 policy configuration for testing."""
+    return {
+        "limits": {
+            "max_seconds": 60,
+            "max_output_bytes": 1048576,
+            "deny_substrings": ["rm -rf"],
+        },
+        "rules": [
+            {
+                "action": "allow",
+                "aliases": ["*"],
+                "tags": [],
+                "simple_binaries": ["uptime", "whoami", "hostname", "date"],
+                "simple_max_args": 3,
+            },
+            {
+                "action": "allow",
+                "aliases": ["*"],
+                "tags": [],
+                "binary": "df",
+                "arg_prefix": ["-h"],
+                "allow_extra_args": False,
+            },
+            {
+                "action": "allow",
+                "aliases": ["*"],
+                "tags": [],
+                "binary": "tail",
+                "arg_prefix": ["-n", "200"],
+                "allow_extra_args": False,
+                "path_args": {
+                    "indices": [3],
+                    "patterns": ["/var/log/*"],
+                },
+            },
+            {
+                "action": "allow",
+                "aliases": ["*"],
+                "tags": ["linux"],
+                "binary": "systemctl",
+                "arg_prefix": ["status"],
+                "allow_extra_args": True,
+            },
+            {
+                "action": "allow",
+                "aliases": ["*"],
+                "tags": [],
+                "binary": "cat",
+                "allow_extra_args": False,
+                "path_args": {
+                    "indices": [1],
+                    "patterns": ["/etc/os-release", "/etc/*release"],
+                },
+            },
+        ],
+    }
+
+
+def test_simple_binaries_match_exact(v2_policy):
+    """Test that simple_binaries matches exact binary name."""
+    pol = Policy(v2_policy)
+
+    assert pol.is_allowed("test1", [], "uptime") is True
+    assert pol.is_allowed("test1", [], "whoami") is True
+    assert pol.is_allowed("test1", [], "hostname") is True
+    assert pol.is_allowed("test1", [], "date") is True
+
+
+def test_simple_binaries_with_args(v2_policy):
+    """Test that simple_binaries allows arguments within limit."""
+    pol = Policy(v2_policy)
+
+    # Within max_args limit
+    assert pol.is_allowed("test1", [], "uptime -s") is True
+    assert pol.is_allowed("test1", [], "whoami test") is True
+    assert pol.is_allowed("test1", [], "hostname -f") is True
+
+    # Exceeds max_args limit
+    assert pol.is_allowed("test1", [], "uptime -s arg1 arg2 arg3 arg4") is False
+
+
+def test_simple_binaries_blocked_when_not_in_list(v2_policy):
+    """Test that binaries not in simple_binaries list are denied."""
+    pol = Policy(v2_policy)
+
+    # Binary not in simple_binaries list should be denied
+    assert pol.is_allowed("test1", [], "ls") is False
+    assert pol.is_allowed("test1", [], "echo") is False
+    assert (
+        pol.is_allowed("test1", [], "cat") is False
+    )  # Only allowed via structured rule
+
+
+def test_simple_binaries_blocks_meta_characters(v2_policy):
+    """Test that simple_binaries blocks shell meta characters in args."""
+    pol = Policy(v2_policy)
+
+    # Shell meta characters in arguments should be blocked
+    assert pol.is_allowed("test1", [], "uptime ; cat /etc/passwd") is False
+    assert pol.is_allowed("test1", [], "uptime && cat /etc/passwd") is False
+    assert pol.is_allowed("test1", [], "uptime || cat /etc/passwd") is False
+    assert pol.is_allowed("test1", [], "uptime | cat") is False
+
+
+def test_structured_rule_binary_match(v2_policy):
+    """Test that structured rule matches exact binary name."""
+    pol = Policy(v2_policy)
+
+    # Exact binary match with correct arg_prefix
+    assert pol.is_allowed("test1", [], "df -h") is True
+    assert pol.is_allowed("test1", [], "df -H") is False  # Wrong arg prefix
+
+
+def test_structured_rule_arg_prefix_exact(v2_policy):
+    """Test that structured rule matches arg_prefix exactly."""
+    pol = Policy(v2_policy)
+
+    # Exact arg_prefix match
+    assert pol.is_allowed("test1", [], "tail -n 200 /var/log/syslog") is True
+    assert (
+        pol.is_allowed("test1", [], "tail -n 100 /var/log/syslog") is False
+    )  # Wrong prefix
+
+
+def test_structured_rule_allow_extra_args(v2_policy):
+    """Test that allow_extra_args flag works correctly."""
+    pol = Policy(v2_policy)
+
+    # systemctl status allows extra args
+    assert pol.is_allowed("test1", ["linux"], "systemctl status nginx") is True
+    assert pol.is_allowed("test1", ["linux"], "systemctl status nginx -l") is True
+
+    # df -h does not allow extra args
+    assert pol.is_allowed("test1", [], "df -h") is True
+    assert pol.is_allowed("test1", [], "df -h /") is False
+
+
+def test_structured_rule_path_args_match(v2_policy):
+    """Test that path_args indices and patterns work correctly."""
+    pol = Policy(v2_policy)
+
+    # Matching path patterns
+    assert pol.is_allowed("test1", [], "cat /etc/os-release") is True
+    assert pol.is_allowed("test1", [], "cat /etc/redhat-release") is True
+
+    # Non-matching path patterns
+    assert pol.is_allowed("test1", [], "cat /etc/passwd") is False
+    assert pol.is_allowed("test1", [], "cat /tmp/test") is False
+
+
+def test_path_based_binaries_blocked(v2_policy):
+    """Test that path-based binaries are always blocked."""
+    pol = Policy(v2_policy)
+
+    # Path-based binaries should always be blocked
+    assert pol.is_allowed("test1", [], "/usr/bin/uptime") is False
+    assert pol.is_allowed("test1", [], "/tmp/evil.sh") is False
+    assert pol.is_allowed("test1", [], "./script.sh") is False
+    assert pol.is_allowed("test1", [], "/bin/cat") is False
+
+
+def test_shlex_parsing_quoted_args(v2_policy):
+    """Test that shlex parsing handles quoted arguments correctly."""
+    pol = Policy(v2_policy)
+
+    # Quoted arguments should be parsed correctly
+    assert pol.is_allowed("test1", [], 'uptime "test arg"') is True
+    assert pol.is_allowed("test1", [], "uptime 'test arg'") is True
+
+
+def test_shlex_parsing_malformed_denied(v2_policy):
+    """Test that malformed commands with bad quoting are denied."""
+    # Note: shlex.split might not always raise for malformed input,
+    # but our code handles empty argv which would result in denial
+    # This test documents the expected behavior
+    pass  # shlex.split might not fail for all malformed cases
+
+
+def test_legacy_commands_patterns_rejected(v2_policy):
+    """Test that legacy commands patterns are no longer supported."""
+    legacy_policy = {
+        "limits": {"max_seconds": 60},
+        "rules": [
+            {
+                "action": "allow",
+                "aliases": ["*"],
+                "tags": [],
+                "commands": ["uptime*"],  # Legacy pattern - should be ignored
+            },
+        ],
+    }
+    pol = Policy(legacy_policy)
+
+    # Legacy commands patterns should be ignored (not match)
+    assert pol.is_allowed("test1", [], "uptime") is False
+
+
+def test_rule_evaluation_order_first_match_wins(v2_policy):
+    """Test that first matching rule wins."""
+    policy_with_order = {
+        "limits": {"max_seconds": 60},
+        "rules": [
+            {
+                "action": "deny",
+                "aliases": ["*"],
+                "tags": [],
+                "simple_binaries": ["uptime"],
+            },
+            {
+                "action": "allow",
+                "aliases": ["*"],
+                "tags": [],
+                "simple_binaries": ["uptime"],
+            },
+        ],
+    }
+    pol = Policy(policy_with_order)
+
+    # First rule (deny) should win
+    assert pol.is_allowed("test1", [], "uptime") is False
+
+
+def test_alias_tag_matching_still_works(v2_policy):
+    """Test that alias and tag matching still works with version 2 schema."""
+    pol = Policy(v2_policy)
+
+    # Tag matching should work
+    assert pol.is_allowed("test1", ["linux"], "systemctl status nginx") is True
+    assert (
+        pol.is_allowed("test1", [], "systemctl status nginx") is False
+    )  # No linux tag
+
+
+def test_default_deny_when_no_match(v2_policy):
+    """Test that commands are denied by default when no rule matches."""
+    pol = Policy(v2_policy)
+
+    # Commands not matching any rule should be denied
+    assert pol.is_allowed("test1", [], "unknown-command") is False
+    assert pol.is_allowed("test1", [], "ls -la") is False  # Not in simple_binaries

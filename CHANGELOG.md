@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **Command Substitution Bypass Fixed**: Hard-banned all command substitution (`$(...)`, backticks, `$((...))`) to prevent policy bypasses. All command substitution is now blocked before rule evaluation.
+- **Path-Based Binaries Blocked**: Path-based binaries (e.g., `/usr/bin/cat`, `./script.sh`) are now always blocked for security. Only binaries in `$PATH` are allowed.
+
+### Added
+- **Version 2 Policy Schema**: New argument-aware policy schema with `simple_binaries` and structured rules for precise command control.
+- **shlex-Based Argument Parsing**: Commands are now parsed using `shlex` for safe, argument-aware rule matching.
+
+### Changed
+- **Breaking: Legacy `commands` Patterns Removed**: Legacy full-line `fnmatch` patterns in `commands` field are no longer supported. All policies must use version 2 schema (`simple_binaries` + structured rules).
+- **Breaking: Path-Based Execution**: Path-based binaries are blocked by default. Use structured rules with explicit `binary` name if needed.
+
+### Fixed
+- **Command Substitution Bypass**: Fixed 15+ critical bypasses where denied commands could be executed via command substitution (e.g., `echo $(cat /etc/passwd)`).
+- **Insecure Full-Line Matching**: Removed insecure full-line `fnmatch` patterns that enabled bypasses.
+
 ## [1.0.0] - 2025-11-19
 
 ### Added

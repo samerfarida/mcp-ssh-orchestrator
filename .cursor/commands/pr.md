@@ -2,7 +2,7 @@
 
 Help me create a pull request for my current feature branch.
 
-## Steps to follow:
+## Steps to follow
 
 1. **Check current branch status:**
    - Get the current branch name
@@ -37,7 +37,8 @@ Help me create a pull request for my current feature branch.
    - Suggest reviewing the PR
    - Mention any follow-up actions needed
 
-## Important notes:
+## Important notes
+
 - Always check for uncommitted changes before proceeding
 - Use `PR_DESCRIPTION.md` if available, otherwise generate a helpful description
 - Ensure the branch is pushed before creating PR
