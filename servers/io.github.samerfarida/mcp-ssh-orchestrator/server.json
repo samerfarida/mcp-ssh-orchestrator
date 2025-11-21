@@ -1,6 +1,6 @@
 {
   "name": "mcp-ssh-orchestrator",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A secure SSH fleet orchestrator exposing list/plan/run tools with policy enforcement over STDIO.",
   "license": "Apache-2.0",
   "homepage": "https://github.com/samerfarida/mcp-ssh-orchestrator",
