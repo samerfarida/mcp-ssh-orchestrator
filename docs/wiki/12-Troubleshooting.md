@@ -272,6 +272,7 @@ The policy engine parses chained commands and validates each command individuall
 
 ### Example Error Response:
 
+```json
 {
   "alias": "prod-web-1",
   "command": "uptime && apt list --upgradable",
@@ -288,39 +289,37 @@ The policy engine parses chained commands and validates each command individuall
    - Look for `denied_command` field in the response
    - Check the `why` field for specific denial reason
 
-1. **Fix Policy for Legitimate Chaining:**
+2. **Fix Policy for Legitimate Chaining:**
    If you need to allow chaining of specific commands, add allow rules for each command:
 
-   rules:
-     - action: "allow"
-       aliases: ["*"]
-       tags: []
-       commands:
-         - "uptime*"
-         - "apt list --upgradable*"  # Add this if you want to allow it
+```yaml
+rules:
+  - action: "allow"
+    aliases: ["*"]
+    tags: []
+    commands:
+      - "uptime*"
+      - "apt list --upgradable*"  # Add this if you want to allow it
+```
 
-```bash
-
-1. **Split Commands:**
+3. **Split Commands:**
    If chaining is not necessary, execute commands separately:
 
-   # Instead of: uptime && apt list --upgradable
+```python
+# Instead of: uptime && apt list --upgradable
 
-   # Execute separately
+# Execute separately
+ssh_run(alias="host1", command="uptime")
+ssh_run(alias="host1", command="apt list --upgradable")
+```
 
-   ssh_run(alias="host1", command="uptime")
-   ssh_run(alias="host1", command="apt list --upgradable")
-
-   ```
-
-1. **Check Command Substitution:**
+4. **Check Command Substitution:**
    Commands with substitution (`` `cmd` ``, `$(cmd)`) are validated as part of the command:
 
-   # This validates "echo" and the entire "$(apt list --upgradable)" substitution
-
-   echo $(apt list --upgradable)
-
-```text
+```bash
+# This validates "echo" and the entire "$(apt list --upgradable)" substitution
+echo $(apt list --upgradable)
+```
 
 If the substitution contains a denied command, the entire command is blocked.
 
@@ -328,43 +327,36 @@ If the substitution contains a denied command, the entire command is blocked.
 
 ### Scenario 1: Both Commands Allowed
 
+```bash
 # Policy allows: uptime*, whoami
-
 uptime && whoami  # ✅ ALLOWED
-
 ```
 
 ### Scenario 2: One Command Denied
 
+```bash
 # Policy allows: uptime*
-
 # Policy denies: apt list --upgradable*
-
 uptime && apt list --upgradable  # ❌ DENIED (second command denied)
-
-```text
+```
 
 ### Scenario 3: Multiple Commands
 
+```bash
 # Policy allows: uptime*, whoami, hostname*
-
 uptime && whoami && hostname  # ✅ ALLOWED (all allowed)
-
 uptime && apt list --upgradable && whoami  # ❌ DENIED (middle command denied)
-
 ```
 
 ### Scenario 4: Operators in Quotes
 
+```bash
 # Operators inside quotes are ignored
-
 echo "hello && world" && whoami  # ✅ ALLOWED
 
 # First command: echo "hello && world" (treated as single command)
-
 # Second command: whoami
-
-```bash
+```
 
 ### Debugging Steps
 
@@ -400,26 +392,21 @@ Error messages are sanitized to prevent information disclosure:
 
 ### Solutions
 
+```bash
 # Test network connectivity
-
 ping 10.0.0.11
 
 # Test SSH port
-
 telnet 10.0.0.11 22
 
 # Check SSH service
-
 ssh -i ~/mcp-ssh/keys/id_ed25519 ubuntu@10.0.0.11 "systemctl status ssh"
 
 # Verify host key
-
 ssh-keyscan 10.0.0.11 >> ~/mcp-ssh/keys/known_hosts
 
 # Test SSH connection
-
 ssh -i ~/mcp-ssh/keys/id_ed25519 ubuntu@10.0.0.11 "uptime"
-
 ```
 
 #### Host Key Verification Issues
@@ -438,27 +425,26 @@ ssh -i ~/mcp-ssh/keys/id_ed25519 ubuntu@10.0.0.11 "uptime"
 
 ### Solutions
 
+```bash
 # Add host key to known_hosts
-
 ssh-keyscan 10.0.0.11 >> ~/mcp-ssh/keys/known_hosts
 
 # Verify host key
-
 ssh-keygen -l -f ~/mcp-ssh/keys/known_hosts
 
 # Security: Host key verification is always enforced (CWE-295)
-
 # Populate known_hosts file instead
-
-# In policy.yml
-
-require_known_host: true  # Always enforced for security (CWE-295)
-
-# Populate known_hosts
-
-ssh-keyscan -H <hostname> >> /app/keys/known_hosts
+```
 
 ```yaml
+# In policy.yml
+require_known_host: true  # Always enforced for security (CWE-295)
+```
+
+```bash
+# Populate known_hosts
+ssh-keyscan -H <hostname> >> /app/keys/known_hosts
+```
 
 ### Container Issues
 
@@ -479,27 +465,23 @@ ssh-keyscan -H <hostname> >> /app/keys/known_hosts
 
 ### Solutions
 
+```bash
 # Check container logs
-
 docker logs $(docker ps -q --filter "ancestor=ghcr.io/samerfarida/mcp-ssh-orchestrator:latest")
 
 # Test container health
-
 docker run --rm ghcr.io/samerfarida/mcp-ssh-orchestrator:latest python -c "import mcp_ssh; print('OK')"
 
 # Check resource usage
-
 docker stats
 
 # Increase resource limits
-
 docker run -i --rm \
   --memory=1g \
   --cpus=2 \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
   ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
-
 ```
 
 #### Permission Issues
@@ -518,13 +500,12 @@ docker run -i --rm \
 
 ### Solutions
 
+```bash
 # Fix file permissions
-
 chmod 0400 ~/mcp-ssh/keys/*
 chmod 0444 ~/mcp-ssh/config/*
 
 # Run container as non-root user
-
 docker run -i --rm \
   --user=10001:10001 \
   -v ~/mcp-ssh/config:/app/config:ro \
@@ -532,10 +513,8 @@ docker run -i --rm \
   ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 
 # Check container user
-
 docker run --rm ghcr.io/samerfarida/mcp-ssh-orchestrator:latest whoami
-
-```text
+```
 
 ### MCP Client Issues
 
@@ -556,8 +535,8 @@ docker run --rm ghcr.io/samerfarida/mcp-ssh-orchestrator:latest whoami
 
 ### Solutions
 
+```bash
 # Test MCP server directly
-
 echo '{"jsonrpc":"2.0","method":"ping","id":1}' | \
   docker run -i --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
@@ -565,14 +544,11 @@ echo '{"jsonrpc":"2.0","method":"ping","id":1}' | \
   ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 
 # Check Claude Desktop configuration
-
 cat ~/Library/Application\ Support/Claude/claude_desktop_config.json
 
 # Restart Claude Desktop
-
 killall "Claude Desktop"
 open -a "Claude Desktop"
-
 ```
 
 #### Tool Execution Failures
@@ -592,8 +568,8 @@ open -a "Claude Desktop"
 
 ### Solutions
 
+```bash
 # List available tools
-
 echo '{"jsonrpc":"2.0","method":"tools/list","id":1}' | \
   docker run -i --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
@@ -601,14 +577,12 @@ echo '{"jsonrpc":"2.0","method":"tools/list","id":1}' | \
   ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
 
 # Test tool execution
-
 echo '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"ssh_ping","arguments":{}},"id":1}' | \
   docker run -i --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
   ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
-
-```json
+```
 
 ## Debugging Techniques
 
@@ -616,52 +590,48 @@ echo '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"ssh_ping","argume
 
 ### Development Mode
 
+```bash
 # Enable debug logging
-
 docker run -i --rm \
   -e MCP_SSH_DEBUG=1 \
   -e LOG_LEVEL=DEBUG \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
   ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
-
 ```
 
 ### Production Debugging
 
+```bash
 # Enable verbose logging
-
 docker run -i --rm \
   -e LOG_LEVEL=INFO \
   -e LOG_FORMAT=json \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
   ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
-
-```bash
+```
 
 ### Network Debugging
 
 ### SSH Debug Mode
 
+```bash
 # Enable SSH debug logging
-
 ssh -vvv -i ~/mcp-ssh/keys/id_ed25519 ubuntu@10.0.0.11
 
 # Test SSH connection with debug
-
 docker run -i --rm \
   -e SSH_DEBUG=1 \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
   ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
-
 ```
 
 ### Network Connectivity Tests
 
+```bash
 # Test network connectivity
-
 docker run --rm --network=host \
   ghcr.io/samerfarida/mcp-ssh-orchestrator:latest \
   python -c "
@@ -671,15 +641,14 @@ result = s.connect_ex(('10.0.0.11', 22))
 print('SSH port accessible:', result == 0)
 s.close()
 "
-
-```dockerfile
+```
 
 ### Policy Debugging
 
 ### Policy Rule Testing
 
+```bash
 # Test specific policy rules
-
 docker run --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
   ghcr.io/samerfarida/mcp-ssh-orchestrator:latest \
@@ -688,22 +657,19 @@ from mcp_ssh.policy import Policy
 policy = Policy('/app/config/policy.yml')
 
 # Test allow rule
-
 result = policy.evaluate('web1', 'uptime', ['production'])
 print('Allow rule result:', result)
 
 # Test deny rule
-
 result = policy.evaluate('web1', 'rm -rf /', ['production'])
 print('Deny rule result:', result)
 "
-
 ```
 
 ### Policy Validation
 
+```bash
 # Validate policy configuration
-
 docker run --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
   ghcr.io/samerfarida/mcp-ssh-orchestrator:latest \
@@ -714,8 +680,7 @@ print('Policy valid:', policy.validate())
 print('Rules count:', len(policy.rules))
 print('Limits:', policy.limits)
 "
-
-```yaml
+```
 
 ## Performance Issues
 
@@ -736,22 +701,20 @@ print('Limits:', policy.limits)
 
 ### Solutions
 
+```bash
 # Check command execution time
-
 time ssh -i ~/mcp-ssh/keys/id_ed25519 ubuntu@10.0.0.11 "uptime"
 
 # Monitor resource usage
-
 docker stats
+```
 
+```yaml
 # Increase timeout limits
-
 # In policy.yml
-
 limits:
   max_seconds: 60
   max_output_bytes: 262144
-
 ```
 
 ### High Memory Usage
@@ -771,26 +734,24 @@ limits:
 
 ### Solutions
 
+```bash
 # Monitor memory usage
-
 docker stats
 
 # Increase memory limits
-
 docker run -i --rm \
   --memory=1g \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
   ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
-
-# Limit output size
-
-# In policy.yml
-
-limits:
-  max_output_bytes: 65536
+```
 
 ```yaml
+# Limit output size
+# In policy.yml
+limits:
+  max_output_bytes: 65536
+```
 
 ## Security Issues
 
@@ -811,22 +772,18 @@ limits:
 
 ### Solutions
 
+```bash
 # Verify SSH key
-
 ssh-keygen -l -f ~/mcp-ssh/keys/id_ed25519
 
 # Test SSH connection
-
 ssh -i ~/mcp-ssh/keys/id_ed25519 ubuntu@10.0.0.11
 
 # Check key permissions
-
 ls -la ~/mcp-ssh/keys/
 
 # Verify target system access
-
 ssh -i ~/mcp-ssh/keys/id_ed25519 ubuntu@10.0.0.11 "whoami"
-
 ```
 
 ### Policy Violations
@@ -846,12 +803,11 @@ ssh -i ~/mcp-ssh/keys/id_ed25519 ubuntu@10.0.0.11 "whoami"
 
 ### Solutions
 
+```bash
 # Check policy rules
-
 cat ~/mcp-ssh/config/policy.yml
 
 # Test policy evaluation
-
 docker run --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
   ghcr.io/samerfarida/mcp-ssh-orchestrator:latest \
@@ -861,8 +817,7 @@ policy = Policy('/app/config/policy.yml')
 result = policy.evaluate('web1', 'uptime', ['production'])
 print('Policy result:', result)
 "
-
-```yaml
+```
 
 ## Recovery Procedures
 
@@ -870,58 +825,49 @@ print('Policy result:', result)
 
 ### Backup and Restore
 
+```bash
 # Backup configuration
-
 tar -czf mcp-ssh-config-backup.tar.gz ~/mcp-ssh/config/
 
 # Restore configuration
-
 tar -xzf mcp-ssh-config-backup.tar.gz -C ~/
 
 # Verify restoration
-
 ls -la ~/mcp-ssh/config/
-
 ```
 
 ### Container Recovery
 
 ### Container Restart
 
+```bash
 # Stop all containers
-
 docker stop $(docker ps -q --filter "ancestor=ghcr.io/samerfarida/mcp-ssh-orchestrator:latest")
 
 # Remove containers
-
 docker rm $(docker ps -aq --filter "ancestor=ghcr.io/samerfarida/mcp-ssh-orchestrator:latest")
 
 # Start fresh
-
 docker run -i --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
   -v ~/mcp-ssh/keys:/app/keys:ro \
   ghcr.io/samerfarida/mcp-ssh-orchestrator:latest
-
-```dockerfile
+```
 
 ### Service Recovery
 
 ### Service Restart
 
+```bash
 # Restart Docker service
-
 sudo systemctl restart docker
 
 # Restart MCP orchestrator
-
 docker-compose down
 docker-compose up -d
 
 # Check service status
-
 docker-compose ps
-
 ```
 
 ## Getting Help
@@ -930,37 +876,31 @@ docker-compose ps
 
 ### Collect Debug Information
 
-# !/bin/bash
-
+```bash
+#!/bin/bash
 # collect-debug-info.sh
 
 DEBUG_DIR="mcp-ssh-debug-$(date +%Y%m%d_%H%M%S)"
 mkdir -p "$DEBUG_DIR"
 
 # System information
-
 uname -a > "$DEBUG_DIR/system-info.txt"
 docker version >> "$DEBUG_DIR/system-info.txt"
 
 # Configuration files
-
 cp -r ~/mcp-ssh/config "$DEBUG_DIR/"
 cp -r ~/mcp-ssh/keys "$DEBUG_DIR/"
 
 # Container logs
-
 docker logs $(docker ps -q --filter "ancestor=ghcr.io/samerfarida/mcp-ssh-orchestrator:latest") > "$DEBUG_DIR/container-logs.txt"
 
 # Network information
-
 netstat -an > "$DEBUG_DIR/network-info.txt"
 
 # Create debug package
-
 tar -czf "$DEBUG_DIR.tar.gz" "$DEBUG_DIR"
 echo "Debug package created: $DEBUG_DIR.tar.gz"
-
-```text
+```
 
 ### Community Support
 

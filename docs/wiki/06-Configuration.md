@@ -231,9 +231,8 @@ All YAML configuration files are protected against resource exhaustion attacks:
 
 ### File Permissions
 
-# Secure configuration files
-
 ```bash
+# Secure configuration files
 chmod 0600 config/servers.yml
 chmod 0600 config/credentials.yml
 chmod 0600 config/policy.yml
@@ -266,11 +265,11 @@ export MCP_SSH_SECRET_PROD_PASSWORD="secret-password"
 
 ### Development Environment
 
+```yaml
 # servers.yml - Development hosts
 
 hosts:
-
-- alias: "dev-web-1"
+  - alias: "dev-web-1"
     host: "192.168.1.10"
     port: 22
     credentials: "dev_admin"
@@ -279,15 +278,12 @@ hosts:
 # credentials.yml - Development credentials
 
 entries:
-
-- name: "dev_admin"
+  - name: "dev_admin"
     username: "developer"
     key_path: "dev_key"
     key_passphrase_secret: "dev_passphrase"
 
 # policy.yml - Permissive development policy
-
-```yaml
 limits:
   max_seconds: 120
   require_known_host: true  # Always enforced for security (CWE-295)
@@ -296,15 +292,15 @@ rules:
   - action: "allow"
     aliases: ["dev-*"]
     commands: ["*"]  # Allow all commands in dev
-```text
+```
 
 ### Production Environment
 
+```yaml
 # servers.yml - Production hosts
 
 hosts:
-
-- alias: "prod-web-1"
+  - alias: "prod-web-1"
     host: "10.0.0.11"
     port: 22
     credentials: "prod_admin"
@@ -313,8 +309,7 @@ hosts:
 # credentials.yml - Production credentials
 
 entries:
-
-- name: "prod_admin"
+  - name: "prod_admin"
     username: "ubuntu"
     key_path: "prod_key"
     key_passphrase_secret: "prod_passphrase"
@@ -330,12 +325,10 @@ limits:
     - "reboot*"
 
 rules:
-
-- action: "allow"
+  - action: "allow"
     aliases: ["prod-*"]
     commands: ["uptime*", "df -h*", "systemctl status *"]
-
-```yaml
+```
 
 ## Configuration Management
 

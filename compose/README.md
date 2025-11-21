@@ -22,47 +22,42 @@ If you just want to use the tool and don't plan to modify the code:
 1. **Create configuration directories:**
 
 ```bash
-   mkdir -p ~/mcp-ssh/{config,keys,secrets}
-
+mkdir -p ~/mcp-ssh/{config,keys,secrets}
 ```
 
-1. **Copy example configurations:**
+2. **Copy example configurations:**
 
 ```bash
-   # If you've cloned the repo
-   cd mcp-ssh-orchestrator
-   cp examples/example-servers.yml ~/mcp-ssh/config/servers.yml
-   cp examples/example-credentials.yml ~/mcp-ssh/config/credentials.yml
-   cp examples/example-policy.yml ~/mcp-ssh/config/policy.yml
+# If you've cloned the repo
+cd mcp-ssh-orchestrator
+cp examples/example-servers.yml ~/mcp-ssh/config/servers.yml
+cp examples/example-credentials.yml ~/mcp-ssh/config/credentials.yml
+cp examples/example-policy.yml ~/mcp-ssh/config/policy.yml
 
-   # Edit these files with your actual hosts and credentials
-
+# Edit these files with your actual hosts and credentials
 ```
 
-1. **Add your SSH keys:**
+3. **Add your SSH keys:**
 
 ```bash
-   cp ~/.ssh/id_ed25519 ~/mcp-ssh/keys/
-   chmod 0400 ~/mcp-ssh/keys/id_ed25519
-   cp ~/.ssh/known_hosts ~/mcp-ssh/keys/known_hosts  # optional but recommended
-
+cp ~/.ssh/id_ed25519 ~/mcp-ssh/keys/
+chmod 0400 ~/mcp-ssh/keys/id_ed25519
+cp ~/.ssh/known_hosts ~/mcp-ssh/keys/known_hosts  # optional but recommended
 ```
 
-1. **Bootstrap with the setup script (recommended):**
+4. **Bootstrap with the setup script (recommended):**
 
 ```bash
-   cd mcp-ssh-orchestrator/compose
-   ./setup.sh enduser   # or simply ./setup.sh (auto-detects)
-
+cd mcp-ssh-orchestrator/compose
+./setup.sh enduser   # or simply ./setup.sh (auto-detects)
 ```
 
    This creates `config/`, `keys/`, `secrets/`, and `.env`, copying the latest example configs.
 
-1. **Run with compose (default production setup):**
+5. **Run with compose (default production setup):**
 
 ```bash
-   docker compose up
-
+docker compose up
 ```
 
 The production compose file pulls `ghcr.io/samerfarida/mcp-ssh-orchestrator:latest` by default.
@@ -76,23 +71,20 @@ If you're developing or contributing to the project:
 1. **Use the setup script (auto-detects dev mode in repo):**
 
 ```bash
-   cd compose
-   ./setup.sh dev
-
+cd compose
+./setup.sh dev
 ```
 
    Or just:
 
 ```bash
-   ./setup.sh
-
+./setup.sh
 ```
 
-1. **Run with development compose (builds from source):**
+2. **Run with development compose (builds from source):**
 
 ```bash
-   docker compose -f docker-compose.dev.yml up --build
-
+docker compose -f docker-compose.dev.yml up --build
 ```
 
 This will build the container from the local Dockerfile in the repository root.
@@ -119,9 +111,8 @@ Before running the container:
 1. **For development**: Use the automated setup script:
 
 ```bash
-   cd compose
-   ./setup.sh dev
-
+cd compose
+./setup.sh dev
 ```
 
    This will:
@@ -135,11 +126,10 @@ Before running the container:
 **For end users**: You can also fetch the script directly:
 
 ```bash
-   mkdir -p ~/mcp-ssh && cd ~/mcp-ssh
-   curl -fsSLO https://raw.githubusercontent.com/samerfarida/mcp-ssh-orchestrator/main/compose/setup.sh
-   chmod +x setup.sh
-   ./setup.sh enduser
-
+mkdir -p ~/mcp-ssh && cd ~/mcp-ssh
+curl -fsSLO https://raw.githubusercontent.com/samerfarida/mcp-ssh-orchestrator/main/compose/setup.sh
+chmod +x setup.sh
+./setup.sh enduser
 ```
 
 1. Add your SSH private keys and password files under:
@@ -179,7 +169,6 @@ Pull and run the published image (default):
 ```bash
 # From the compose directory
 docker compose up
-
 ```
 
 This:
@@ -195,7 +184,6 @@ Build from local source:
 ```bash
 # From the compose directory
 docker compose -f docker-compose.dev.yml up --build
-
 ```
 
 This:
@@ -212,7 +200,6 @@ You should see startup logs like:
 
 ```json
 {"evt": "server_start", "tool": "mcp-ssh-orchestrator", "mode": "stdio"}
-
 ```
 
 ---
@@ -239,7 +226,6 @@ Add this to your Claude Desktop config.json:
     }
   }
 }
-
 ```
 
 **For Development (using local build):**
@@ -260,7 +246,6 @@ Add this to your Claude Desktop config.json:
     }
   }
 }
-
 ```
 
 > **Important**: Replace `/ABS/PATH/mcp-ssh-orchestrator/` with your actual directory path.
@@ -284,7 +269,6 @@ Add this to your Claude Desktop config.json:
     }
   }
 }
-
 ```
 
 ---
