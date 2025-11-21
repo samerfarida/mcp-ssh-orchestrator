@@ -26,21 +26,21 @@ This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.
    cd mcp-ssh-orchestrator
    ```
 
-1. **Create Virtual Environment**
+2. **Create Virtual Environment**
 
    ```bash
    python3 -m venv .venv
    source .venv/bin/activate  # On Windows: .venv\Scripts\activate
    ```
 
-1. **Install Dependencies**
+3. **Install Dependencies**
 
    ```bash
    pip install --upgrade pip
    pip install -e ".[dev]"
    ```
 
-1. **Install Pre-Commit Hooks** (Recommended)
+4. **Install Pre-Commit Hooks** (Recommended)
 
    Pre-commit hooks automatically run linting, formatting, and validation checks before commits:
 
@@ -104,7 +104,7 @@ git checkout -b feature/your-feature-name
 
 git checkout -b fix/issue-number-description
 
-```
+```text
 
 ### Branch naming:
 
@@ -178,7 +178,7 @@ def test_function_error():
     with pytest.raises(ValueError):
         function("invalid")
 
-```
+```text
 
 ### Run Tests:
 
@@ -213,13 +213,13 @@ mypy src/ --ignore-missing-imports
 
 ruff check --fix src/ tests/
 
-```
+```text
 
 **Pre-commit** (if installed):
 
 ```bash
 pre-commit run --all-files
-```
+```dockerfile
 
 ### 5. Test Docker Build
 
@@ -233,7 +233,7 @@ docker run --rm mcp-ssh-orchestrator:dev python -c "import mcp_ssh; print('OK')"
 # Test entrypoint (will wait for stdin)
 echo '{"jsonrpc":"2.0","method":"ping","id":1}' | \
   docker run -i --rm mcp-ssh-orchestrator:dev
-```
+```json
 
 ### 6. Update Documentation
 
@@ -254,7 +254,7 @@ If your changes affect:
 <optional longer description>
 
 <optional footer>
-```
+```text
 
 ### Types
 
@@ -287,7 +287,7 @@ Then create a pull request on GitHub.
 
 Use the same format as commit messages:
 
-```
+```bash
 feat: add retry logic to SSH connections
 fix: handle missing credentials gracefully
 ```
@@ -329,7 +329,7 @@ Why this change is needed
 
 Fixes #123
 
-```
+```dockerfile
 
 ### Checklist
 
@@ -384,7 +384,7 @@ def test_ssh_execution_flow():
     # Mock SSH connection
     # Test policy enforcement
     # Verify audit logging
-```
+```text
 
 ### MCP Inspector Testing
 
@@ -443,7 +443,7 @@ Test container behavior:
 
 docker run --rm mcp-ssh-orchestrator:dev python -m pytest
 
-```
+```python
 
 ### Test Data
 
@@ -468,7 +468,8 @@ def sample_config():
 def function(param: str = "") -> str:
     """Single-line description of what the function does."""
     # Implementation
-```
+
+```text
 
 For complex functions (if needed):
 
@@ -484,7 +485,7 @@ def complex_function(param1: str = "", param2: str = "") -> str:
     Returns:
         Description of return value
     """
-```
+```text
 
 ### README Updates
 

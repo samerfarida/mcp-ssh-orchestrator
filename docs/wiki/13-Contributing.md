@@ -107,10 +107,17 @@ src/mcp_ssh/
     └── utilities.py     # Utility functions
 
 tests/
-├── test_config.py       # Configuration tests
-├── test_policy.py       # Policy engine tests
-├── test_ssh.py          # SSH client tests
-└── test_server_tools.py # MCP server tests
+├── test_config.py                    # Configuration tests
+├── test_policy.py                    # Policy engine tests
+├── test_ssh.py                       # SSH client tests
+├── test_server_tools.py              # MCP server tests
+├── test_ssh_coverage.py              # SSH client edge cases and coverage
+├── test_ssh_integration.py           # SSH integration tests
+├── test_mcp_server_coverage.py      # MCP server coverage tests
+├── test_mcp_server_edge_cases.py    # MCP server edge case tests
+├── test_mcp_server_on_tag_coverage.py # MCP server tag-based execution tests
+├── test_utilities_coverage.py       # Utilities coverage tests
+└── test_utilities_coverage.py  # Utilities coverage tests (includes async task management)
 ```
 
 ### Key Components
@@ -274,7 +281,7 @@ rules:
   - "rm -rf *"
   - "shutdown*"
 
-```
+```text
 
 ## Development Workflow
 
@@ -396,6 +403,11 @@ git push origin feature/new-policy-rule --force-with-lease
 - Test all public methods
 - Test error conditions
 - Test edge cases
+- Recent additions include comprehensive coverage tests:
+  - SSH client edge cases (`test_ssh_coverage.py`, `test_ssh_integration.py`)
+  - MCP server coverage including notification handlers and context logging (`test_mcp_server_coverage.py`, `test_mcp_server_edge_cases.py`, `test_mcp_server_on_tag_coverage.py`)
+  - Utilities coverage for async task management (`test_utilities_coverage.py`)
+- All tests must pass linting (Ruff, Black) before submission
 
 ### Test Examples
 
@@ -576,7 +588,7 @@ def ssh_run(alias: str, command: str) -> Dict[str, Any]:
     """
     pass
 
-```
+```text
 
 ## Release Process
 

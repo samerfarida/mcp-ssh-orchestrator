@@ -17,13 +17,19 @@ Invalid inputs are rejected with clear error messages. Security events are logge
 
 MCP SSH Orchestrator provides **13 MCP tools** that enable secure SSH command execution, host management, and policy testing. All tools follow the MCP specification and return structured JSON responses.
 
-**Structured Output:** All tools return structured Python dicts (not JSON strings). FastMCP automatically:
+**Return Types:** Tools return either:
+
+- **Structured dicts** for successful operations and policy denials (most common)
+- **JSON strings** for some policy/network denial responses (for backward compatibility)
+- **Plain strings** for validation errors and exceptional cases
+
+FastMCP automatically:
 
 - Generates JSON schemas for clients
 - Validates tool outputs
 - Wraps responses in MCP tool response format
 
-This provides better type safety, schema validation, and improved client experience compared to manual JSON string encoding.
+**Note:** While most tools return structured dicts, some denial responses and error cases return JSON strings or plain strings. Clients should handle both dict and string return types.
 
 ## Tool Categories
 

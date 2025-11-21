@@ -4,7 +4,7 @@
 # Copy this to config/policy.yml and customize for your security requirements.
 #
 # This file defines:
-#   - Command allow/deny rules with glob patterns (deny-by-default)
+#   - Command allow/deny rules (deny-by-default)
 #   - Execution limits (timeouts, output caps, async TTLs)
 #   - Network controls (IP allowlists/blocklists)
 #   - Per-host and per-tag overrides

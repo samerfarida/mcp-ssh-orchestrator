@@ -107,7 +107,7 @@ entries:
     username: "ubuntu"
     key_path: "id_ed25519"
 
-```
+```bash
 
 ### servers.yml ↔ policy.yml
 
@@ -148,7 +148,7 @@ entries:
 limits:
   require_known_host: true     # Enforces host key verification
 
-```
+```yaml
 
 ## Policy Quick Reference
 
@@ -180,7 +180,7 @@ config = Config('config/')
 print('Valid configuration:', config.validate())
 "
 
-```
+```python
 
 ### Policy Validation
 
@@ -247,7 +247,7 @@ chmod 0600 config/policy.yml
 chmod 0400 keys/*.pem
 chmod 0400 keys/id_ed25519
 
-```
+```yaml
 
 ### Secrets Management
 
@@ -270,7 +270,7 @@ entries:
 export MCP_SSH_CONFIG_DIR="/custom/config"
 export MCP_SSH_SECRET_PROD_PASSWORD="secret-password"
 
-```
+```text
 
 ## Configuration Examples
 
@@ -306,7 +306,7 @@ rules:
   - action: "allow"
     aliases: ["dev-*"]
     commands: ["*"]  # Allow all commands in dev
-```
+```text
 
 ### Production Environment
 

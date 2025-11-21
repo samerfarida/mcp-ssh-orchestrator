@@ -235,7 +235,7 @@ def test_multiple_tags_any_match():
                     "action": "allow",
                     "aliases": [],
                     "tags": ["staging", "dev"],
-                    "commands": ["deploy*"],
+                    "simple_binaries": ["deploy.sh"],
                 }
             ]
         }
@@ -661,8 +661,11 @@ def test_legitimate_commands_without_substitution_work(basic_policy):
 
     # Commands without substitution should still work
     assert pol.is_allowed("test1", [], "uptime") is True
-    assert pol.is_allowed("test1", [], "df -h") is True
-    assert pol.is_allowed("test1", [], "echo hello") is True
+    assert (
+        pol.is_allowed("test1", [], "df -h") is True
+    )  # df is in simple_binaries, but -h needs structured rule
+    # Note: echo is not in basic_policy's simple_binaries, so it won't work with that fixture
+    # This test validates that commands without substitution still work when properly configured
 
 
 # ==================== Version 2 Schema Tests ====================
@@ -787,11 +790,15 @@ def test_structured_rule_arg_prefix_exact(v2_policy):
     """Test that structured rule matches arg_prefix exactly."""
     pol = Policy(v2_policy)
 
-    # Exact arg_prefix match
+    # Exact arg_prefix match with path_args
+    # tail -n 200 /var/log/syslog matches: binary=tail, arg_prefix=["-n", "200"], path_args index 3
     assert pol.is_allowed("test1", [], "tail -n 200 /var/log/syslog") is True
     assert (
         pol.is_allowed("test1", [], "tail -n 100 /var/log/syslog") is False
-    )  # Wrong prefix
+    )  # Wrong prefix (100 vs 200)
+    assert (
+        pol.is_allowed("test1", [], "tail -n 200 /tmp/test") is False
+    )  # Wrong path (doesn't match /var/log/* pattern)
 
 
 def test_structured_rule_allow_extra_args(v2_policy):
@@ -818,6 +825,44 @@ def test_structured_rule_path_args_match(v2_policy):
     # Non-matching path patterns
     assert pol.is_allowed("test1", [], "cat /etc/passwd") is False
     assert pol.is_allowed("test1", [], "cat /tmp/test") is False
+
+    # Bug fix: allow_extra_args=False with no arg_prefix should block extra args
+    # cat rule has allow_extra_args=False, path_args.indices=[1], so only 1 arg allowed
+    assert pol.is_allowed("test1", [], "cat /etc/os-release /etc/passwd") is False
+    assert pol.is_allowed("test1", [], "cat /etc/os-release extra") is False
+
+
+def test_structured_rule_requires_restrictions():
+    """Test that structured rules with only binary field (no restrictions) are rejected."""
+    # Create a policy with a structured rule that has only binary, no arg_prefix, no path_args
+    policy_config = {
+        "limits": {
+            "max_seconds": 60,
+            "max_output_bytes": 1048576,
+            "deny_substrings": [],
+        },
+        "network": {
+            "allow_ips": [],
+            "allow_cidrs": ["10.0.0.0/8"],
+            "block_ips": [],
+            "block_cidrs": [],
+        },
+        "rules": [
+            {
+                "action": "allow",
+                "aliases": ["*"],
+                "tags": [],
+                "binary": "uptime",  # Only binary, no arg_prefix, no path_args
+            },
+        ],
+    }
+    pol = Policy(policy_config)
+
+    # Structured rule with no restrictions should NOT match any commands
+    # (use simple_binaries instead if you want to allow a binary with any args)
+    assert pol.is_allowed("test1", [], "uptime") is False
+    assert pol.is_allowed("test1", [], "uptime -s") is False
+    assert pol.is_allowed("test1", [], "uptime --help") is False
 
 
 def test_path_based_binaries_blocked(v2_policy):
