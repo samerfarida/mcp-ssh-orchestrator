@@ -257,6 +257,7 @@ class TestPolicy:
 
 ### Test Data
 
+```yaml
 # tests/fixtures/policy.yml
 
 known_hosts_path: "/app/keys/known_hosts"
@@ -266,49 +267,49 @@ limits:
   max_output_bytes: 131072
 
 rules:
-
-- action: "allow"
+  - action: "allow"
     aliases: ["web1"]
     tags: ["production"]
     commands:
-  - "uptime*"
-  - "df -h*"
+      - "uptime*"
+      - "df -h*"
 
-- action: "deny"
+  - action: "deny"
     aliases: ["*"]
     tags: ["*"]
     commands:
-  - "rm -rf *"
-  - "shutdown*"
-
-```text
+      - "rm -rf *"
+      - "shutdown*"
+```
 
 ## Development Workflow
 
 ### Feature Development
 
-### 1. Create feature branch:
+#### 1. Create feature branch
 
+```bash
 git checkout -b feature/new-policy-rule
 ```
 
-### 2. Implement feature
+#### 2. Implement feature
 
+```python
 # Add new policy rule type
 
 class PolicyRule:
-    def **init**(self, action: str, conditions: Dict[str, Any]):
+    def __init__(self, action: str, conditions: Dict[str, Any]):
         self.action = action
         self.conditions = conditions
 
     def evaluate(self, alias: str, command: str, tags: List[str]) -> bool:
         # Implementation
         pass
+```
+
+#### 3. Add tests
 
 ```python
-
-### 3. Add tests:
-
 def test_new_policy_rule():
     """Test new policy rule functionality."""
     rule = PolicyRule("allow", {"aliases": ["web1"]})
@@ -316,20 +317,19 @@ def test_new_policy_rule():
     assert result is True
 ```
 
-### 4. Update documentation
-
-# Update wiki documentation
-
-# Add examples to usage cookbook
-
-# Update API reference
+#### 4. Update documentation
 
 ```bash
+# Update wiki documentation
+# Add examples to usage cookbook
+# Update API reference
+```
 
 ### Bug Fixes
 
-### 1. Create bug fix branch:
+#### 1. Create bug fix branch
 
+```bash
 git checkout -b bugfix/ssh-connection-timeout
 ```
 

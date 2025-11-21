@@ -56,7 +56,7 @@ mcp-ssh-orchestrator/
 └── secrets/              # Docker secrets (passwords, passphrases)
     ├── .env              # Consolidated secrets file (optional, KEY=value format)
     └── <name>            # Individual secret files (Docker secrets compatible)
-```bash
+```
 
 ## Configuration Loading Process
 
@@ -91,55 +91,51 @@ The system merges configurations with this precedence:
 
 **Relationship:** Hosts reference credential entries by name.
 
+```yaml
 # servers.yml
 
 hosts:
-
-- alias: "web1"
+  - alias: "web1"
     host: "10.0.0.11"
     credentials: "prod_admin"  # References credentials.yml
 
 # credentials.yml
 
 entries:
-
-- name: "prod_admin"        # Referenced by servers.yml
+  - name: "prod_admin"        # Referenced by servers.yml
     username: "ubuntu"
     key_path: "id_ed25519"
-
-```bash
+```
 
 ### servers.yml ↔ policy.yml
 
 **Relationship:** Policy rules can target hosts by alias or tags.
 
+```yaml
 # servers.yml
 
 hosts:
-
-- alias: "prod-web-1"
+  - alias: "prod-web-1"
     tags: ["production", "web"]  # Used by policy rules
 
 # policy.yml
 
 rules:
-
-- action: "allow"
+  - action: "allow"
     aliases: ["prod-*"]        # Matches prod-web-1
     tags: ["production"]       # Matches production tag
     commands: ["uptime*"]
-
-```bash
+```
 
 ### credentials.yml ↔ policy.yml
 
 **Relationship:** Policy can enforce credential requirements.
 
+```yaml
 # credentials.yml
 
 entries:
-
-- name: "prod_admin"
+  - name: "prod_admin"
     username: "ubuntu"
     key_path: "id_ed25519"
 
@@ -147,8 +143,7 @@ entries:
 
 limits:
   require_known_host: true     # Enforces host key verification
-
-```yaml
+```
 
 ## Policy Quick Reference
 
@@ -164,35 +159,32 @@ Designing `policy.yml` is easier when you follow a few core rules (see [6.3](06.
 
 ### Syntax Validation
 
+```bash
 # Validate YAML syntax
-
 python -c "import yaml; yaml.safe_load(open('config/servers.yml'))"
-
-```python
+```
 
 ### Cross-Reference Validation
 
+```python
 # Check credential references
-
 python -c "
 from mcp_ssh.config import Config
 config = Config('config/')
 print('Valid configuration:', config.validate())
 "
-
-```python
+```
 
 ### Policy Validation
 
+```bash
 # Test policy rules
-
 python -c "
 from mcp_ssh.policy import Policy
 policy = Policy('config/policy.yml')
 print('Policy valid:', policy.validate())
 "
-
-```bash
+```
 
 ## Configuration Security
 
@@ -241,36 +233,34 @@ All YAML configuration files are protected against resource exhaustion attacks:
 
 # Secure configuration files
 
+```bash
 chmod 0600 config/servers.yml
 chmod 0600 config/credentials.yml
 chmod 0600 config/policy.yml
 chmod 0400 keys/*.pem
 chmod 0400 keys/id_ed25519
-
-```yaml
+```
 
 ### Secrets Management
 
+```yaml
 # credentials.yml - Use secrets, not plaintext
 
 entries:
-
-- name: "prod_admin"
+  - name: "prod_admin"
     username: "ubuntu"
     key_path: "id_ed25519"
     key_passphrase_secret: "prod_key_passphrase"  # Docker secret
     password_secret: ""                            # Empty = no password
-
-```bash
+```
 
 ### Environment Variables
 
+```bash
 # Override configuration via environment
-
 export MCP_SSH_CONFIG_DIR="/custom/config"
 export MCP_SSH_SECRET_PROD_PASSWORD="secret-password"
-
-```text
+```
 
 ## Configuration Examples
 

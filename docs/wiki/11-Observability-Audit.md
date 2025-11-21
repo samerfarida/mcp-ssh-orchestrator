@@ -44,17 +44,17 @@ MCP SSH Orchestrator emits five types of structured JSON logs to stderr:
 
 ### Example
 
+```json
 {
   "type": "policy_decision",
   "ts": 1761489054.1433952,
-    "alias": "web1",
+  "alias": "web1",
   "hash": "7063dece7ccc",
   "allowed": true
 }
+```
 
-```bash
-
-### Fields:
+### Fields
 
 - `type`: Always `"policy_decision"`
 - `ts`: Unix timestamp (seconds since epoch)
@@ -62,12 +62,13 @@ MCP SSH Orchestrator emits five types of structured JSON logs to stderr:
 - `hash`: SHA256 hash of the command
 - `allowed`: Boolean indicating policy decision
 
-### Denied Command Example:
+### Denied Command Example
 
+```json
 {
   "type": "policy_decision",
   "ts": 1761489054.1433952,
-    "alias": "web1",
+  "alias": "web1",
   "hash": "5c7923bd67b0",
   "allowed": false
 }
@@ -79,10 +80,11 @@ MCP SSH Orchestrator emits five types of structured JSON logs to stderr:
 
 ### Example
 
+```json
 {
   "type": "audit",
   "ts": 1761489054.143448,
-    "alias": "web1",
+  "alias": "web1",
   "hash": "7063dece7ccc",
   "exit_code": 0,
   "duration_ms": 150,
@@ -92,10 +94,9 @@ MCP SSH Orchestrator emits five types of structured JSON logs to stderr:
   "timeout": false,
   "target_ip": "10.0.0.11"
 }
+```
 
-```bash
-
-### Fields:
+### Fields
 
 - `type`: Always `"audit"`
 - `ts`: Unix timestamp (seconds since epoch)
@@ -115,8 +116,9 @@ MCP SSH Orchestrator emits five types of structured JSON logs to stderr:
 
 **Purpose:** Comprehensive audit trail for security monitoring and incident response.
 
-### Example:
+### Example
 
+```json
 {
   "level": "error",
   "kind": "security_audit",
@@ -197,6 +199,7 @@ docker logs -f mcp-ssh-orchestrator 2>&1 | \
 
 ### Example:
 
+```json
 {
   "type": "progress",
   "ts": 1761489054.143455,
@@ -221,19 +224,20 @@ docker logs -f mcp-ssh-orchestrator 2>&1 | \
 
 ### Complete Progress Sequence
 
+```json
 {"type": "progress", "ts": 1761489054.200, "task_id": "task_123", "phase": "connecting", "bytes_read": 0, "elapsed_ms": 50}
 {"type": "progress", "ts": 1761489054.450, "task_id": "task_123", "phase": "connected", "bytes_read": 0, "elapsed_ms": 250}
 {"type": "progress", "ts": 1761489054.700, "task_id": "task_123", "phase": "running", "bytes_read": 0, "elapsed_ms": 500}
 {"type": "progress", "ts": 1761489055.000, "task_id": "task_123", "phase": "running", "bytes_read": 512, "elapsed_ms": 800}
-
-```json
+```
 
 ### 4. Error/Trace Logs
 
 **When:** Exceptions occur or operations complete (trace).
 
-### Error Example:
+### Error Example
 
+```json
 {
   "level": "error",
   "msg": "run_exception",
@@ -243,15 +247,15 @@ docker logs -f mcp-ssh-orchestrator 2>&1 | \
 
 ### Trace Example
 
+```json
 {
   "type": "trace",
   "op": "run_done",
   "elapsed_ms": 123
 }
+```
 
-```text
-
-### Fields:
+### Fields
 
 - `level`: "error" | "warn"
 - `msg`: Error message identifier
@@ -266,8 +270,9 @@ docker logs -f mcp-ssh-orchestrator 2>&1 | \
 
 All logs are written to stderr by the Docker container and can be captured using standard Docker logging.
 
-### Basic Commands:
+### Basic Commands
 
+```bash
 # View all logs (stdout + stderr mixed)
 docker logs mcp-ssh-container
 
@@ -283,13 +288,13 @@ docker logs mcp-ssh-container 2>&1 | grep '^{' | jq '.'
 
 ### Docker Compose
 
+```bash
 # Follow logs
-
 docker-compose logs -f mcp-ssh
 
 # View specific service
-
 docker-compose logs mcp-ssh
+```
 
 ```bash
 
@@ -374,14 +379,15 @@ docker logs mcp-ssh-container 2>&1 | \
 
 All timestamps use Unix epoch time (seconds since January 1, 1970) as floating-point values with microsecond precision:
 
+```json
 {
   "ts": 1761489054.143455
 }
-
-```text
+```
 
 Convert to readable format:
 
+```bash
 date -r 1761489054.143455
 ```
 
