@@ -425,7 +425,7 @@ uptime && apt list --upgradable && whoami
    ssh-keygen -t ed25519 -f ~/.ssh/mcp_orchestrator -C "mcp-ssh-orchestrator"
    ```
 
-1. **Key Permissions**: Set private keys to read-only for owner
+2. **Key Permissions**: Set private keys to read-only for owner
 
    ```bash
    chmod 0400 /path/to/keys/id_ed25519
@@ -969,10 +969,10 @@ docker logs -f mcp-ssh-orchestrator 2>&1 | \
    jq -r 'select(.alias == "compromised-host") | [.ts, .hash, .target_ip] | @tsv' < audit.log
    ```
 
-2. **Identify command hashes** executed
-3. **Correlate with target host logs**
-4. **Contain affected hosts**
-5. **Rotate credentials**
+1. **Identify command hashes** executed
+1. **Correlate with target host logs**
+1. **Contain affected hosts**
+1. **Rotate credentials**
 
 ## Security Framework Alignment
 

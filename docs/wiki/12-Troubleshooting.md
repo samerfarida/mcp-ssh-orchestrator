@@ -27,18 +27,15 @@ This section covers common issues, their symptoms, root causes, and solutions fo
 
 ### Solutions
 
+```bash
 # Validate YAML syntax
-
 python -c "import yaml; yaml.safe_load(open('config/servers.yml'))"
 
 # Check file permissions
-
 ls -la config/
-
 # Should show: -rw-r--r-- 1 user user
 
 # Validate configuration
-
 docker run --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
   ghcr.io/samerfarida/mcp-ssh-orchestrator:latest \
@@ -47,25 +44,25 @@ from mcp_ssh.config import Config
 config = Config('/app/config')
 print('Config valid:', config.validate())
 "
-
-```bash
+```
 
 #### Missing SSH Keys
 
-### Symptoms:
+### Symptoms
 
 - SSH connection failures
 - Error: "No such file or directory: '/app/keys/id_ed25519'"
 - Authentication failures
 
-### Root Causes:
+### Root Causes
 
 - SSH keys not mounted
 - Incorrect key paths
 - Wrong file permissions
 
-### Solutions:
+### Solutions
 
+```bash
 # Check key files exist
 ls -la ~/mcp-ssh/keys/
 
@@ -96,8 +93,8 @@ ssh -i ~/mcp-ssh/keys/id_ed25519 ubuntu@10.0.0.11
 
 ### Solutions
 
+```bash
 # Validate policy syntax
-
 python -c "
 import yaml
 with open('config/policy.yml') as f:
@@ -106,7 +103,6 @@ print('Policy valid:', 'rules' in policy)
 "
 
 # Test policy rules
-
 docker run --rm \
   -v ~/mcp-ssh/config:/app/config:ro \
   ghcr.io/samerfarida/mcp-ssh-orchestrator:latest \
@@ -116,18 +112,17 @@ policy = Policy('/app/config/policy.yml')
 result = policy.evaluate('web1', 'uptime', ['production'])
 print('Policy result:', result)
 "
-
-```bash
+```
 
 ### Network Issues
 
 #### SSH Connection Errors
 
-### Overview:
+### Overview
 
 The orchestrator provides specific, actionable error messages for SSH connection failures. Error messages are sanitized for security (no IPs, hostnames, or file paths exposed) while providing enough information to troubleshoot.
 
-### Common Error Messages and Solutions:
+### Common Error Messages and Solutions
 
 ### 1. "SSH authentication failed: Invalid credentials"
 
@@ -224,10 +219,11 @@ The orchestrator provides specific, actionable error messages for SSH connection
   - Verify host is accessible from orchestrator location
   - Test SSH connection manually to isolate issue
 
-### Error Response Format:
+### Error Response Format
 
 When using `ssh_run` or `ssh_run_on_tag`, errors are returned in the response:
 
+```json
 {
   "alias": "host1",
   "exit_code": -1,
@@ -238,6 +234,7 @@ When using `ssh_run` or `ssh_run_on_tag`, errors are returned in the response:
 
 For `ssh_run_on_tag`, individual host failures don't stop the operation - each host's result is included in the `results` array:
 
+```json
 {
   "tag": "production",
   "results": [
@@ -254,7 +251,7 @@ For `ssh_run_on_tag`, individual host failures don't stop the operation - each h
   ]
 }
 
-```
+```text
 
 ### Command Chaining Errors
 
@@ -323,7 +320,7 @@ The policy engine parses chained commands and validates each command individuall
 
    echo $(apt list --upgradable)
 
-```
+```text
 
 If the substitution contains a denied command, the entire command is blocked.
 
@@ -345,7 +342,7 @@ uptime && whoami  # ✅ ALLOWED
 
 uptime && apt list --upgradable  # ❌ DENIED (second command denied)
 
-```
+```text
 
 ### Scenario 3: Multiple Commands
 

@@ -107,10 +107,17 @@ src/mcp_ssh/
     └── utilities.py     # Utility functions
 
 tests/
-├── test_config.py       # Configuration tests
-├── test_policy.py       # Policy engine tests
-├── test_ssh.py          # SSH client tests
-└── test_server_tools.py # MCP server tests
+├── test_config.py                    # Configuration tests
+├── test_policy.py                    # Policy engine tests
+├── test_ssh.py                       # SSH client tests
+├── test_server_tools.py              # MCP server tests
+├── test_ssh_coverage.py              # SSH client edge cases and coverage
+├── test_ssh_integration.py           # SSH integration tests
+├── test_mcp_server_coverage.py      # MCP server coverage tests
+├── test_mcp_server_edge_cases.py    # MCP server edge case tests
+├── test_mcp_server_on_tag_coverage.py # MCP server tag-based execution tests
+├── test_utilities_coverage.py       # Utilities coverage tests
+└── test_utilities_coverage.py  # Utilities coverage tests (includes async task management)
 ```
 
 ### Key Components
@@ -250,6 +257,7 @@ class TestPolicy:
 
 ### Test Data
 
+```yaml
 # tests/fixtures/policy.yml
 
 known_hosts_path: "/app/keys/known_hosts"
@@ -259,49 +267,49 @@ limits:
   max_output_bytes: 131072
 
 rules:
-
-- action: "allow"
+  - action: "allow"
     aliases: ["web1"]
     tags: ["production"]
     commands:
-  - "uptime*"
-  - "df -h*"
+      - "uptime*"
+      - "df -h*"
 
-- action: "deny"
+  - action: "deny"
     aliases: ["*"]
     tags: ["*"]
     commands:
-  - "rm -rf *"
-  - "shutdown*"
-
+      - "rm -rf *"
+      - "shutdown*"
 ```
 
 ## Development Workflow
 
 ### Feature Development
 
-### 1. Create feature branch:
+#### 1. Create feature branch
 
+```bash
 git checkout -b feature/new-policy-rule
 ```
 
-### 2. Implement feature
+#### 2. Implement feature
 
+```python
 # Add new policy rule type
 
 class PolicyRule:
-    def **init**(self, action: str, conditions: Dict[str, Any]):
+    def __init__(self, action: str, conditions: Dict[str, Any]):
         self.action = action
         self.conditions = conditions
 
     def evaluate(self, alias: str, command: str, tags: List[str]) -> bool:
         # Implementation
         pass
+```
+
+#### 3. Add tests
 
 ```python
-
-### 3. Add tests:
-
 def test_new_policy_rule():
     """Test new policy rule functionality."""
     rule = PolicyRule("allow", {"aliases": ["web1"]})
@@ -309,20 +317,19 @@ def test_new_policy_rule():
     assert result is True
 ```
 
-### 4. Update documentation
-
-# Update wiki documentation
-
-# Add examples to usage cookbook
-
-# Update API reference
+#### 4. Update documentation
 
 ```bash
+# Update wiki documentation
+# Add examples to usage cookbook
+# Update API reference
+```
 
 ### Bug Fixes
 
-### 1. Create bug fix branch:
+#### 1. Create bug fix branch
 
+```bash
 git checkout -b bugfix/ssh-connection-timeout
 ```
 
@@ -396,6 +403,11 @@ git push origin feature/new-policy-rule --force-with-lease
 - Test all public methods
 - Test error conditions
 - Test edge cases
+- Recent additions include comprehensive coverage tests:
+  - SSH client edge cases (`test_ssh_coverage.py`, `test_ssh_integration.py`)
+  - MCP server coverage including notification handlers and context logging (`test_mcp_server_coverage.py`, `test_mcp_server_edge_cases.py`, `test_mcp_server_on_tag_coverage.py`)
+  - Utilities coverage for async task management (`test_utilities_coverage.py`)
+- All tests must pass linting (Ruff, Black) before submission
 
 ### Test Examples
 
@@ -576,7 +588,7 @@ def ssh_run(alias: str, command: str) -> Dict[str, Any]:
     """
     pass
 
-```
+```text
 
 ## Release Process
 

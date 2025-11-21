@@ -26,21 +26,21 @@ This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.
    cd mcp-ssh-orchestrator
    ```
 
-1. **Create Virtual Environment**
+2. **Create Virtual Environment**
 
    ```bash
    python3 -m venv .venv
    source .venv/bin/activate  # On Windows: .venv\Scripts\activate
    ```
 
-1. **Install Dependencies**
+3. **Install Dependencies**
 
    ```bash
    pip install --upgrade pip
    pip install -e ".[dev]"
    ```
 
-1. **Install Pre-Commit Hooks** (Recommended)
+4. **Install Pre-Commit Hooks** (Recommended)
 
    Pre-commit hooks automatically run linting, formatting, and validation checks before commits:
 
@@ -98,15 +98,15 @@ mcp-ssh-orchestrator/
 
 ### 1. Create a Branch
 
+```bash
 git checkout -b feature/your-feature-name
 
 # or
 
 git checkout -b fix/issue-number-description
-
 ```
 
-### Branch naming:
+#### Branch naming
 
 - `feature/` - New features
 - `fix/` - Bug fixes
@@ -116,14 +116,14 @@ git checkout -b fix/issue-number-description
 
 ### 2. Make Changes
 
-### Code Style:
+### Code Style
 
 - Follow PEP 8 conventions
 - Use type hints where helpful (but keep primitive types per instructions)
 - Single-line docstrings for simple functions
 - Keep functions focused and small
 
-### MCP Rules (Critical):
+### MCP Rules (Critical)
 
 Per the project instructions:
 
@@ -138,8 +138,9 @@ Per the project instructions:
 
 **Note on Prompts:** Prompts are implemented following the [MCP Prompts specification](https://pypi.org/project/mcp/1.21.0/#prompts). Use `@mcp.prompt()` decorators as documented in the MCP SDK. The server includes 6 prompts: `ssh_orchestrator_usage`, `ssh_policy_denied_guidance`, `ssh_network_denied_guidance`, `ssh_missing_host_guidance`, `ssh_missing_credentials_guidance`, and `ssh_config_change_workflow`.
 
-### Example MCP Tool:
+### Example MCP Tool
 
+```python
 from typing import Any
 
 # Type alias for tool return values (dict for success, str for errors)
@@ -163,6 +164,7 @@ All new functionality should include tests.
 
 ### Test Structure
 
+```python
 # tests/test_feature.py
 
 import pytest
@@ -177,11 +179,11 @@ def test_function_error():
     """Test error handling."""
     with pytest.raises(ValueError):
         function("invalid")
-
 ```
 
-### Run Tests:
+### Run Tests
 
+```bash
 # Run all tests
 pytest
 
@@ -197,22 +199,18 @@ open htmlcov/index.html
 
 ### 4. Lint and Format
 
+```bash
 # Format code
-
 black src/ tests/
 
 # Lint
-
 ruff check src/ tests/
 
 # Type check
-
 mypy src/ --ignore-missing-imports
 
 # Fix auto-fixable issues
-
 ruff check --fix src/ tests/
-
 ```
 
 **Pre-commit** (if installed):
@@ -248,7 +246,7 @@ If your changes affect:
 
 ### Commit Message Format
 
-```bash
+```text
 <type>: <short description>
 
 <optional longer description>
@@ -267,10 +265,10 @@ If your changes affect:
 
 ### Examples
 
+```bash
 git commit -m "feat: add support for ECDSA keys"
 git commit -m "fix: resolve credentials from env vars correctly"
 git commit -m "docs: update Docker Desktop setup instructions"
-
 ```
 
 ### 8. Push and Create PR
@@ -287,7 +285,7 @@ Then create a pull request on GitHub.
 
 Use the same format as commit messages:
 
-```
+```bash
 feat: add retry logic to SSH connections
 fix: handle missing credentials gracefully
 ```
@@ -329,8 +327,6 @@ Why this change is needed
 
 Fixes #123
 
-```
-
 ### Checklist
 
 Before submitting:
@@ -368,17 +364,18 @@ Reviewers will check:
 
 Test individual functions in isolation:
 
+```python
 def test_config_load():
     """Test configuration loading."""
     config = Config("/path/to/test/config")
     assert config.list_hosts() == ["test1", "test2"]
-
-```bash
+```
 
 ### Integration Tests
 
 Test components working together:
 
+```python
 def test_ssh_execution_flow():
     """Test full SSH execution with policy."""
     # Mock SSH connection
@@ -394,22 +391,19 @@ The [MCP Inspector](https://modelcontextprotocol.io/docs/tools/inspector) is a p
 
 ### Setup
 
+```bash
 # Install MCP Inspector (runs via npx, no installation needed)
-
 # Ensure Node.js and npx are installed
 
 # Test with local Python server
-
 cd /path/to/mcp-ssh-orchestrator
 export MCP_SSH_CONFIG_DIR=$(pwd)/config
 source venv/bin/activate
 npx -y @modelcontextprotocol/inspector python -m mcp_ssh.mcp_server
 
 # Or test with Docker-based server
-
 npx -y @modelcontextprotocol/inspector docker compose -f compose/docker-compose.dev.yml run --rm -T mcp-ssh python -m mcp_ssh.mcp_server
-
-```json
+```
 
 ### What to Test
 
@@ -439,16 +433,16 @@ npx -y @modelcontextprotocol/inspector docker compose -f compose/docker-compose.
 
 Test container behavior:
 
+```bash
 # In tests/docker_test.sh
-
 docker run --rm mcp-ssh-orchestrator:dev python -m pytest
-
 ```
 
 ### Test Data
 
 Use fixtures for test data:
 
+```python
 @pytest.fixture
 def sample_config():
     return {
@@ -456,15 +450,15 @@ def sample_config():
         "credentials": {"entries": []},
         "policy": {"rules": []}
     }
-
 ```
 
 ## Documentation Guidelines
 
 ### Docstrings
 
-### Format
+#### Format
 
+```python
 def function(param: str = "") -> str:
     """Single-line description of what the function does."""
     # Implementation

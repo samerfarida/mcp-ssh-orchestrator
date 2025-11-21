@@ -2,11 +2,20 @@ import fnmatch
 import ipaddress
 import json
 import re
+import shlex
 import sys
 import time
+from typing import Any
+
+# Hard-ban command substitution and dangerous shell expansions
+_BANNED_SHELL_SUBSTRINGS = [
+    "$(",  # command substitution $(...)
+    "`",  # legacy command substitution `...`
+    "$((",  # arithmetic expansion (can be abused)
+]
 
 
-def _match_any(value: str, patterns) -> bool:
+def _match_any(value: str, patterns: Any) -> bool:
     """Return True if value matches any glob pattern."""
     if not isinstance(patterns, list):
         return False
@@ -17,6 +26,27 @@ def _match_any(value: str, patterns) -> bool:
         except Exception:
             continue
     return False
+
+
+def _split_command_args(command: str) -> list[str]:
+    """Split a single shell command into argv using POSIX rules.
+
+    Security: Uses shlex to safely parse command into binary + arguments,
+    preventing bypass attempts via complex quoting or escaping.
+
+    Args:
+        command: Command string to parse
+
+    Returns:
+        List of strings [binary, arg1, arg2, ...] or empty list if malformed
+    """
+    if not command:
+        return []
+    try:
+        return shlex.split(command, posix=True)
+    except ValueError:
+        # Malformed quoting -> treat as invalid
+        return []
 
 
 def _normalize_command(command: str) -> str:
@@ -81,8 +111,8 @@ def _parse_command_chain(command: str) -> list[str]:
 
     # Fast path: check if command contains chaining operators
     # This avoids expensive parsing for simple commands
-    has_chaining = bool(
-        re.search(r"[&|;]\s*[&|]|;\s*[^;]|\|\s*[^|]", command)
+    has_chaining = (
+        re.search(r"[&|;]\s*[&|]|;\s*[^;]|\|\s*[^|]", command) is not None
         or "`" in command
         or "$(" in command
     )
@@ -299,7 +329,7 @@ class Policy:
     # ----------------------------
     # Limits / Allow-Deny (commands)
     # ----------------------------
-    def _collect_limits(self, alias: str, tags):
+    def _collect_limits(self, alias: str, tags: list[str] | None) -> dict[str, Any]:
         """Resolve limits for alias and tags."""
         limits = dict(self.default_limits)
         pol = self.config or {}
@@ -320,11 +350,11 @@ class Policy:
                         limits[k] = v
         return limits
 
-    def limits_for(self, alias: str, tags):
+    def limits_for(self, alias: str, tags: list[str] | None) -> dict[str, Any]:
         """Return effective limits for alias."""
         return self._collect_limits(alias, tags)
 
-    def is_allowed(self, alias: str, tags, command: str) -> bool:
+    def is_allowed(self, alias: str, tags: list[str] | None, command: str) -> bool:
         """Return True if command is allowed by rules + deny substrings.
 
         Security: Enhanced with command normalization and chain parsing to prevent
@@ -361,7 +391,9 @@ class Policy:
             alias, tags, command, deny_substrings, pol
         )
 
-    def get_denied_command_in_chain(self, alias: str, tags, command: str) -> str | None:
+    def get_denied_command_in_chain(
+        self, alias: str, tags: list[str] | None, command: str
+    ) -> str | None:
         """Identify which command in a chain is denied.
 
         Returns the denied command string if found, None if all commands are allowed.
@@ -393,13 +425,37 @@ class Policy:
         return None
 
     def _is_single_command_allowed(
-        self, alias: str, tags, command: str, deny_substrings: list, pol: dict
+        self,
+        alias: str,
+        tags: list[str] | None,
+        command: str,
+        deny_substrings: list[str],
+        pol: dict[str, Any],
     ) -> bool:
         """Validate a single command (not chained) against policy.
 
         This is the core validation logic extracted for reuse in chain validation.
         """
-        # Check deny_substrings first (hard blocks)
+        # 1) Hard-ban command substitution and other dangerous shell expansions
+        # This must be the FIRST check to prevent all command substitution bypasses
+        for token in _BANNED_SHELL_SUBSTRINGS:
+            if token in command:
+                return False
+
+        # 2) Parse command into argv for argument-aware rule matching
+        argv = _split_command_args(command)
+        if not argv:
+            # Malformed command (bad quoting, etc.) -> deny
+            return False
+
+        binary = argv[0]
+
+        # 3) Block path-based binaries for security (e.g., /tmp/evil.sh, ./script, /usr/bin/cat)
+        # Path-based execution is dangerous and should only be allowed via explicit structured rules
+        if "/" in binary:
+            return False
+
+        # 4) Check deny_substrings (hard blocks)
         if isinstance(deny_substrings, list):
             # Normalize command for bypass detection
             normalized_command = _normalize_command(command)
@@ -431,14 +487,15 @@ class Policy:
                         self._log_bypass_attempt(alias, command, normalized_command, s)
                         return False
 
-        # Check rules (allow/deny patterns)
+        # 5) Check rules (version 2 schema only: simple_binaries + structured rules)
         rules = pol.get("rules", [])
-        matched = None
+        matched: str | None = None
         for rule in rules:
             action = rule.get("action", "deny")
             aliases = rule.get("aliases", [])
             tag_patterns = rule.get("tags", [])
-            cmd_patterns = rule.get("commands", [])
+
+            # Check alias/tag matching
             alias_ok = _match_any(alias, aliases) if aliases else True
             tags_ok = True
             if isinstance(tag_patterns, list) and len(tag_patterns) > 0:
@@ -448,19 +505,160 @@ class Policy:
                         if _match_any(t, tag_patterns):
                             tags_ok = True
                             break
-            cmd_ok = _match_any(command, cmd_patterns) if cmd_patterns else False
-            if alias_ok and tags_ok and cmd_ok:
-                matched = action
 
+            if not (alias_ok and tags_ok):
+                continue
+
+            # Check simple_binaries rule (exact binary name match)
+            if self._match_simple_binaries(rule, argv):
+                matched = action
+                break
+
+            # Check structured rule (binary + arg_prefix + path_args)
+            # Only check if rule has a binary field (otherwise it's not a structured rule)
+            if rule.get("binary") is not None and self._match_structured_rule(
+                rule, argv
+            ):
+                matched = action
+                break
+
+        # Default deny if no rule matched
         if matched is None:
             return False
-        return matched == "allow"
+        return bool(matched == "allow")
+
+    def _match_simple_binaries(self, rule: dict, argv: list[str]) -> bool:
+        """Match rule against simple_binaries list.
+
+        Checks if binary name matches any in simple_binaries list,
+        enforces simple_max_args limit, and ensures no shell meta characters.
+
+        Args:
+            rule: Policy rule dictionary
+            argv: Parsed command arguments [binary, arg1, arg2, ...]
+
+        Returns:
+            True if rule matches, False otherwise
+        """
+        simple = rule.get("simple_binaries")
+        if not simple or not isinstance(simple, list):
+            return False
+
+        binary = argv[0]
+        if binary not in simple:
+            return False
+
+        # Enforce max args limit
+        max_args = rule.get("simple_max_args")
+        if isinstance(max_args, int) and len(argv) - 1 > max_args:
+            return False
+
+        # Ensure no shell meta characters in arguments
+        for arg in argv[1:]:
+            if any(x in arg for x in [";", "&&", "||", "|", "`", "$("]):
+                return False
+
+        return True
+
+    def _match_structured_rule(self, rule: dict, argv: list[str]) -> bool:
+        """Match rule against structured binary + arg_prefix + path_args pattern.
+
+        Checks exact binary name, arg_prefix sequence, and path_args patterns.
+
+        Args:
+            rule: Policy rule dictionary
+            argv: Parsed command arguments [binary, arg1, arg2, ...]
+
+        Returns:
+            True if rule matches, False otherwise
+        """
+        binary = argv[0]
+        args = argv[1:]
+
+        # Check binary match - structured rules must have a binary field
+        rule_bin = rule.get("binary")
+        if rule_bin is None:
+            # Not a structured rule (no binary field) - don't match
+            return False
+        if binary != rule_bin:
+            return False
+
+        # Structured rules must have at least one restriction (arg_prefix or path_args)
+        # If a rule has only binary with no restrictions, it would match any arguments,
+        # defeating the purpose of structured rules. Use simple_binaries instead.
+        prefix = rule.get("arg_prefix")
+        path_cfg = rule.get("path_args") or {}
+        path_indices = path_cfg.get("indices") or []
+        path_patterns = path_cfg.get("patterns") or []
+        has_arg_prefix = isinstance(prefix, list) and prefix
+        has_path_args = bool(path_indices and path_patterns)
+
+        if not has_arg_prefix and not has_path_args:
+            # No restrictions specified - structured rules require at least one restriction
+            return False
+
+        # Check arg_prefix (exact sequence at start of args)
+        if isinstance(prefix, list) and prefix:
+            if args[: len(prefix)] != prefix:
+                return False
+            # If allow_extra_args is False, check if extra args are allowed via path_args
+            if not rule.get("allow_extra_args", True):
+                # If no path_args, args must match prefix exactly
+                if not path_indices:
+                    if len(args) != len(prefix):
+                        return False
+                else:
+                    # With path_args, allow only arguments that match path_args indices
+                    # path_args indices are relative to argv (0=binary, 1+=args), so we need to check
+                    # which args positions correspond to path_args indices
+                    # Example: argv[3] means args[2] (since args = argv[1:])
+                    allowed_arg_positions = {
+                        i - 1 for i in path_indices if i > 0
+                    }  # Convert argv index to args index
+                    extra_args_positions = set(
+                        range(len(prefix), len(args))
+                    )  # Positions beyond prefix
+                    # All extra args must be in allowed path_args positions
+                    if extra_args_positions and not extra_args_positions.issubset(
+                        allowed_arg_positions
+                    ):
+                        return False
+                    # Ensure we have exactly prefix + path_args, no more
+                    if len(args) != len(prefix) + len(allowed_arg_positions):
+                        return False
+
+        # Check path_args: indices + fnmatch patterns
+        # path_args indices are relative to full argv (0 = binary, 1+ = arguments)
+        if path_indices and path_patterns:
+            for idx in path_indices:
+                if idx >= len(argv):
+                    return False
+                val = argv[idx]
+                if not any(fnmatch.fnmatch(val, pat) for pat in path_patterns):
+                    return False
+
+        # Bug fix: If allow_extra_args=False, no arg_prefix, but path_args exists,
+        # ensure we have exactly the number of arguments specified in path_args.indices
+        if (
+            not rule.get("allow_extra_args", True)
+            and not has_arg_prefix
+            and path_indices
+        ):
+            # path_args indices are relative to argv (0=binary, 1+=args)
+            # So the number of args should equal the number of path_args indices
+            if len(args) != len(path_indices):
+                return False
+
+        # Rule matches if we got here
+        return True
 
     # ----------------------------
     # Network policy (IP/CIDR)
     # ----------------------------
-    def _cidrs(self, items):
-        nets = []
+    def _cidrs(
+        self, items: list[str] | Any
+    ) -> list[ipaddress.IPv4Network | ipaddress.IPv6Network]:
+        nets: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = []
         if not isinstance(items, list):
             return nets
         for x in items:
@@ -470,8 +668,8 @@ class Policy:
                 continue
         return nets
 
-    def _ips(self, items):
-        ips = set()
+    def _ips(self, items: list[str] | Any) -> set[str]:
+        ips: set[str] = set()
         if not isinstance(items, list):
             return ips
         for x in items:
@@ -481,7 +679,7 @@ class Policy:
                 continue
         return ips
 
-    def _network_cfg(self):
+    def _network_cfg(self) -> dict[str, Any]:
         return self.config.get("network", {}) or {}
 
     def is_ip_allowed(self, ip_str: str) -> bool:
@@ -527,7 +725,7 @@ class Policy:
     # ----------------------------
     # Logging helpers
     # ----------------------------
-    def log_decision(self, alias: str, command_hash: str, allowed: bool):
+    def log_decision(self, alias: str, command_hash: str, allowed: bool) -> None:
         """Log policy decision."""
         entry = {
             "type": "policy_decision",
@@ -549,7 +747,7 @@ class Policy:
         cancelled: bool,
         timeout: bool,
         target_ip: str,
-    ):
+    ) -> None:
         """Log execution audit JSON."""
         entry = {
             "type": "audit",
@@ -566,7 +764,9 @@ class Policy:
         }
         print(json.dumps(entry), file=sys.stderr)
 
-    def log_progress(self, task_id: str, phase: str, bytes_read: int, elapsed_ms: int):
+    def log_progress(
+        self, task_id: str, phase: str, bytes_read: int, elapsed_ms: int
+    ) -> None:
         """Log progress JSON."""
         entry = {
             "type": "progress",
@@ -584,7 +784,7 @@ class Policy:
         original_command: str,
         normalized_command: str,
         blocked_pattern: str,
-    ):
+    ) -> None:
         """Log security event for bypass attempt detection."""
         entry = {
             "level": "error",
@@ -603,7 +803,7 @@ class Policy:
         alias: str,
         original_command: str,
         parsed_commands: list[str],
-    ):
+    ) -> None:
         """Log command chain parsing for security audit."""
         entry = {
             "level": "info",
@@ -623,7 +823,7 @@ class Policy:
         original_command: str,
         denied_command: str,
         parsed_commands: list[str],
-    ):
+    ) -> None:
         """Log which command in chain caused denial."""
         entry = {
             "level": "warn",

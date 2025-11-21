@@ -8,11 +8,11 @@ Usage:
     python scripts/validate-mcp-schema.py
 """
 
+import ast
 import json
 import sys
 from pathlib import Path
 from typing import Any
-from urllib.request import urlopen
 
 import jsonschema
 from jsonschema import validate
@@ -22,6 +22,9 @@ MCP_SCHEMA_URL = "https://raw.githubusercontent.com/modelcontextprotocol/modelco
 
 # Local schema cache path
 SCHEMA_CACHE = Path(__file__).parent.parent / ".cache" / "mcp-schema.json"
+
+# Path to mcp_server.py
+MCP_SERVER_PATH = Path(__file__).parent.parent / "src" / "mcp_ssh" / "mcp_server.py"
 
 
 def fetch_schema() -> dict[str, Any]:
@@ -37,6 +40,8 @@ def fetch_schema() -> dict[str, Any]:
     # Fetch from remote
     try:
         print(f"Fetching MCP schema from {MCP_SCHEMA_URL}...", file=sys.stderr)
+        from urllib.request import urlopen
+
         with urlopen(MCP_SCHEMA_URL, timeout=10) as response:
             schema = json.loads(response.read())
 
@@ -50,6 +55,92 @@ def fetch_schema() -> dict[str, Any]:
         print(f"Error fetching schema: {e}", file=sys.stderr)
         print("Continuing with basic validation...", file=sys.stderr)
         return {}
+
+
+def extract_tools_from_ast() -> dict[str, dict[str, Any]]:
+    """Extract tool definitions from mcp_server.py using AST parsing.
+
+    Returns:
+        Dict mapping tool names to tool definitions
+    """
+    tools = {}
+
+    try:
+        with open(MCP_SERVER_PATH) as f:
+            tree = ast.parse(f.read(), filename=str(MCP_SERVER_PATH))
+
+        for node in ast.walk(tree):
+            # Look for functions decorated with @mcp.tool() (both sync and async)
+            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+                # Check for @mcp.tool() decorator
+                has_tool_decorator = False
+                for decorator in node.decorator_list:
+                    if isinstance(decorator, ast.Call):
+                        if (
+                            isinstance(decorator.func, ast.Attribute)
+                            and isinstance(decorator.func.value, ast.Name)
+                            and decorator.func.value.id == "mcp"
+                            and decorator.func.attr == "tool"
+                        ):
+                            has_tool_decorator = True
+                            break
+
+                if has_tool_decorator:
+                    # Extract function name (tool name)
+                    tool_name = node.name
+
+                    # Extract docstring (description)
+                    description = ast.get_docstring(node) or ""
+
+                    # Extract parameters (for inputSchema)
+                    properties = {}
+                    required = []
+                    for arg in node.args.args:
+                        if arg.arg == "self" or arg.arg == "ctx":
+                            continue
+                        param_name = arg.arg
+                        # Check if parameter has default value
+                        has_default = len(node.args.defaults) > 0 and (
+                            len(node.args.args) - len(node.args.defaults)
+                            <= node.args.args.index(arg)
+                        )
+                        if not has_default:
+                            required.append(param_name)
+
+                        # Infer type from annotation if available
+                        param_type = "string"  # Default
+                        if arg.annotation:
+                            if isinstance(arg.annotation, ast.Constant):
+                                if arg.annotation.value == "int":
+                                    param_type = "integer"
+                            elif isinstance(arg.annotation, ast.Name):
+                                if arg.annotation.id == "int":
+                                    param_type = "integer"
+
+                        properties[param_name] = {"type": param_type}
+
+                    # Build tool definition
+                    tool_def = {
+                        "name": tool_name,
+                        "description": description.strip(),
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": properties,
+                            "required": required if required else None,
+                        },
+                    }
+
+                    # Remove required if empty (MCP spec allows this)
+                    if not tool_def["inputSchema"]["required"]:
+                        del tool_def["inputSchema"]["required"]
+
+                    tools[tool_name] = tool_def
+
+    except Exception as e:
+        print(f"Error parsing mcp_server.py: {e}", file=sys.stderr)
+        return {}
+
+    return tools
 
 
 def validate_tool(
@@ -76,7 +167,9 @@ def validate_tool(
         try:
             validate(instance=tool, schema=tool_schema)
         except jsonschema.ValidationError as e:
-            errors.append(f"Tool '{tool_name}': Schema validation error: {e.message}")
+            errors.append(
+                f"Tool '{tool_name}': Schema validation error: {e.message} (path: {'.'.join(str(p) for p in e.path)})"
+            )
 
     # Basic validation even without schema
     if "inputSchema" in tool:
@@ -86,25 +179,56 @@ def validate_tool(
         elif "type" not in input_schema:
             errors.append(f"Tool '{tool_name}': inputSchema must have 'type' field")
         elif input_schema["type"] != "object":
-            errors.append(f"Tool '{tool_name}': inputSchema.type must be 'object'")
+            errors.append(
+                f"Tool '{tool_name}': inputSchema.type must be 'object', got '{input_schema['type']}'"
+            )
+
+        # Validate properties structure
+        if "properties" in input_schema:
+            if not isinstance(input_schema["properties"], dict):
+                errors.append(
+                    f"Tool '{tool_name}': inputSchema.properties must be a dict"
+                )
 
     return errors
 
 
-def extract_tools_from_server() -> dict[str, dict[str, Any]]:
-    """Extract tool definitions from mcp_server.py.
-
-    This is a simplified extractor - in practice, tools are defined using
-    the @mcp.tool() decorator. For validation, we'd need to actually import
-    and inspect the module, but that requires the full environment.
+def check_mcp_compliance() -> list[str]:
+    """Check MCP specification compliance beyond schema validation.
 
     Returns:
-        Dict mapping tool names to tool definitions
+        List of compliance warnings/errors
     """
-    # For now, return empty dict - full implementation would require
-    # importing mcp_server and inspecting the tools
-    # This is a placeholder for future enhancement
-    return {}
+    issues = []
+
+    # Check that we're using stdio transport (MCP requirement)
+    try:
+        with open(MCP_SERVER_PATH) as f:
+            content = f.read()
+            if 'mcp.run(transport="stdio")' not in content:
+                issues.append(
+                    "WARNING: MCP server should use stdio transport for security"
+                )
+    except Exception:
+        pass
+
+    # Check for input validation (MCP security requirement)
+    validation_functions = [
+        "_validate_alias",
+        "_validate_command",
+        "_validate_tag",
+        "_validate_task_id",
+    ]
+    try:
+        with open(MCP_SERVER_PATH) as f:
+            content = f.read()
+            for func in validation_functions:
+                if func not in content:
+                    issues.append(f"WARNING: Missing input validation function: {func}")
+    except Exception:
+        pass
+
+    return issues
 
 
 def main() -> int:
@@ -120,25 +244,30 @@ def main() -> int:
             file=sys.stderr,
         )
 
-    # Extract tools (placeholder - would need full module import)
-    tools = extract_tools_from_server()
+    # Extract tools from AST
+    tools = extract_tools_from_ast()
 
     if not tools:
         print(
-            "Note: Tool extraction not fully implemented - skipping detailed validation",
+            "ERROR: Could not extract any tools from mcp_server.py",
             file=sys.stderr,
         )
-        print(
-            "This script is a placeholder for future MCP schema validation",
-            file=sys.stderr,
-        )
-        return 0
+        return 1
+
+    print(f"Found {len(tools)} tools to validate...", file=sys.stderr)
 
     # Validate each tool
     all_errors = []
     for tool_name, tool_def in tools.items():
         errors = validate_tool(tool_def, schema, tool_name)
         all_errors.extend(errors)
+
+    # Check MCP compliance
+    compliance_issues = check_mcp_compliance()
+    if compliance_issues:
+        print("\nMCP Compliance Issues:", file=sys.stderr)
+        for issue in compliance_issues:
+            print(f"  - {issue}", file=sys.stderr)
 
     # Report results
     if all_errors:
@@ -147,7 +276,12 @@ def main() -> int:
             print(f"  - {error}", file=sys.stderr)
         return 1
 
-    print("All tools validated successfully!", file=sys.stderr)
+    print(f"\n✓ All {len(tools)} tools validated successfully!", file=sys.stderr)
+    if compliance_issues:
+        print(
+            "  (Some compliance warnings above, but schema validation passed)",
+            file=sys.stderr,
+        )
     return 0
 
 

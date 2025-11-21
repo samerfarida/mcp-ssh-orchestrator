@@ -92,7 +92,7 @@ That's exactly what MCP SSH Orchestrator provides: **the power of AI-driven serv
 
 **You say:** *"Claude, my Proxmox host is running slow. Can you check disk usage and memory on all my VMs?"*
 
-**What happens:**
+### What happens
 
 - Policy allows `df -h` and `free -m` on Proxmox hosts
 - Network check: Private IP allowlist permits access
@@ -104,7 +104,7 @@ That's exactly what MCP SSH Orchestrator provides: **the power of AI-driven serv
 
 **You say:** *"We're seeing 500 errors. Check nginx logs across all production web servers and show me the last 100 error lines."*
 
-**What happens:**
+### What happens
 
 - Tag-based execution: `tail -n 100 /var/log/nginx/error.log` runs on all `web-prod` servers
 - Network isolation enforced: No external API calls or egress allowed
@@ -116,7 +116,7 @@ That's exactly what MCP SSH Orchestrator provides: **the power of AI-driven serv
 
 **You say:** *"Update system packages on all staging servers, but show me what would change first before running the upgrade."*
 
-**What happens:**
+### What happens
 
 - Use `ssh_plan` to preview `apt list --upgradable` across `staging` tagged hosts
 - Review dry-run output to see pending updates
@@ -317,36 +317,61 @@ deny_substrings:
 
 # Network isolation enforced
 network:
-  - allow: ["10.0.0.0/8"]  # Only private IPs
-  - deny: ["0.0.0.0/0"]     # No public internet access
+  allow_cidrs:
+    - "10.0.0.0/8"      # Only private IPs
+    - "192.168.0.0/16"
+  block_ips: []         # Explicit IP blocks (if needed)
 
 ```
 
 ### What Gets Allowed (Examples)
 
 ```yaml
-# Safe, read-only commands
+# Safe, read-only commands (using simple_binaries)
 rules:
   - action: "allow"
     aliases:
       - "*"
     tags:
       - "observability"
-    commands:
-      - "uptime*"
-      - "df -h*"
-      - "free -m*"
+    simple_binaries:
+      - uptime
+      - whoami
+      - hostname
+    simple_max_args: 6
 
-# Log inspection (safe)
+# Disk and memory inspection (using structured rules)
   - action: "allow"
     aliases:
       - "*"
     tags:
       - "observability"
-    commands:
-      - "tail -n 200 /var/log/*"
-      - "grep -n */var/log/*"
-      - "journalctl --no-pager -n 100 *"
+    binary: "df"
+    arg_prefix: ["-h"]
+    allow_extra_args: false
+
+  - action: "allow"
+    aliases:
+      - "*"
+    tags:
+      - "observability"
+    binary: "free"
+    arg_prefix: ["-m"]
+    allow_extra_args: false
+
+# Log inspection (using structured rules with path restrictions)
+  - action: "allow"
+    aliases:
+      - "*"
+    tags:
+      - "observability"
+    binary: "tail"
+    arg_prefix: ["-n", "200"]
+    allow_extra_args: false
+    path_args:
+      indices: [3]
+      patterns:
+        - "/var/log/*"
 
 # Service management (controlled)
   - action: "allow"
@@ -356,10 +381,20 @@ rules:
     tags:
       - "production"
       - "critical-service"
-    commands:
-      - "systemctl restart nginx"
-      - "systemctl status nginx"
-      - "systemctl status postgresql"
+    binary: "systemctl"
+    arg_prefix: ["restart", "nginx"]
+    allow_extra_args: false
+
+  - action: "allow"
+    aliases:
+      - "web-*"
+      - "db-*"
+    tags:
+      - "production"
+      - "critical-service"
+    binary: "systemctl"
+    arg_prefix: ["status"]
+    allow_extra_args: true
 ```
 
 ### Protection Against Real Threats
@@ -469,7 +504,6 @@ Your AI assistant gets 13 powerful tools with built-in security:
 >
 > *"The structured audit logs make incident response so much easier."* - Security Engineer
 >
-
 ## Contributing
 
 We welcome contributions! See our [Contributing Guide](https://github.com/samerfarida/mcp-ssh-orchestrator/wiki/13-Contributing) for:

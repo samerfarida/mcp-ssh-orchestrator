@@ -218,7 +218,7 @@ network:
 
 # - Subsequent resolutions (within 60s): returns cached result
 
-```
+```text
 
 ## Layer 3: Policy Security
 
@@ -251,7 +251,7 @@ rules:
     aliases: ["prod-*"]
     commands: ["uptime*", "df -h*"]
   # All other commands denied by default
-```
+```text
 
 ### Pattern Matching Security
 

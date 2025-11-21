@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mcp-ssh-orchestrator"
-version = "0.8.0"
+version = "1.0.0"
 description = "A secure SSH fleet orchestrator for MCP (STDIO transport)."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -26,6 +26,7 @@ dependencies = [
 [project.optional-dependencies]
 test = [
   "pytest>=7.0.0,<10.0.0",
+  "pytest-asyncio>=0.21.0,<1.0.0",
   "pytest-cov>=4.0.0,<8.0.0",
   "pytest-mock>=3.10.0,<4.0.0",
 ]
@@ -110,4 +111,8 @@ addopts = [
   "--strict-markers",
   "--strict-config",
   "--verbose",
+]
+asyncio_mode = "auto"
+markers = [
+  "asyncio: marks tests as async (deselect with '-m \"not asyncio\"')",
 ]

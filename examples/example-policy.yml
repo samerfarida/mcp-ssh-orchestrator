@@ -4,7 +4,7 @@
 # Copy this to config/policy.yml and customize for your security requirements.
 #
 # This file defines:
-#   - Command allow/deny rules with glob patterns (deny-by-default)
+#   - Command allow/deny rules (deny-by-default)
 #   - Execution limits (timeouts, output caps, async TTLs)
 #   - Network controls (IP allowlists/blocklists)
 #   - Per-host and per-tag overrides
@@ -67,45 +67,113 @@ network:
   # Require known_hosts entry before connection (enforced in code)
   require_known_host: true
 
-# Command allow/deny rules (deny-by-default)
+# Command allow/deny rules (deny-by-default) - Version 2 schema
 rules:
-  # Safe read-only commands on all hosts
+  # 1) Bulk allow: simple, mostly-read-only inspection binaries on all hosts
   - action: "allow"
     aliases: ["*"]
     tags: []
-    commands:
-      - "uname*"
-      - "uptime*"
-      - "whoami"
-      - "df -h*"
-      - "free -m*"
-      - "cat /etc/os-release*"
-      - "ls*"
-      - "echo*"
-      - "id*"
-      - "hostname*"
-      - "date*"
+    simple_binaries:
+      - uname
+      - uptime
+      - whoami
+      - ls
+      - echo
+      - id
+      - hostname
+      - date
+    simple_max_args: 6
+
+  # 2) Structured rules for commands with specific arguments
+
+  # df -h (show human-readable disk usage)
+  - action: "allow"
+    aliases: ["*"]
+    tags: []
+    binary: "df"
+    arg_prefix: ["-h"]
+    allow_extra_args: false
+
+  # free -m (show memory in MB)
+  - action: "allow"
+    aliases: ["*"]
+    tags: []
+    binary: "free"
+    arg_prefix: ["-m"]
+    allow_extra_args: false
+
+  # cat readonly config files
+  - action: "allow"
+    aliases: ["*"]
+    tags: []
+    binary: "cat"
+    allow_extra_args: false
+    path_args:
+      indices: [1]
+      patterns:
+        - "/etc/os-release"
+        - "/etc/*release"
 
   # Package inventory on Linux hosts
+  # dpkg -l
   - action: "allow"
     aliases: ["*"]
     tags: ["linux"]
-    commands:
-      - "dpkg -l*"
-      - "rpm -qa*"
-      - "apt list --installed*"
+    binary: "dpkg"
+    arg_prefix: ["-l"]
+    allow_extra_args: false
+
+  # rpm -qa
+  - action: "allow"
+    aliases: ["*"]
+    tags: ["linux"]
+    binary: "rpm"
+    arg_prefix: ["-qa"]
+    allow_extra_args: false
+
+  # apt list --installed
+  - action: "allow"
+    aliases: ["*"]
+    tags: ["linux"]
+    binary: "apt"
+    arg_prefix: ["list", "--installed"]
+    allow_extra_args: false
 
   # Service status checks (read-only)
+  # systemctl status <unit>
   - action: "allow"
     aliases: ["*"]
     tags: []
-    commands:
-      - "systemctl status *"
-      - "journalctl --no-pager -n 200 *"
-      - "docker ps*"
-      - "docker inspect*"
+    binary: "systemctl"
+    arg_prefix: ["status"]
+    allow_extra_args: true
+
+  # journalctl --no-pager -n 200
+  - action: "allow"
+    aliases: ["*"]
+    tags: []
+    binary: "journalctl"
+    arg_prefix: ["--no-pager", "-n", "200"]
+    allow_extra_args: true
+
+  # docker ps
+  - action: "allow"
+    aliases: ["*"]
+    tags: []
+    binary: "docker"
+    arg_prefix: ["ps"]
+    allow_extra_args: false
+
+  # docker inspect
+  - action: "allow"
+    aliases: ["*"]
+    tags: []
+    binary: "docker"
+    arg_prefix: ["inspect"]
+    allow_extra_args: true
 
   # Network diagnostics on non-production environments
+  # ping
   - action: "allow"
     aliases:
       - "stg-*"
@@ -115,31 +183,45 @@ rules:
       - "staging"
       - "lab"
       - "dev"
-    commands:
-      - "ping*"
-      - "traceroute*"
-      - "ss -tulpn*"
-      - "netstat*"
+    simple_binaries:
+      - ping
+      - traceroute
+      - netstat
+    simple_max_args: 8
+
+  # ss -tulpn
+  - action: "allow"
+    aliases:
+      - "stg-*"
+      - "lab-*"
+      - "dev-*"
+    tags:
+      - "staging"
+      - "lab"
+      - "dev"
+    binary: "ss"
+    arg_prefix: ["-tulpn"]
+    allow_extra_args: false
 
   # Controlled service restarts on staging only
+  # sudo systemctl restart <unit>
   - action: "allow"
     aliases: ["stg-*"]
     tags: ["staging"]
-    commands:
-      - "sudo systemctl restart *"
-      - "sudo systemctl start *"
-      - "sudo systemctl stop *"
+    binary: "sudo"
+    arg_prefix: ["systemctl"]
+    allow_extra_args: true
 
-  # Explicit denies (for clarity, redundant with deny_substrings)
+  # Explicit denies (redundant with deny_substrings, but explicit for clarity)
   - action: "deny"
     aliases: ["*"]
     tags: []
-    commands:
-      - "rm *"
-      - "chmod 777*"
-      - "chown -R *"
-      - "shutdown*"
-      - "reboot*"
+    simple_binaries:
+      - rm
+      - chmod
+      - chown
+      - shutdown
+      - reboot
 
 # Per-alias and per-tag limit overrides
 overrides:
