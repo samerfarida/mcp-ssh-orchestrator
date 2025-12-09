@@ -279,9 +279,9 @@ jsonschema-specifications==2025.9.1 \
     --hash=sha256:98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe \
     --hash=sha256:b540987f239e745613c7a9176f3edb72b832a4ac465cf02712288397832b5e8d
     # via jsonschema
-mcp==1.21.0 \
-    --hash=sha256:598619e53eb0b7a6513db38c426b28a4bdf57496fed04332100d2c56acade98b \
-    --hash=sha256:bab0a38e8f8c48080d787233343f8d301b0e1e95846ae7dead251b2421d99855
+mcp==1.23.1 \
+    --hash=sha256:3ce897fcc20a41bd50b4c58d3aa88085f11f505dcc0eaed48930012d34c731d8 \
+    --hash=sha256:7403e053e8e2283b1e6ae631423cb54736933fea70b32422152e6064556cd298
     # via -r requirements.in
 paramiko==4.0.0 \
     --hash=sha256:0e20e00ac666503bf0b4eda3b6d833465a2b7aff2e2b3d79a8bba5ef144ee3b9 \
@@ -677,13 +677,18 @@ typing-extensions==4.15.0 \
     --hash=sha256:0cea48d173cc12fa28ecabc3b837ea3cf6f38c6d1136f85cbaaf598984861466 \
     --hash=sha256:f0fa19c6845758ab08074a0cfa8b7aecb71c999ca73d62883bc25cc018c4e548
     # via
+    #   anyio
+    #   mcp
     #   pydantic
     #   pydantic-core
+    #   referencing
+    #   starlette
     #   typing-inspection
 typing-inspection==0.4.2 \
     --hash=sha256:4ed1cacbdc298c220f1bd249ed5287caa16f34d44ef4e9c3d0cbad5b521545e7 \
     --hash=sha256:ba561c48a67c5958007083d386c3295464928b01faa735ab8547c5692e87f464
     # via
+    #   mcp
     #   pydantic
     #   pydantic-settings
 uvicorn==0.38.0 \
