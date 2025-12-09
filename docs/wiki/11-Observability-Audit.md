@@ -32,11 +32,11 @@ Use context logs for quick human feedback inside LLM tooling, while shipping str
 
 MCP SSH Orchestrator emits five types of structured JSON logs to stderr:
 
-- 1. **Policy Decision Log** - Before every command execution
-- 1. **Audit Log** - After command execution completes
-- 1. **Progress Log** - During long-running commands (every 0.5s)
-- 1. **Security Audit Log** - Security-relevant events (path traversal, invalid access, etc.)
-- 1. **Error/Trace Log** - On exceptions or function completion
+1. **Policy Decision Log** - Before every command execution
+2. **Audit Log** - After command execution completes
+3. **Progress Log** - During long-running commands (every 0.5s)
+4. **Security Audit Log** - Security-relevant events (path traversal, invalid access, etc.)
+5. **Error/Trace Log** - On exceptions or function completion
 
 ### 1. Policy Decision Log
 
