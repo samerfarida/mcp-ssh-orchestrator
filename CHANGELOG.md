@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Dependencies**: Updated MCP SDK from 1.23.1 to 1.25.0 (#93)
+  - Updated to latest MCP SDK version with bug fixes and improvements
+  - All tests passing across Python 3.11, 3.12, and 3.13
+  - No breaking changes detected
+- **Docker**: Updated Python base image SHA256 digest (#89)
+- **CI/CD**: Updated GitHub Actions dependencies (#90, #91, #94, #95)
+  - Updated codecov/codecov-action from 5.5.1 to 5.5.2
+  - Updated actions/setup-node from 6.0.0 to 6.1.0
+  - Updated actions/attest-build-provenance from 3.0.0 to 3.1.0
+  - Updated docker/setup-buildx-action from 3.11.1 to 3.12.0
+
 ## [1.1.0] - 2025-11-21
 
 ### Security
