@@ -5,7 +5,28 @@ All notable changes to mcp-ssh-orchestrator will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.2.0] - 2025-12-27
+
+### Changed
+- **Dependencies**: Updated MCP SDK from 1.23.1 to 1.25.0 (#93)
+  - Updated to latest MCP SDK version with bug fixes and improvements
+  - All tests passing across Python 3.11, 3.12, and 3.13
+  - No breaking changes detected
+- **Docker**: Updated Python base image SHA256 digest (#89)
+  - Updated from `326df67` to `baf6668` for latest security patches
+- **CI/CD**: Updated GitHub Actions dependencies
+  - Updated codecov/codecov-action from 5.5.1 to 5.5.2 (#90)
+  - Updated actions/setup-node from 6.0.0 to 6.1.0 (#91)
+  - Updated actions/upload-artifact from 5.0.0 to 6.0.0 (#88)
+  - Updated actions/attest-build-provenance from 3.0.0 to 3.1.0 (#94)
+  - Updated docker/setup-buildx-action from 3.11.1 to 3.12.0 (#95)
+  - Updated softprops/action-gh-release from 2.4.2 to 2.5.0 (#85)
+  - Updated docker/metadata-action from 5.9.0 to 5.10.0 (#86)
+  - Updated actions/checkout from 4.2.2 to 4.3.1 (#82)
+- **Development Dependencies**: Updated pytest-asyncio requirement (#81)
+
+### Fixed
+- **Documentation**: Fixed markdown code blocks formatting (#78)
 
 ## [1.1.0] - 2025-11-21
 
