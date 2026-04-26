@@ -4,7 +4,7 @@
 # DO NOT update to Python 3.14 until MCP SDK adds official support.
 # See: https://github.com/modelcontextprotocol/python-sdk
 # To prevent Dependabot from bumping this, see .github/dependabot.yml
-FROM python:3.13.13-slim@sha256:2ba73a4dc380f21137fc75296abfa2add90b51fd10b609ce530b40cc097269b1 AS base
+FROM python:3.13.13-slim@sha256:d2462a6bed37b4fc6cabecf5a2132ae70df772fe03c7393c4d98a0c2fb48aa2e AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
