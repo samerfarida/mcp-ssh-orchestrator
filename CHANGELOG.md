@@ -5,6 +5,27 @@ All notable changes to mcp-ssh-orchestrator will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-04-26
+
+### Changed
+- **Dependencies**: Updated MCP SDK from 1.26.0 to 1.27.0 (#122, #111)
+- **Dependencies**: Updated transitive `python-multipart` pin in the hashed lockfile (#122, #102)
+- **Docker**: Updated Python 3.13-slim base image digest for the container image
+  - Updated from `51e1a0a` to `2ba73a4` (#122, #112) and refreshed again to `d2462a6` (#112)
+  - Additional digest refreshes landed on `main` after v1.2.0: `baf6668` → `1f3781f` → `51e1a0a` (#97, #98)
+- **CI/CD**: Grouped GitHub Actions updates for release + security scanning (#121)
+  - `docker/login-action` 3.7.0 (#121, #103)
+  - `aquasecurity/trivy-action` 0.34.1 (#121, #107)
+  - `actions/attest-build-provenance` 4.1.0 (#121, #108)
+  - `actions/attest-sbom` 4.0.0 (#121, #109)
+  - `actions/upload-artifact` 7.0.0 (Scorecards workflow) (#121, #110)
+  - `actions/setup-node` 6.2.0 (#100)
+- **Development Dependencies**: Raised dev/test tool floors (#123, #99, and related Dependabot PRs)
+  - Black 26.x, pytest 9.x, pytest-asyncio 1.3.x, pytest-cov 7.1.x, pytest-mock 3.15.x
+  - mypy 1.20.x, pip-tools 7.5.x, setuptools 82.x (build-system requires)
+- **Dependencies**: Updated MCP SDK from 1.25.0 to 1.26.0 (#101)
+- **Developer Experience**: Added `scripts/ci-local.sh` to run CI-parity checks locally before pushing (#121)
+
 ## [1.2.0] - 2025-12-27
 
 ### Changed
