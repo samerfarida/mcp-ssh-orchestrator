@@ -132,7 +132,7 @@ jobs:
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Login to GHCR
-        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -192,7 +192,7 @@ jobs:
       # Container SBOM is included in releases for OSSF Scorecard compliance
       - name: Generate SBOM with Trivy
         id: sbom
-        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # 0.33.1
+        uses: aquasecurity/trivy-action@e368e328979b113139d6f9068e03accaed98a518 # 0.34.1
         continue-on-error: true  # Don't fail on vulnerabilities, just generate SBOM
         with:
           scan-type: 'image'
@@ -220,7 +220,7 @@ jobs:
       # --- SBOM attestation (bind SBOM -> image digest) via GitHub Artifact Attestations ---
       - name: Attest SBOM to image
         if: steps.move_sbom.outputs.SBOM_GENERATED == 'true'
-        uses: actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34 # v3
+        uses: actions/attest-sbom@07e74fc4e78d1aad915e867f9a094073a9f71527 # v4.0.0
         with:
           subject-digest: ${{ steps.build_image.outputs.digest }}
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
@@ -229,7 +229,7 @@ jobs:
 
       # --- Build provenance attestation for the CONTAINER image (GitHub Artifact Attestations) ---
       - name: Attest build provenance (image)
-        uses: actions/attest-build-provenance@00014ed6ed5efc5b1ab7f7f34a39eb55d41aa4f8 # v3
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v3
         with:
           subject-digest: ${{ steps.build_image.outputs.digest }}
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
