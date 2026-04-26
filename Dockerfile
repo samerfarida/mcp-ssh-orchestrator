@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-# NOTE: Python 3.13 is pinned here because MCP SDK (mcp>=1.21.0) officially
+# NOTE: Python 3.13 is pinned here because MCP SDK (mcp>=1.27.0) officially
 # supports only Python 3.10-3.13. Python 3.14 is not yet officially supported.
 # DO NOT update to Python 3.14 until MCP SDK adds official support.
 # See: https://github.com/modelcontextprotocol/python-sdk
