@@ -76,7 +76,7 @@ updates:
       - "docker"
     ignore:
       # CRITICAL: Block Python 3.14+ updates
-      # MCP SDK (mcp>=1.21.0) officially supports only Python 3.10-3.13
+      # MCP SDK (mcp>=1.27.0) officially supports only Python 3.10-3.13
       # See: https://github.com/modelcontextprotocol/python-sdk
       # TODO: Remove this ignore when MCP SDK adds official Python 3.14 support
       - dependency-name: "python"

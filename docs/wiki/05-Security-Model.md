@@ -515,7 +515,7 @@ overrides:
 
   ```bash
   gpg --receive-keys 4FC5342A979BD358
-  gpg --verify mcp-ssh-orchestrator-v1.0.0.tar.gz.asc mcp-ssh-orchestrator-v1.0.0.tar.gz
+  gpg --verify mcp-ssh-orchestrator-v1.3.0.tar.gz.asc mcp-ssh-orchestrator-v1.3.0.tar.gz
   ```
 
 - **Cosign-signed container images**: The GitHub Actions release workflow signs `ghcr.io/samerfarida/mcp-ssh-orchestrator` with Sigstore keyless certificates (`release.yml`). Validate the signature and provenance in CI/CD before promotion:
