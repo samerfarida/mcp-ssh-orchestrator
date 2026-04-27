@@ -5,6 +5,29 @@ All notable changes to mcp-ssh-orchestrator will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2026-04-27
+
+### Security
+Patches the seven open Dependabot advisories that were unaddressed at v1.3.0. All bumps are minimum-impact (patch/minor only); no API changes are expected.
+
+- **cryptography**: 46.0.3 → 46.0.7 — fixes:
+  - GHSA buffer overflow when non-contiguous buffers are passed to APIs (alert #8, medium)
+  - Subgroup attack on SECT curves due to missing subgroup validation (alert #5, **high**)
+  - Incomplete DNS name-constraint enforcement on peer names (alert #7, low)
+  - Capped to `<47.0.0` in `requirements.in` so the next major bump lands in its own PR.
+- **PyJWT**: 2.10.1 → 2.12.1 — fixes acceptance of unknown `crit` header extensions (alert #6, **high**).
+- **PyNaCl**: 1.6.0 → 1.6.2 — fixes incomplete list of disallowed inputs in libsodium binding (alert #3, medium).
+- **python-multipart**: 0.0.22 → 0.0.26 — fixes denial-of-service via large multipart preamble/epilogue (alert #9, medium).
+- **python-dotenv**: 1.2.1 → 1.2.2 — fixes symlink following in `set_key` allowing arbitrary file overwrite via cross-device rename fallback (alert #10, medium).
+
+### Changed
+- **Lockfile hygiene**: Added explicit security floors to `requirements.in` (with inline GHSA references) so future `pip-compile` runs cannot resolve back into the vulnerable range. Re-evaluate these floors at every release.
+- **Lockfile**: Regenerated `requirements.txt` via `pip-compile --generate-hashes` (Python 3.13.13, pip-tools 7.5.3) — same toolchain as the Docker base image.
+
+### Notes
+- No source-code changes; this is a dependency-only security patch.
+- CI workflow updates from the open Dependabot PRs (#126–#130) are intentionally **not** bundled here so this release stays scope-locked to vulnerability remediation. They will be triaged separately.
+
 ## [1.3.0] - 2026-04-26
 
 ### Changed
