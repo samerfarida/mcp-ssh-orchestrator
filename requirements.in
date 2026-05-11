@@ -8,5 +8,5 @@ paramiko>=3.5.0,<5.0.0
 cryptography>=46.0.7,<47.0.0  # GHSA buffer-overflow / SECT subgroup / DNS name-constraint (alerts #5, #7, #8). Cap to 46.x to keep the security patch release out of cryptography's next major.
 pyjwt[crypto]>=2.12.0  # GHSA: PyJWT accepts unknown `crit` header extensions (alert #6)
 pynacl>=1.6.2  # GHSA: incomplete list of disallowed inputs (alert #3)
-python-multipart>=0.0.26  # GHSA: DoS via large multipart preamble/epilogue (alert #9)
+python-multipart>=0.0.28  # GHSA: DoS via large multipart preamble/epilogue (alert #9)
 python-dotenv>=1.2.2  # GHSA: symlink following in set_key (alert #10)
