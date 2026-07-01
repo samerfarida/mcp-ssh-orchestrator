@@ -5,6 +5,11 @@ All notable changes to mcp-ssh-orchestrator will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- **CI/CD**: Refreshed stale `# v3` version comments on pinned action SHAs in `release.yml` (`docker/login-action` → `# v3.7.0`, `actions/attest-build-provenance` → `# v4.1.0`). Comment-only; no SHA or behavior changes (#125).
+
 ## [1.3.1] - 2026-04-27
 
 ### Security
