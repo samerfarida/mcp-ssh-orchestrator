@@ -426,7 +426,7 @@ MCP SSH Orchestrator directly addresses documented vulnerabilities in the MCP ec
 
 ```bash
 gpg --receive-keys 4FC5342A979BD358
-gpg --verify mcp-ssh-orchestrator-v1.3.0.tar.gz.asc mcp-ssh-orchestrator-v1.3.0.tar.gz
+gpg --verify mcp-ssh-orchestrator-v1.3.2.tar.gz.asc mcp-ssh-orchestrator-v1.3.2.tar.gz
 ```
 
 **Cosign-signed container images**: The images under `ghcr.io/samerfarida/mcp-ssh-orchestrator` are signed via Sigstore keyless signing in the release workflow. Verify the signature (and optional attestations) before deploying:

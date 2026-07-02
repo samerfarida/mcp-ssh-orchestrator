@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-07-02
+
 ### Security
 - **cryptography**: 46.0.7 → 49.0.0 — major bump via transitive `paramiko` / `pyjwt[crypto]` chain; `requirements.in` cap updated to `<50.0.0` (#145).
 - **PyJWT**: 2.12.1 → 2.13.0 — patch bump; security floor in `requirements.in` updated (#140).

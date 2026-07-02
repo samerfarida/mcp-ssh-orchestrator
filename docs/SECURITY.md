@@ -517,7 +517,7 @@ chmod 0400 ~/mcp-ssh/secrets/key_passphrase
 
      ```bash
      gpg --receive-keys 4FC5342A979BD358
-     gpg --verify mcp-ssh-orchestrator-v1.3.0.tar.gz.asc mcp-ssh-orchestrator-v1.3.0.tar.gz
+     gpg --verify mcp-ssh-orchestrator-v1.3.2.tar.gz.asc mcp-ssh-orchestrator-v1.3.2.tar.gz
      ```
 
 1. **Container Images (GHCR)**
