@@ -132,7 +132,7 @@ jobs:
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Login to GHCR
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -229,7 +229,7 @@ jobs:
 
       # --- Build provenance attestation for the CONTAINER image (GitHub Artifact Attestations) ---
       - name: Attest build provenance (image)
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v3
         with:
           subject-digest: ${{ steps.build_image.outputs.digest }}
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
