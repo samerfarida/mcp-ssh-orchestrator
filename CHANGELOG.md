@@ -11,6 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI/CD**: Refreshed stale `# v3` version comments on pinned action SHAs in `release.yml` (`docker/login-action` → `# v3.7.0`, `actions/attest-build-provenance` → `# v4.1.0`). Comment-only; no SHA or behavior changes (#125).
 - **CI/CD**: Bumped `actions/upload-artifact` from 7.0.0 to 7.0.1 in Scorecards workflow (#128).
 - **PyJWT**: 2.12.1 → 2.13.0 — patch bump; security floor in `requirements.in` updated (#140).
+- **Dependencies**: Updated MCP SDK from 1.27.0 to 1.27.2 (#141).
+- **python-multipart**: 0.0.26 → 0.0.32 — security floor and lockfile updated (#143).
+- **Docker**: Updated Python 3.13-slim base image from 3.13.13 to 3.13.14 (#144).
+- **Development Dependencies**: Expanded mypy constraint from `<2.0.0` to `<3.0.0` in `pyproject.toml` (#134).
+- **CI/CD**: Bumped `docker/setup-qemu-action` from 3.7.0 to 4.0.0 in release workflow (#130).
+- **CI/CD**: Bumped `docker/login-action` from 3.7.0 to 4.1.0 in release workflow (#126).
+- **CI/CD**: Bumped `dorny/paths-filter` from 3.0.2 to 4.0.1 in build and lint workflows (#127).
+- **CI/CD**: Bumped `codecov/codecov-action` from 5.5.2 to 6.0.0 in build workflow (#129).
+- **Dependencies**: Expanded `paramiko` upper bound to `<6.0.0`; bumped transitive `idna` in lockfile (#139).
+- **cryptography**: 46.0.7 → 49.0.0 — major bump via transitive `paramiko` / `pyjwt[crypto]` chain (#145).
+
+### Notes
+- Reviewed cryptography 49.0.0 breaking changes — none apply to mcp-ssh-orchestrator code paths (no direct imports; CI uses linux/amd64).
 
 ## [1.3.1] - 2026-04-27
 
