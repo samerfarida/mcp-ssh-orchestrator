@@ -1,6 +1,6 @@
 mcp==1.27.2
 PyYAML>=6.0.2,<7.0.0
-paramiko>=3.5.0,<5.0.0
+paramiko>=3.5.0,<6.0.0
 
 # --- Security floors (transitive deps; pinned here to keep us out of the vulnerable
 # range when pip-compile resolves the lockfile). Each line cites the open
