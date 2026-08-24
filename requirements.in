@@ -9,4 +9,4 @@ cryptography>=49.0.0,<50.0.0  # GHSA buffer-overflow / SECT subgroup / DNS name-
 pyjwt[crypto]>=2.12.0  # GHSA: PyJWT accepts unknown `crit` header extensions (alert #6)
 pynacl>=1.6.2  # GHSA: incomplete list of disallowed inputs (alert #3)
 python-multipart>=0.0.32  # GHSA: DoS via large multipart preamble/epilogue (alert #9)
-python-dotenv>=1.2.2  # GHSA: symlink following in set_key (alert #10)
+python-dotenv>=1.2.3  # GHSA: symlink following in set_key (alert #10)
