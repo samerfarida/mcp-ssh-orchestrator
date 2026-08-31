@@ -272,9 +272,9 @@ jsonschema-specifications==2025.9.1 \
     --hash=sha256:98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe \
     --hash=sha256:b540987f239e745613c7a9176f3edb72b832a4ac465cf02712288397832b5e8d
     # via jsonschema
-mcp==1.27.2 \
-    --hash=sha256:8e02db104096d1c25b28e64bde29a5c32b31bc241710213e12fd4d84985bdfef \
-    --hash=sha256:d6ff5160c6ca65d93013626efb3fc249de683c30b2d8570755ceddd490344de5
+mcp==1.29.1 \
+    --hash=sha256:1967ba4c315f7a375146209949f45950d18b0efd2f913d7cf3400bc723ee5f04 \
+    --hash=sha256:b6310eeb59153300c4ab8b9aec4c52f4819a2d6a8e429eb43d908bed7c783648
     # via -r requirements.in
 paramiko==4.0.0 \
     --hash=sha256:0e20e00ac666503bf0b4eda3b6d833465a2b7aff2e2b3d79a8bba5ef144ee3b9 \
