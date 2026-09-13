@@ -7,7 +7,7 @@
 </div>
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-A020F0)](LICENSE)
-[![MCP](https://img.shields.io/badge/MCP-v1.27.2-7393B3)](https://pypi.org/project/mcp/1.27.2/)
+[![MCP](https://img.shields.io/badge/MCP-v1.29.1-7393B3)](https://pypi.org/project/mcp/1.29.1/)
 [![Python](https://img.shields.io/badge/Python-v3.13+-blue.svg)](https://python.org)
 [![Docker](https://img.shields.io/badge/Docker-Ready-success)](https://github.com/samerfarida/mcp-ssh-orchestrator)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/samerfarida/mcp-ssh-orchestrator/badge)](https://scorecard.dev/viewer/?uri=github.com/samerfarida/mcp-ssh-orchestrator)
