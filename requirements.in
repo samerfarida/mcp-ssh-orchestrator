@@ -10,3 +10,4 @@ pyjwt[crypto]>=2.13.0  # GHSA: PyJWT accepts unknown `crit` header extensions (a
 pynacl>=1.6.2  # GHSA: incomplete list of disallowed inputs (alert #3)
 python-multipart>=0.0.32  # GHSA: DoS via large multipart preamble/epilogue (alert #9)
 python-dotenv>=1.2.2  # GHSA: symlink following in set_key (alert #10)
+starlette>=1.3.1,<1.4.0  # GHSA: form DoS, URL/Host poisoning, UNC SSRF, and unsafe method dispatch (alerts #14, #25-#28)
